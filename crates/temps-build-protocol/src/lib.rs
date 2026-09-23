@@ -43,6 +43,20 @@
 //! does not rebuild dependency layers from zero. Conflating the two gives you
 //! either leakage or a permanently cold cache.
 //!
+//! **Two axes, deliberately separate.** [`BuildTarget`] answers *can this
+//! machine run it* — os, architecture, capabilities. The environment on
+//! [`Requester`] answers *what may this build reach, and where does the result
+//! land*. Collapsing them is how a development build ends up holding a
+//! production credential.
+//!
+//! **The environment is a credential boundary, and the spawner owns it.** A
+//! runner never selects its own credentials: the host-side spawner decides what
+//! goes into the child's environment, per environment, from an allowlist.
+//! Nothing in this protocol lets a build ask for more, which is the property
+//! that makes the boundary enforceable rather than advisory. A build is running
+//! third-party code by definition — a dependency tree's install scripts — so
+//! the credential it is not given is the only one it cannot leak.
+//!
 //! **Priority comes from the environment, not from the requester.** A developer
 //! cannot promote their own build ahead of a production release by asking
 //! nicely; see [`Priority`].
@@ -182,6 +196,8 @@ pub struct BuildBudget {
 pub enum Priority {
     /// Branch pushes. The most builds, the least urgency per build.
     Development = 0,
+    /// Optional. Not every project has a stage between development and
+    /// production, and the ladder must not require one.
     Staging = 1,
     /// Tags and production promotions.
     Production = 2,
@@ -192,6 +208,10 @@ pub enum Priority {
 pub struct Requester {
     pub user_id: Option<uuid::Uuid>,
     pub project_id: uuid::Uuid,
+    /// Which environment this build is for. Carries more weight than an
+    /// identifier: it selects the credential set the spawner injects and the
+    /// target the result is delivered to. `None` only for a build whose result
+    /// goes back to the requester and reaches no environment at all.
     pub environment_id: Option<i32>,
 }
 
