@@ -1,0 +1,13 @@
+[package]
+name = "temps-build-protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Wire contract between Temps and a build runner, independent of why the build was requested."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+uuid = { workspace = true, features = ["serde"] }
+thiserror.workspace = true
