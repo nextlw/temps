@@ -295,3 +295,231 @@ pub enum BuildFailure {
     #[error("runner disconnected before reporting a result")]
     RunnerLost,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A request with every field populated, so a serialization test sees the
+    /// whole surface rather than the parts that happen to be easy to build.
+    fn full_request() -> BuildRequest {
+        BuildRequest {
+            build_id: uuid::Uuid::nil(),
+            context: BuildContext::Git {
+                url: "https://example.invalid/repo.git".to_string(),
+                reference: "refs/heads/feature".to_string(),
+                commit: "0000000000000000000000000000000000000000".to_string(),
+            },
+            recipe: BuildRecipe::Dockerfile {
+                path: "Dockerfile".to_string(),
+                build_dir: Some("backend".to_string()),
+                build_args: BTreeMap::from([("VERSION".to_string(), "1".to_string())]),
+            },
+            target: BuildTarget {
+                os: Os::Linux,
+                arch: Arch::Amd64,
+                capabilities: vec!["buildkit".to_string()],
+            },
+            budget: BuildBudget {
+                timeout_secs: 900,
+                cpu_limit_micros: Some(4_000_000),
+                memory_limit_bytes: Some(8 * 1024 * 1024 * 1024),
+                priority: Priority::Development,
+            },
+            requester: Requester {
+                user_id: Some(uuid::Uuid::nil()),
+                project_id: uuid::Uuid::nil(),
+                environment_id: Some(1),
+            },
+            outputs: vec![
+                OutputRequest::Image {
+                    registry_ref: "registry.invalid/app:sha".to_string(),
+                },
+                OutputRequest::Scan,
+            ],
+            cache: CacheScope {
+                project_id: uuid::Uuid::nil(),
+                read: true,
+            },
+        }
+    }
+
+    /// The control plane and a runner are deployed separately and can drift:
+    /// a runner on a build machine, and later on a Windows or macOS host, runs
+    /// whatever version it last received. A field renamed on one side and not
+    /// the other either fails loudly — the good case — or deserializes into a
+    /// default and builds something nobody asked for.
+    ///
+    /// This test pins the wire names. It fails on any rename, on any change to
+    /// a `#[serde(tag)]` discriminator, and on any field added without thought
+    /// about the older peer. If runner and control plane are ever guaranteed to
+    /// ship together, this test is ceremony and should be deleted rather than
+    /// weakened.
+    #[test]
+    fn the_wire_names_are_pinned_so_a_lagging_runner_fails_loudly() {
+        let json = serde_json::to_value(full_request()).expect("a request serializes");
+
+        let top_level: Vec<&str> = json
+            .as_object()
+            .expect("a request is a JSON object")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert_eq!(
+            top_level,
+            vec![
+                "budget", "build_id", "cache", "context", "outputs", "recipe", "requester",
+                "target",
+            ],
+            "the top-level field names of BuildRequest are wire surface; \
+             renaming one breaks every peer that was not redeployed with it"
+        );
+
+        assert_eq!(
+            json["context"]["kind"], "git",
+            "BuildContext::Git is tagged `git` on the wire"
+        );
+        assert_eq!(
+            json["recipe"]["kind"], "dockerfile",
+            "BuildRecipe::Dockerfile is tagged `dockerfile` on the wire"
+        );
+        assert_eq!(
+            json["outputs"][0]["kind"], "image",
+            "OutputRequest::Image is tagged `image` on the wire"
+        );
+        assert_eq!(
+            json["outputs"][1]["kind"], "scan",
+            "OutputRequest::Scan is tagged `scan` on the wire"
+        );
+        assert_eq!(
+            json["target"]["os"], "linux",
+            "Os::Linux is `linux` on the wire, not `Linux`"
+        );
+        assert_eq!(
+            json["budget"]["priority"], "development",
+            "Priority::Development is `development` on the wire"
+        );
+    }
+
+    /// A round trip is the property a runner actually depends on: what it
+    /// receives is what the control plane meant. Serializing without checking
+    /// the way back would let an asymmetric `#[serde]` attribute pass.
+    #[test]
+    fn a_request_survives_a_round_trip_unchanged() {
+        let original = full_request();
+        let encoded = serde_json::to_string(&original).expect("a request serializes");
+        let decoded: BuildRequest =
+            serde_json::from_str(&encoded).expect("a serialized request deserializes");
+        assert_eq!(
+            decoded, original,
+            "a request must survive the wire unchanged; an asymmetric serde \
+             attribute shows up here and nowhere else"
+        );
+    }
+
+    /// Queue position is a discriminant, and a discriminant is reorderable by
+    /// accident. If someone swaps two variants, nothing fails to compile and
+    /// nothing fails at runtime — production releases simply start waiting
+    /// behind branch builds, and the symptom looks like a slow machine.
+    #[test]
+    fn production_outranks_staging_outranks_development() {
+        assert!(
+            Priority::Production > Priority::Staging,
+            "a production release must never queue behind a staging build"
+        );
+        assert!(
+            Priority::Staging > Priority::Development,
+            "a staging build must never queue behind a branch build"
+        );
+
+        let mut queue = vec![
+            Priority::Development,
+            Priority::Production,
+            Priority::Development,
+            Priority::Staging,
+        ];
+        queue.sort_unstable_by(|a, b| b.cmp(a));
+        assert_eq!(
+            queue,
+            vec![
+                Priority::Production,
+                Priority::Staging,
+                Priority::Development,
+                Priority::Development,
+            ],
+            "sorting descending by priority is how the queue is drained; \
+             this is the ordering the scheduler will rely on"
+        );
+    }
+
+    /// A desktop binary has no image digest and no image config. The envelope
+    /// has to be able to say so, otherwise the native build path would need a
+    /// second envelope type and every consumer would grow a branch.
+    ///
+    /// The deployment path narrows this in its own adapter: it is the adapter's
+    /// job to fail loudly when an image was expected and none was produced.
+    #[test]
+    fn an_envelope_without_an_image_is_representable() {
+        let native = BuildResultEnvelope {
+            build_id: uuid::Uuid::nil(),
+            digest: None,
+            platforms: vec!["windows/amd64".to_string()],
+            config: None,
+            artifacts: vec![ArtifactRef {
+                path: "dist/installer.exe".to_string(),
+                media_type: "application/vnd.microsoft.portable-executable".to_string(),
+                size_bytes: 42,
+                digest: "sha256:0".to_string(),
+            }],
+            scan: None,
+            started_at: chrono::DateTime::UNIX_EPOCH,
+            finished_at: chrono::DateTime::UNIX_EPOCH,
+        };
+
+        let round_tripped: BuildResultEnvelope =
+            serde_json::from_str(&serde_json::to_string(&native).expect("an envelope serializes"))
+                .expect("an envelope deserializes");
+
+        assert_eq!(round_tripped, native);
+        assert!(
+            round_tripped.digest.is_none() && round_tripped.config.is_none(),
+            "a native build reports no image; a contract that cannot say this \
+             forces a second envelope type on the desktop path"
+        );
+        assert_eq!(
+            round_tripped.artifacts.len(),
+            1,
+            "the artifact is the whole result of a native build, not a side effect"
+        );
+    }
+
+    /// The environment decides which credentials the host-side spawner injects.
+    /// A runner never chooses. This test asserts the shape that makes that
+    /// enforceable: there is nowhere in a request for a build to ask for a
+    /// credential, so a compromised or simply buggy runner cannot request one.
+    ///
+    /// What this does **not** prove: that the spawner's allowlist is correct.
+    /// That lives in the executor and is tested there, against a real child
+    /// process. This test only keeps the door from being added back.
+    #[test]
+    fn a_request_carries_no_credential_field() {
+        let json = serde_json::to_string(&full_request()).expect("a request serializes");
+        let lowered = json.to_lowercase();
+
+        for forbidden in [
+            "secret",
+            "token",
+            "password",
+            "credential",
+            "private_key",
+            "ssh_auth_sock",
+        ] {
+            assert!(
+                !lowered.contains(forbidden),
+                "a serialized BuildRequest must not contain `{forbidden}`: \
+                 credentials are injected by the host-side spawner per \
+                 environment, never selected by the build"
+            );
+        }
+    }
+}
