@@ -16,13 +16,20 @@ def image_version(source):
     function = source.split("pub fn managed_application_workspace_image", 1)
     if len(function) != 2:
         raise ValueError("Cannot find managed daemon image selection")
-    images = re.findall(r'ghcr\.io/gotempsh/temps-sandbox-(nodejs|python|all):(\d+\.\d+\.\d+)', function[1].split("\n}", 1)[0])
+    # Namespace-agnostic on purpose: this reads the pinned version out of the
+    # Rust source, and which registry that source names is not this function's
+    # business. A fork that repoints its images must not silently stop finding
+    # the version and fall through to an unrelated error.
+    images = re.findall(r'ghcr\.io/[^/\s]+/temps-sandbox-(nodejs|python|all):(\d+\.\d+\.\d+)', function[1].split("\n}", 1)[0])
     if {flavor for flavor, _ in images} != {"nodejs", "python", "all"} or len({version for _, version in images}) != 1:
         raise ValueError("Managed daemon image flavors must have one shared pinned version")
     return images[0][1]
 
 
 def metadata(environment, version):
+    # Actions always sets GITHUB_REPOSITORY_OWNER; the fallback keeps the
+    # script usable outside CI and preserves upstream's own behaviour.
+    owner = (environment.get("GITHUB_REPOSITORY_OWNER") or "gotempsh").lower()
     flavor = environment["FLAVOR"]
     channel = environment["CHANNEL"]
     if flavor not in ("nodejs", "python", "all") or channel not in ("stable", "beta"):
@@ -34,8 +41,14 @@ def metadata(environment, version):
     ref = environment["GITHUB_REF"]
     publish = dry_run == "false" and event != "pull_request"
     if publish:
-        if environment["GITHUB_REPOSITORY"] != "gotempsh/temps":
-            raise ValueError("Only gotempsh/temps can publish managed runtime images")
+        # Upstream guarded this with a literal `gotempsh/temps` check, and it
+        # was the right guard while the tag namespace below was hardcoded: it
+        # is what stopped a fork from pushing images into the canonical
+        # namespace. Deriving the namespace from the repository owner removes
+        # the hazard structurally — a fork can only ever publish into its own
+        # namespace — so what remains worth asserting is that the two agree.
+        if environment["GITHUB_REPOSITORY"].split("/")[0] != owner:
+            raise ValueError("Refusing to publish runtime images outside this repository's own namespace")
         if channel == "stable" and not re.fullmatch(r"refs/tags/v\d+\.\d+\.\d+", ref):
             raise ValueError("Stable daemon images require a stable release tag")
         if channel == "beta" and ref != "refs/heads/main" and not re.fullmatch(r"refs/tags/v\d+\.\d+\.\d+-[A-Za-z0-9.-]+", ref):
@@ -43,7 +56,7 @@ def metadata(environment, version):
     sha = environment["GITHUB_SHA"]
     if not re.fullmatch(r"[0-9a-f]{40}", sha):
         raise ValueError("Image revision must be a full commit SHA")
-    repository = f"ghcr.io/gotempsh/temps-sandbox-{flavor}"
+    repository = f"ghcr.io/{owner}/temps-sandbox-{flavor}"
     # Never overwrite legacy python:latest, python:beta, or python:<sha>.
     tags = [f"{repository}:daemon-{sha}"]
     revision_only = environment.get("REVISION_ONLY", "false")
