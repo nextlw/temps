@@ -594,6 +594,10 @@ impl ProjectResponse {
                     .deployment_config
                     .clone()
                     .and_then(|c| c.cross_architecture_builds),
+                build_program: project
+                    .deployment_config
+                    .clone()
+                    .and_then(|c| c.build_program),
             },
         }
     }

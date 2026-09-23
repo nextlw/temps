@@ -1467,7 +1467,56 @@ impl WorkflowExecutionService {
                     }
                 }
 
-                let job = builder.build(self.image_builder.clone())?;
+                // Build placement: environment overrides project, `None`
+                // inherits — the same rule as `cross_architecture_builds`
+                // above. Absent, which is what every existing row means, hands
+                // over the same builder as before and nothing moves.
+                let build_program = environment
+                    .deployment_config
+                    .as_ref()
+                    .and_then(|c| c.build_program.clone())
+                    .or_else(|| {
+                        project
+                            .deployment_config
+                            .as_ref()
+                            .and_then(|c| c.build_program.clone())
+                    });
+
+                let image_builder: std::sync::Arc<dyn temps_deployer::ImageBuilder> =
+                    match build_program {
+                        None => self.image_builder.clone(),
+                        Some(program) => {
+                            info!(
+                                deployment_id = db_job.deployment_id,
+                                program = %program,
+                                "building off the control plane"
+                            );
+                            std::sync::Arc::new(temps_deployer::routed::RoutedImageBuilder::new(
+                                std::sync::Arc::new(
+                                    temps_deployer::routed::ConfiguredBuildPolicy::new(
+                                        Some(std::path::PathBuf::from(program)),
+                                        project.id,
+                                        Some(environment.id),
+                                        // Recorded, not yet acted on: nothing
+                                        // schedules by priority until a queue
+                                        // exists. Defaulting is honest; deriving
+                                        // it from an environment's name would be
+                                        // a guess that looks like a decision.
+                                        temps_build_protocol::Priority::Development,
+                                        std::time::Duration::from_secs(60 * 60),
+                                        std::env::var("PATH")
+                                            .unwrap_or_else(|_| "/usr/bin:/bin".to_string()),
+                                        std::env::var("HOME")
+                                            .map(std::path::PathBuf::from)
+                                            .unwrap_or_else(|_| std::env::temp_dir()),
+                                    ),
+                                ),
+                                self.image_builder.clone(),
+                            ))
+                        }
+                    };
+
+                let job = builder.build(image_builder)?;
 
                 Ok(Arc::new(job))
             }

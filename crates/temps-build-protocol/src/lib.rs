@@ -217,7 +217,11 @@ pub enum Priority {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Requester {
     pub user_id: Option<uuid::Uuid>,
-    pub project_id: uuid::Uuid,
+    /// Matches the identifier this codebase uses for a project everywhere
+    /// else. A protocol that invents its own identifier type forces a
+    /// translation at every boundary, and a translation is a place to get it
+    /// wrong.
+    pub project_id: i32,
     /// Which environment this build is for. Carries more weight than an
     /// identifier: it selects the credential set the spawner injects and the
     /// target the result is delivered to. `None` only for a build whose result
@@ -302,7 +306,7 @@ pub struct ArtifactRef {
 /// dependency layers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CacheScope {
-    pub project_id: uuid::Uuid,
+    pub project_id: i32,
     /// Set when a build must not read the shared cache — a release that has to
     /// be reproducible from nothing. Writing is still allowed.
     pub read: bool,
@@ -356,7 +360,7 @@ mod tests {
             },
             requester: Requester {
                 user_id: Some(uuid::Uuid::nil()),
-                project_id: uuid::Uuid::nil(),
+                project_id: 42,
                 environment_id: Some(1),
             },
             outputs: vec![
@@ -366,7 +370,7 @@ mod tests {
                 OutputRequest::Scan,
             ],
             cache: CacheScope {
-                project_id: uuid::Uuid::nil(),
+                project_id: 42,
                 read: true,
             },
         }
@@ -387,12 +391,19 @@ mod tests {
     fn the_wire_names_are_pinned_so_a_lagging_runner_fails_loudly() {
         let json = serde_json::to_value(full_request()).expect("a request serializes");
 
-        let top_level: Vec<&str> = json
+        // Sorted, because the *names* are wire surface and their order is
+        // not: a JSON object is unordered by specification, and which order
+        // `serde_json` emits depends on whether some crate elsewhere in the
+        // build enabled `preserve_order`. Asserting the order once made this
+        // test fail for a feature unification that changed nothing a peer can
+        // observe.
+        let mut top_level: Vec<&str> = json
             .as_object()
             .expect("a request is a JSON object")
             .keys()
             .map(String::as_str)
             .collect();
+        top_level.sort_unstable();
         assert_eq!(
             top_level,
             vec![

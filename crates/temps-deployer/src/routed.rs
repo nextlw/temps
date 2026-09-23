@@ -85,6 +85,143 @@ impl BuildPolicy for AlwaysLocal {
 /// deployment; this holds far more than that and still cannot grow.
 const REMEMBERED_HOSTED_BUILDS: usize = 64;
 
+/// Placement resolved from project and environment configuration.
+///
+/// Built once per deployment by the caller that already holds the resolved
+/// `DeploymentConfig`, because the inheritance rule — environment overrides
+/// project, `None` inherits — belongs where the two configs are in hand, not
+/// here. What this type does is turn a resolved answer into a plan.
+pub struct ConfiguredBuildPolicy {
+    /// The build program, when one was configured. `None` keeps every build
+    /// on the local daemon, which is what every existing row means.
+    program: Option<PathBuf>,
+    project_id: i32,
+    environment_id: Option<i32>,
+    priority: temps_build_protocol::Priority,
+    wall_timeout: Duration,
+    path: String,
+    home: PathBuf,
+}
+
+impl ConfiguredBuildPolicy {
+    pub fn new(
+        program: Option<PathBuf>,
+        project_id: i32,
+        environment_id: Option<i32>,
+        priority: temps_build_protocol::Priority,
+        wall_timeout: Duration,
+        path: String,
+        home: PathBuf,
+    ) -> Self {
+        Self {
+            program,
+            project_id,
+            environment_id,
+            priority,
+            wall_timeout,
+            path,
+            home,
+        }
+    }
+}
+
+impl BuildPolicy for ConfiguredBuildPolicy {
+    fn placement_for(&self, request: &BuildRequest) -> BuildPlacement {
+        let Some(program) = self.program.clone() else {
+            return BuildPlacement::Local;
+        };
+
+        let recipe = temps_build_protocol::BuildRecipe::Dockerfile {
+            path: request
+                .dockerfile_path
+                .as_ref()
+                .map_or_else(|| "Dockerfile".to_string(), |p| p.display().to_string()),
+            build_dir: None,
+            build_args: request
+                .build_args
+                .iter()
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect(),
+        };
+
+        // The platform the deployment path asked for, parsed back into the
+        // protocol's own vocabulary. An unparseable or absent platform means
+        // this host's own, which is what a local build would have produced.
+        let (os, arch) = request
+            .platform
+            .as_deref()
+            .and_then(parse_platform)
+            .unwrap_or((temps_build_protocol::Os::Linux, temps_build_protocol::Arch::Amd64));
+
+        BuildPlacement::Hosted(Box::new(HostedBuildPlan {
+            program,
+            working_dir: request.context_path.clone(),
+            path: self.path.clone(),
+            home: self.home.clone(),
+            // Empty on purpose: the build step runs a dependency tree's
+            // install scripts. Cloning and pushing are separate spawns with
+            // their own, narrower environments.
+            credentials: BTreeMap::new(),
+            wall_timeout: self.wall_timeout,
+            request: temps_build_protocol::BuildRequest {
+                build_id: uuid::Uuid::new_v4(),
+                context: temps_build_protocol::BuildContext::Archive {
+                    upload_id: uuid::Uuid::nil(),
+                    digest: String::new(),
+                },
+                recipe,
+                target: temps_build_protocol::BuildTarget {
+                    os,
+                    arch,
+                    capabilities: vec!["buildkit".to_string()],
+                },
+                budget: temps_build_protocol::BuildBudget {
+                    timeout_secs: self.wall_timeout.as_secs().min(u64::from(u32::MAX)) as u32,
+                    cpu_limit_micros: None,
+                    memory_limit_bytes: None,
+                    priority: self.priority,
+                },
+                requester: temps_build_protocol::Requester {
+                    user_id: None,
+                    project_id: self.project_id,
+                    environment_id: self.environment_id,
+                },
+                outputs: vec![temps_build_protocol::OutputRequest::Image {
+                    registry_ref: request.image_name.clone(),
+                }],
+                cache: temps_build_protocol::CacheScope {
+                    project_id: self.project_id,
+                    read: true,
+                },
+            },
+        }))
+    }
+}
+
+/// Parse `"linux/amd64"` into the protocol's own vocabulary.
+///
+/// Returns `None` for anything this protocol cannot name, rather than
+/// approximating. A build sent to the wrong architecture fails late and
+/// confusingly; refusing to guess keeps it on this host's own platform, which
+/// is what a local build would have done anyway.
+fn parse_platform(
+    platform: &str,
+) -> Option<(temps_build_protocol::Os, temps_build_protocol::Arch)> {
+    let (os, arch) = platform.split_once('/')?;
+    let os = match os {
+        "linux" => temps_build_protocol::Os::Linux,
+        "windows" => temps_build_protocol::Os::Windows,
+        "darwin" | "macos" => temps_build_protocol::Os::MacOs,
+        _ => return None,
+    };
+    let arch = match arch {
+        "amd64" | "x86_64" => temps_build_protocol::Arch::Amd64,
+        "arm64" | "aarch64" => temps_build_protocol::Arch::Arm64,
+        _ => return None,
+    };
+    Some((os, arch))
+}
+
 pub struct RoutedImageBuilder {
     policy: Arc<dyn BuildPolicy>,
     local: Arc<dyn ImageBuilder>,
@@ -752,5 +889,140 @@ mod recall_tests {
             1,
             "the same tag holds one memo, not a history"
         );
+    }
+}
+
+#[cfg(test)]
+mod policy_tests {
+    use super::*;
+
+    fn a_request() -> BuildRequest {
+        BuildRequest {
+            image_name: "app:sha".to_string(),
+            context_path: PathBuf::from("/srv/build/app"),
+            dockerfile_path: Some(PathBuf::from("backend/Dockerfile")),
+            build_args: std::collections::HashMap::from([(
+                "VERSION".to_string(),
+                "1".to_string(),
+            )]),
+            build_args_buildkit: std::collections::HashMap::new(),
+            platform: Some("linux/arm64".to_string()),
+            log_path: PathBuf::from("/tmp/log"),
+        }
+    }
+
+    fn policy(program: Option<&str>) -> ConfiguredBuildPolicy {
+        ConfiguredBuildPolicy::new(
+            program.map(PathBuf::from),
+            42,
+            Some(7),
+            temps_build_protocol::Priority::Development,
+            Duration::from_secs(600),
+            "/usr/bin:/bin".to_string(),
+            PathBuf::from("/home/build"),
+        )
+    }
+
+    /// Every row that exists today has no build program, and every one of them
+    /// must keep building exactly where it does now. A router that moved a
+    /// build because someone deployed a new version would be a router nobody
+    /// could roll back.
+    #[test]
+    fn no_configured_program_keeps_the_build_local() {
+        assert!(
+            matches!(policy(None).placement_for(&a_request()), BuildPlacement::Local),
+            "an unconfigured project must not be moved by the mere presence of \
+             this code"
+        );
+    }
+
+    /// The plan carries what the host decided and nothing the request asked
+    /// for: the program, the directory, the environment's identity, and an
+    /// empty credential set.
+    #[test]
+    fn a_configured_program_produces_a_plan_the_request_could_not_have_chosen() {
+        let BuildPlacement::Hosted(plan) = policy(Some("/usr/local/bin/temps-build"))
+            .placement_for(&a_request())
+        else {
+            panic!("a configured program must place the build off the daemon")
+        };
+
+        assert_eq!(plan.program, PathBuf::from("/usr/local/bin/temps-build"));
+        assert_eq!(
+            plan.working_dir,
+            PathBuf::from("/srv/build/app"),
+            "the build runs in the context the pipeline prepared"
+        );
+        assert!(
+            plan.credentials.is_empty(),
+            "the build step gets no credential: it runs a dependency tree's \
+             install scripts, and the token it never held is the one it cannot \
+             leak"
+        );
+        assert_eq!(plan.request.requester.project_id, 42);
+        assert_eq!(plan.request.requester.environment_id, Some(7));
+        assert_eq!(
+            plan.request.cache.project_id, 42,
+            "cache is scoped to the project, which is what keeps one client's \
+             layers out of another's build"
+        );
+    }
+
+    /// The platform the deployment path asked for must survive into the
+    /// target, or a build lands on the wrong architecture and fails late.
+    #[test]
+    fn the_requested_platform_reaches_the_target() {
+        let BuildPlacement::Hosted(plan) =
+            policy(Some("/bin/true")).placement_for(&a_request())
+        else {
+            panic!("configured")
+        };
+        assert_eq!(plan.request.target.os, temps_build_protocol::Os::Linux);
+        assert_eq!(plan.request.target.arch, temps_build_protocol::Arch::Arm64);
+    }
+
+    /// A platform this protocol cannot name must fall back to this host's own
+    /// rather than be approximated. Sending a build to a plausible-looking
+    /// wrong architecture fails confusingly and late.
+    #[test]
+    fn an_unnameable_platform_falls_back_instead_of_being_guessed() {
+        assert_eq!(parse_platform("linux/riscv64"), None);
+        assert_eq!(parse_platform("plan9/amd64"), None);
+        assert_eq!(parse_platform("garbage"), None);
+        assert_eq!(
+            parse_platform("darwin/arm64"),
+            Some((temps_build_protocol::Os::MacOs, temps_build_protocol::Arch::Arm64)),
+            "darwin and macos are the same platform under two names, and a \
+             desktop build will arrive spelled either way"
+        );
+
+        let mut request = a_request();
+        request.platform = Some("linux/riscv64".to_string());
+        let BuildPlacement::Hosted(plan) = policy(Some("/bin/true")).placement_for(&request) else {
+            panic!("configured")
+        };
+        assert_eq!(
+            plan.request.target.arch,
+            temps_build_protocol::Arch::Amd64,
+            "an unnameable platform lands on this host's own, which is what a \
+             local build would have produced anyway"
+        );
+    }
+
+    /// The Dockerfile the pipeline resolved must reach the recipe. Defaulting
+    /// silently would build the wrong image for any project whose Dockerfile
+    /// is not at the root — which is both of the CRM's.
+    #[test]
+    fn the_resolved_dockerfile_reaches_the_recipe() {
+        let BuildPlacement::Hosted(plan) = policy(Some("/bin/true")).placement_for(&a_request()) else {
+            panic!("configured")
+        };
+        match plan.request.recipe {
+            temps_build_protocol::BuildRecipe::Dockerfile { path, build_args, .. } => {
+                assert_eq!(path, "backend/Dockerfile");
+                assert_eq!(build_args.get("VERSION").map(String::as_str), Some("1"));
+            }
+            other => panic!("a Dockerfile request must stay a Dockerfile recipe, got: {other:?}"),
+        }
     }
 }

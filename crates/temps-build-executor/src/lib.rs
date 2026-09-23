@@ -290,12 +290,12 @@ mod tests {
             },
             requester: Requester {
                 user_id: None,
-                project_id: uuid::Uuid::nil(),
+                project_id: 42,
                 environment_id: Some(1),
             },
             outputs: vec![],
             cache: CacheScope {
-                project_id: uuid::Uuid::nil(),
+                project_id: 42,
                 read: true,
             },
         }

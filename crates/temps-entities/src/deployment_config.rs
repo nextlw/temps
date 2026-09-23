@@ -361,6 +361,27 @@ pub struct DeploymentConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cross_architecture_builds: Option<bool>,
 
+    /// Absolute path to a build program this host runs instead of building on
+    /// the local Docker daemon.
+    ///
+    /// Present means a build for this project or environment is spawned as a
+    /// child process with a cleared environment and its own process group, and
+    /// reports back a result envelope. Absent — the default, and what every
+    /// existing row means — keeps the build exactly where it is today.
+    ///
+    /// **A path and not a flag.** What runs is operator configuration, so the
+    /// decision of *which program* is theirs and cannot be influenced by a
+    /// build request. A flag would force this host to guess, and guessing at
+    /// an executable is how a request ends up choosing one.
+    ///
+    /// `Option<String>` so an environment inherits the project's setting
+    /// (`None`) or overrides it, matching `cross_architecture_builds`. The
+    /// per-field inheritance here is why build placement lives in this config
+    /// and not in `AppSettings`, whose shallow merge resets an omitted field
+    /// to its default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub build_program: Option<String>,
+
     /// Enable on-demand mode (scale-to-zero).
     /// When enabled, containers are stopped after `idle_timeout_seconds` of no traffic
     /// and automatically started when a new request arrives.
@@ -504,6 +525,7 @@ impl Default for DeploymentConfig {
             target_labels: None,
             anti_affinity: true,
             cross_architecture_builds: None,
+            build_program: None,
             on_demand: false,
             idle_timeout_seconds: 300,
             wake_timeout_seconds: 30,
@@ -609,6 +631,10 @@ impl DeploymentConfig {
             cross_architecture_builds: other
                 .cross_architecture_builds
                 .or(self.cross_architecture_builds),
+            build_program: other
+                .build_program
+                .clone()
+                .or_else(|| self.build_program.clone()),
             on_demand: other.on_demand || self.on_demand,
             idle_timeout_seconds: if other.idle_timeout_seconds != 300 {
                 other.idle_timeout_seconds

@@ -11153,6 +11153,7 @@ dependencies = [
  "tempfile",
  "temps-auth",
  "temps-blob",
+ "temps-build-protocol",
  "temps-config",
  "temps-core",
  "temps-database",

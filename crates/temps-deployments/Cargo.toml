@@ -11,6 +11,7 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
+temps-build-protocol = { path = "../temps-build-protocol" }
 temps-auth = { path = "../temps-auth" }
 temps-blob = { path = "../temps-blob" }
 temps-config = { path = "../temps-config" }
