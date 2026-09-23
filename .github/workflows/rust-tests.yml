@@ -32,7 +32,7 @@ env:
 jobs:
   workflow-contracts:
     name: Release Workflow Contracts
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -109,7 +109,7 @@ jobs:
   # ---------------------------------------------------------------------------
   build-binary:
     name: Build temps Binary (musl)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     # Warm this is ~5 minutes. The ceiling is sized for a fully cold cache,
     # which took 81 minutes the last time the cargo cache was evicted — a
     # tighter bound would turn a slow run into a failed one.
@@ -251,7 +251,7 @@ jobs:
 
   compose-security:
     name: Compose Security
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     needs: build-binary
     steps:
       - name: Checkout code
@@ -299,7 +299,7 @@ jobs:
 
   check:
     name: Cargo Check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -356,7 +356,7 @@ jobs:
 
   fmt:
     name: Formatting
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -371,7 +371,7 @@ jobs:
 
   web-typecheck:
     name: Web TypeScript Check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -415,7 +415,7 @@ jobs:
 
   openapi-canonical:
     name: OpenAPI Spec Format
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
@@ -437,7 +437,7 @@ jobs:
 
   clippy:
     name: Clippy (advisory)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     # Non-blocking: clippy warnings are reported but do not fail the build
     continue-on-error: true
     steps:
@@ -506,7 +506,7 @@ jobs:
   # provision Docker/DB services, keeps that boundary intact.
   build-test-binaries:
     name: Build Test Binaries
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     permissions:
       contents: read
       actions: read
@@ -629,7 +629,7 @@ jobs:
   # only download the archive and run it -- no compilation happens here.
   unit-tests:
     name: "Unit Tests (${{ matrix.group }})"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     needs: build-test-binaries
     strategy:
       fail-fast: false
@@ -778,7 +778,7 @@ jobs:
   # failure would already fail build-test-binaries before either starts.
   integration-tests:
     name: "Integration Tests (${{ matrix.group }})"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     needs: build-test-binaries
     # 90 min headroom for the postgres-upgrades group, which can spike past
     # 45 min when pg17/pg18 image pulls land on a cold runner and several
@@ -987,7 +987,7 @@ jobs:
   # integration-tests -- only needs build-test-binaries.
   mariadb-pitr-e2e:
     name: "MariaDB PITR E2E"
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, tlw-2]
     needs: build-test-binaries
     timeout-minutes: 35
 
