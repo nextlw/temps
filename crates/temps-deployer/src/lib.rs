@@ -25,6 +25,7 @@ use thiserror::Error;
 pub type ImageImportStream =
     Pin<Box<dyn futures::Stream<Item = Result<bytes::Bytes, std::io::Error>> + Send>>;
 
+pub mod routed;
 pub mod compose;
 mod compose_remote;
 

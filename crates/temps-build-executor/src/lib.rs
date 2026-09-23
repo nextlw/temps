@@ -344,7 +344,7 @@ mod tests {
 
     fn envelope_line() -> String {
         format!(
-            r#"{{"schema":"{ENVELOPE_SCHEMA}","build_id":"00000000-0000-0000-0000-000000000000","digest":null,"platforms":[],"config":null,"artifacts":[],"scan":null,"started_at":"1970-01-01T00:00:00Z","finished_at":"1970-01-01T00:00:00Z"}}"#
+            r#"{{"schema":"{ENVELOPE_SCHEMA}","build_id":"00000000-0000-0000-0000-000000000000","digest":null,"platforms":[],"config":null,"size_bytes":null,"artifacts":[],"scan":null,"started_at":"1970-01-01T00:00:00Z","finished_at":"1970-01-01T00:00:00Z"}}"#
         )
     }
 

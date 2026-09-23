@@ -11086,6 +11086,8 @@ dependencies = [
  "sysinfo",
  "tar",
  "tempfile",
+ "temps-build-executor",
+ "temps-build-protocol",
  "temps-config",
  "temps-core",
  "temps-database",

@@ -261,6 +261,12 @@ pub struct BuildResultEnvelope {
     /// `WORKDIR`, `ExposedPorts`, `User`, `Env` or `Entrypoint`.
     pub config: Option<serde_json::Value>,
 
+    /// Size of the produced image, when there is one. The deployment path
+    /// records it, and a runner elsewhere is the only party that can measure
+    /// it — asking the control plane to would mean pulling the image back to
+    /// weigh it.
+    pub size_bytes: Option<u64>,
+
     /// Everything the plan asked for under [`OutputRequest::Files`].
     pub artifacts: Vec<ArtifactRef>,
 
@@ -488,6 +494,7 @@ mod tests {
             digest: None,
             platforms: vec!["windows/amd64".to_string()],
             config: None,
+            size_bytes: None,
             artifacts: vec![ArtifactRef {
                 path: "dist/installer.exe".to_string(),
                 media_type: "application/vnd.microsoft.portable-executable".to_string(),
@@ -528,6 +535,7 @@ mod tests {
             digest: None,
             platforms: vec![],
             config: None,
+            size_bytes: None,
             artifacts: vec![],
             scan: None,
             started_at: chrono::DateTime::UNIX_EPOCH,

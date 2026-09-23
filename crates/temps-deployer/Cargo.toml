@@ -11,6 +11,8 @@ repository.workspace = true
 homepage.workspace = true
 
 [dependencies]
+temps-build-protocol = { path = "../temps-build-protocol" }
+temps-build-executor = { path = "../temps-build-executor" }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 bollard = { workspace = true }
