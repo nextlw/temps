@@ -239,6 +239,84 @@ impl ImageBuilder for RoutedImageBuilder {
     }
 }
 
+/// What the pipeline actually needs to know about a built image.
+///
+/// Every consumer downstream of a build reads some subset of this, and today
+/// they all read it off the local daemon. That is the coupling that keeps a
+/// build from running anywhere else — not the build itself. Naming the subset
+/// is what lets the same facts come from an envelope instead.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ImageFacts {
+    /// `WORKDIR`. Two consumers extract files relative to it, and getting it
+    /// wrong means extracting from the wrong place rather than failing.
+    pub working_dir: Option<String>,
+    /// Ports from `EXPOSE`, already parsed. The deploy path publishes these.
+    pub exposed_ports: Vec<u16>,
+    pub architecture: Option<String>,
+    pub os: Option<String>,
+}
+
+impl ImageFacts {
+    /// Platform as the deploy path writes it, when both halves are known.
+    #[must_use]
+    pub fn platform(&self) -> Option<String> {
+        match (&self.os, &self.architecture) {
+            (Some(os), Some(arch)) => Some(format!("{os}/{arch}")),
+            _ => None,
+        }
+    }
+}
+
+/// Read [`ImageFacts`] out of an OCI image configuration.
+///
+/// The shape is the OCI image config: `architecture` and `os` at the top, and
+/// `config.WorkingDir` / `config.ExposedPorts` nested inside. A runner reports
+/// it verbatim, so this parses what Docker itself would have answered — which
+/// is the point: the answer is the same, only the machine that knew it is
+/// different.
+///
+/// Unreadable or absent fields come back as `None` rather than as defaults. A
+/// missing `WORKDIR` and a `WORKDIR` of `/` are different instructions, and a
+/// consumer that cannot tell them apart extracts from the wrong directory.
+#[must_use]
+pub fn image_facts_from_config(config: &serde_json::Value) -> ImageFacts {
+    let nested = config.get("config");
+
+    let working_dir = nested
+        .and_then(|c| c.get("WorkingDir"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
+    // `ExposedPorts` is an object whose keys are `"8080/tcp"`; the values are
+    // empty objects and carry nothing.
+    let mut exposed_ports: Vec<u16> = nested
+        .and_then(|c| c.get("ExposedPorts"))
+        .and_then(serde_json::Value::as_object)
+        .map(|ports| {
+            ports
+                .keys()
+                .filter_map(|spec| spec.split('/').next()?.parse::<u16>().ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    exposed_ports.sort_unstable();
+    exposed_ports.dedup();
+
+    ImageFacts {
+        working_dir,
+        exposed_ports,
+        architecture: config
+            .get("architecture")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+        os: config
+            .get("os")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -357,6 +435,91 @@ mod tests {
         assert!(
             matches!(AlwaysLocal.placement_for(&request), BuildPlacement::Local),
             "the default policy must not move a build"
+        );
+    }
+}
+
+#[cfg(test)]
+mod image_facts_tests {
+    use super::*;
+
+    /// The shape a runner reports, verbatim from the OCI image config. The
+    /// answer must be the one the daemon would have given — only the machine
+    /// that knew it is different.
+    #[test]
+    fn an_oci_config_yields_the_facts_the_pipeline_reads() {
+        let config = serde_json::json!({
+            "architecture": "amd64",
+            "os": "linux",
+            "config": {
+                "WorkingDir": "/app",
+                "ExposedPorts": { "8080/tcp": {}, "443/tcp": {} },
+                "Env": ["PATH=/usr/bin"]
+            }
+        });
+
+        let facts = image_facts_from_config(&config);
+        assert_eq!(facts.working_dir.as_deref(), Some("/app"));
+        assert_eq!(
+            facts.exposed_ports,
+            vec![443, 8080],
+            "ports come back parsed and ordered, so a caller never depends on \
+             the order a map happened to iterate in"
+        );
+        assert_eq!(facts.platform().as_deref(), Some("linux/amd64"));
+    }
+
+    /// A missing WORKDIR and a WORKDIR of `/` are different instructions. A
+    /// consumer that cannot tell them apart extracts from the wrong directory
+    /// and reports success.
+    #[test]
+    fn an_absent_workdir_is_none_and_not_a_default() {
+        let config = serde_json::json!({ "config": { "ExposedPorts": {} } });
+        assert_eq!(image_facts_from_config(&config).working_dir, None);
+
+        let empty = serde_json::json!({ "config": { "WorkingDir": "" } });
+        assert_eq!(
+            image_facts_from_config(&empty).working_dir,
+            None,
+            "an empty string is Docker's way of saying unset, not a path"
+        );
+
+        let root = serde_json::json!({ "config": { "WorkingDir": "/" } });
+        assert_eq!(
+            image_facts_from_config(&root).working_dir.as_deref(),
+            Some("/"),
+            "a WORKDIR of / is a real instruction and must survive"
+        );
+    }
+
+    /// A port spec this parser does not understand must be dropped, not
+    /// guessed at. Publishing a port nobody asked for is worse than
+    /// publishing none.
+    #[test]
+    fn unparseable_port_specs_are_dropped_rather_than_guessed() {
+        let config = serde_json::json!({
+            "config": { "ExposedPorts": { "8080/tcp": {}, "not-a-port/tcp": {}, "99999/tcp": {} } }
+        });
+        assert_eq!(
+            image_facts_from_config(&config).exposed_ports,
+            vec![8080],
+            "99999 does not fit a port and neither does a word; both are \
+             dropped rather than turned into something plausible"
+        );
+    }
+
+    /// An envelope from a native build carries no image config at all. The
+    /// facts must be empty rather than invented, so a caller that needs them
+    /// discovers it has none.
+    #[test]
+    fn an_empty_config_yields_no_facts() {
+        let facts = image_facts_from_config(&serde_json::json!({}));
+        assert_eq!(facts, ImageFacts::default());
+        assert_eq!(
+            facts.platform(),
+            None,
+            "half a platform is not a platform: with no os and no architecture \
+             there is nothing to format"
         );
     }
 }
