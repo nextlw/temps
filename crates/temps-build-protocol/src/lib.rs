@@ -65,6 +65,16 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+/// Schema tag every envelope carries, so a host that parses a runner's stdout
+/// can tell "this is a result" from "this is whatever the build printed last".
+///
+/// A build's stdout is shared with the program being built, which prints
+/// whatever it likes. Without a tag, a project whose test suite happens to emit
+/// JSON could be read as a build result. Bump the version when the shape
+/// changes incompatibly; a peer that does not recognise it must refuse rather
+/// than guess.
+pub const ENVELOPE_SCHEMA: &str = "temps.build/v1";
+
 /// A unit of work handed to a runner.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildRequest {
@@ -235,6 +245,10 @@ pub enum OutputRequest {
 /// What a runner reports when the build succeeded.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct BuildResultEnvelope {
+    /// Always [`ENVELOPE_SCHEMA`]. Checked on parse, never trusted from the
+    /// wire without comparison.
+    pub schema: String,
+
     pub build_id: uuid::Uuid,
 
     /// Present when the build produced a container image. `None` for a native
@@ -255,6 +269,14 @@ pub struct BuildResultEnvelope {
 
     pub started_at: chrono::DateTime<chrono::Utc>,
     pub finished_at: chrono::DateTime<chrono::Utc>,
+}
+
+impl BuildResultEnvelope {
+    /// Whether this envelope claims the schema this build understands.
+    #[must_use]
+    pub fn schema_matches(&self) -> bool {
+        self.schema == ENVELOPE_SCHEMA
+    }
 }
 
 /// A file the runner uploaded, addressed by content.
@@ -461,6 +483,7 @@ mod tests {
     #[test]
     fn an_envelope_without_an_image_is_representable() {
         let native = BuildResultEnvelope {
+            schema: ENVELOPE_SCHEMA.to_string(),
             build_id: uuid::Uuid::nil(),
             digest: None,
             platforms: vec!["windows/amd64".to_string()],
@@ -490,6 +513,39 @@ mod tests {
             round_tripped.artifacts.len(),
             1,
             "the artifact is the whole result of a native build, not a side effect"
+        );
+    }
+
+    /// A build's stdout belongs to the program being built as much as to the
+    /// runner. Anything on it that is not tagged must be treated as output,
+    /// not as a result — otherwise a test suite that prints JSON could be
+    /// mistaken for a successful build.
+    #[test]
+    fn an_envelope_is_only_a_result_when_it_carries_the_schema_tag() {
+        let mut envelope = BuildResultEnvelope {
+            schema: ENVELOPE_SCHEMA.to_string(),
+            build_id: uuid::Uuid::nil(),
+            digest: None,
+            platforms: vec![],
+            config: None,
+            artifacts: vec![],
+            scan: None,
+            started_at: chrono::DateTime::UNIX_EPOCH,
+            finished_at: chrono::DateTime::UNIX_EPOCH,
+        };
+        assert!(envelope.schema_matches(), "the current schema is accepted");
+
+        envelope.schema = "temps.build/v2".to_string();
+        assert!(
+            !envelope.schema_matches(),
+            "a future schema must be refused, not guessed at: a peer that \
+             does not recognise the shape cannot know what it is missing"
+        );
+
+        envelope.schema = String::new();
+        assert!(
+            !envelope.schema_matches(),
+            "untagged output is output, never a result"
         );
     }
 

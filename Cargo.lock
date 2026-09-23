@@ -10706,6 +10706,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "temps-build-executor"
+version = "0.1.0-nextlw.1"
+dependencies = [
+ "chrono",
+ "nix 0.31.3",
+ "serde_json",
+ "temps-build-protocol",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "temps-build-protocol"
 version = "0.1.0-nextlw.1"
 dependencies = [

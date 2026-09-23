@@ -9,6 +9,7 @@ members = [
     "crates/temps-vm-agent",
     # Library crates
     "crates/temps-core",
+    "crates/temps-build-executor",
     "crates/temps-build-protocol",
     "crates/temps-cloud-protocol",
     "crates/temps-cloud-client",
