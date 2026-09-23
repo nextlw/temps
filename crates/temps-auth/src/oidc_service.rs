@@ -1863,6 +1863,33 @@ fn string_slice_claim(claims: &serde_json::Value, key: &str) -> Vec<String> {
             .filter_map(|item| item.as_str().map(str::to_string))
             .collect(),
         serde_json::Value::String(item) => vec![item.clone()],
+        // Zitadel ships roles as an OBJECT keyed by role, not as an array:
+        //
+        //   "urn:zitadel:iam:org:project:roles": {
+        //       "admin": { "<orgId>": "<orgDomain>" },
+        //       "user":  { "<orgId>": "<orgDomain>" }
+        //   }
+        //
+        // The role names are the KEYS; the values carry which organisation
+        // granted each role. Without this arm the whole claim read as "no
+        // groups at all" and every Zitadel user quietly fell through to
+        // `default_role` -- a login that works while the role silently
+        // disappears, which is worse than one that fails.
+        //
+        // Only the keys are taken, and only when every key maps to an object
+        // or null: that is the shape Zitadel documents. A map of strings to
+        // scalars (`{"department": "sales"}`) is some other claim that
+        // happens to be an object, and reading its keys as group names would
+        // invent groups out of field names. That case still yields nothing,
+        // keeping the "unexpected shape grants nothing" behaviour that
+        // `strict_string_claim` below relies on for its own gate.
+        serde_json::Value::Object(map) => {
+            if map.values().all(|v| v.is_object() || v.is_null()) {
+                map.keys().cloned().collect()
+            } else {
+                Vec::new()
+            }
+        }
         _ => Vec::new(),
     }
 }
@@ -2339,6 +2366,45 @@ mod tests {
             ),
             RoleType::Admin
         );
+    }
+
+    /// O Zitadel entrega papeis como OBJETO com a chave sendo o papel, nao
+    /// como lista. Sem tratar essa forma, `string_slice_claim` devolvia lista
+    /// vazia e TODO usuario do Zitadel caia em `default_role` -- login
+    /// funcionando e papel sumindo, sem erro nem log.
+    #[test]
+    fn zitadel_role_claim_object_yields_its_keys() {
+        let claims = serde_json::json!({
+            "urn:zitadel:iam:org:project:roles": {
+                "admin": { "382356326455646553": "nexcode.zitadel.cloud" }
+            }
+        });
+        assert_eq!(
+            string_slice_claim(&claims, "urn:zitadel:iam:org:project:roles"),
+            vec!["admin".to_string()]
+        );
+    }
+
+    /// Guarda do arm novo: um objeto cujos valores NAO sao objetos e outra
+    /// coisa que por acaso e um mapa. Ler as chaves dele inventaria grupos a
+    /// partir de nomes de campo, entao continua rendendo nada -- mesmo
+    /// principio de `strict_string_claim`: forma inesperada nao concede.
+    #[test]
+    fn object_claim_with_scalar_values_is_not_a_role_map() {
+        let claims = serde_json::json!({ "roles": { "department": "sales" } });
+        assert!(string_slice_claim(&claims, "roles").is_empty());
+    }
+
+    /// As formas que ja funcionavam seguem funcionando.
+    #[test]
+    fn array_and_string_claims_are_unchanged() {
+        let arr = serde_json::json!({ "roles": ["admin", "user"] });
+        assert_eq!(
+            string_slice_claim(&arr, "roles"),
+            vec!["admin".to_string(), "user".to_string()]
+        );
+        let s = serde_json::json!({ "roles": "admin" });
+        assert_eq!(string_slice_claim(&s, "roles"), vec!["admin".to_string()]);
     }
 
     /// A provider fixture shaped exactly like the row
