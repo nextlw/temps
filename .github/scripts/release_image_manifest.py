@@ -5,16 +5,29 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 
+# Where the runtime images live. Derived instead of hardcoded so a fork
+# publishes its own images rather than pinning a release to somebody else's
+# registry: GitHub Actions always sets GITHUB_REPOSITORY_OWNER, so a release
+# cut on nextlw/temps binds to ghcr.io/nextlw/* and one cut upstream binds to
+# ghcr.io/gotempsh/* — same file, no branch-specific edit. TEMPS_IMAGE_NAMESPACE
+# overrides both for local runs and for mirrors.
+NAMESPACE = (
+    os.environ.get("TEMPS_IMAGE_NAMESPACE")
+    or os.environ.get("GITHUB_REPOSITORY_OWNER")
+    or "gotempsh"
+).lower()
+
 REPOSITORIES = {
-    **{f"daemon_{flavor}": f"ghcr.io/gotempsh/temps-sandbox-{flavor}"
+    **{f"daemon_{flavor}": f"ghcr.io/{NAMESPACE}/temps-sandbox-{flavor}"
        for flavor in ("nodejs", "python", "all")},
-    **{f"sandbox_{runtime}": f"ghcr.io/gotempsh/temps-sandbox-{runtime}"
+    **{f"sandbox_{runtime}": f"ghcr.io/{NAMESPACE}/temps-sandbox-{runtime}"
        for runtime in ("node", "bun", "python", "rust", "go", "full")},
-    "preview_gateway": "ghcr.io/gotempsh/temps-preview-gateway",
+    "preview_gateway": f"ghcr.io/{NAMESPACE}/temps-preview-gateway",
 }
 
 

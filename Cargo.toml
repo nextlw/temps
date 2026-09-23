@@ -107,7 +107,10 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0-beta.56"
+# Linha de versao propria do fork nextlw. O sufixo nomeia a origem em vez de
+# fingir compatibilidade com as pre-releases do upstream: a base e a mesma
+# 0.1.0, mas a partir daqui as correcoes sao nossas e o release e independente.
+version = "0.1.0-nextlw.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Temps Contributors"]
