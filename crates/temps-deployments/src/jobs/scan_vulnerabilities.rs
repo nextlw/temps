@@ -236,6 +236,40 @@ impl WorkflowTask for ScanVulnerabilitiesJob {
                 .await?;
                 result
             }
+            // A scan that could not be *performed* is not a failed
+            // deployment. Two conditions say exactly that, and both are
+            // expected rather than exceptional: this process has no local
+            // daemon (control-plane profile), or the image is not on this
+            // host because the build ran somewhere else.
+            //
+            // Failing the deployment for either one means a build can never
+            // run off the control plane, which is the opposite of what the
+            // scan is for. It is recorded and said out loud instead, so a
+            // deployment that was not scanned never looks like one that was.
+            Err(temps_vulnerability_scanner::ServiceError::Scanner(
+                scanner_err @ (temps_vulnerability_scanner::ScannerError::ImageNotAvailable {
+                    ..
+                }
+                | temps_vulnerability_scanner::ScannerError::DockerUnavailable(_)),
+            )) => {
+                let reason = scanner_err.to_string();
+                warn!(
+                    deployment_id = self.deployment_id,
+                    image = %image_tag,
+                    "vulnerability scan skipped: {reason}"
+                );
+                self.log(format!(
+                    "⚠️  Vulnerability scan skipped — {reason}. The deployment continues; \
+                     this image was NOT scanned."
+                ))
+                .await?;
+
+                let mut updated_context = context.clone();
+                updated_context.set_output(&self.job_id, "scan_id", scan_id)?;
+                updated_context.set_output(&self.job_id, "scan_skipped", true)?;
+                updated_context.set_output(&self.job_id, "scan_skipped_reason", reason)?;
+                return Ok(JobResult::success(updated_context));
+            }
             Err(e) => {
                 let error_msg = format!("Image scan execution failed: {}", e);
                 error!("{}", error_msg);
