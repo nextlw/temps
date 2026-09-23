@@ -76,17 +76,71 @@ impl BuildPolicy for AlwaysLocal {
     }
 }
 
+/// How many hosted builds' facts are remembered at once.
+///
+/// Bounded because the key is an image name and image names are minted per
+/// deployment: an unbounded map here is a slow leak on a machine that is
+/// already the busiest one in the cluster. A build's facts are read by the
+/// jobs immediately downstream of it, so the useful lifetime is one
+/// deployment; this holds far more than that and still cannot grow.
+const REMEMBERED_HOSTED_BUILDS: usize = 64;
+
 pub struct RoutedImageBuilder {
     policy: Arc<dyn BuildPolicy>,
     local: Arc<dyn ImageBuilder>,
+    /// Facts for images this builder produced elsewhere.
+    ///
+    /// The envelope dies at the trait boundary — `BuildResult` carries an id,
+    /// a name, a size and a duration, and nothing else. Without this, a hosted
+    /// build would answer `inspect_image` from a daemon that never saw the
+    /// image. Remembering the facts here is what lets every consumer that goes
+    /// through the trait keep working unchanged, which was the whole argument
+    /// for keeping `ImageBuilder` as the seam.
+    hosted: std::sync::Mutex<std::collections::VecDeque<(String, ImageFacts, u64)>>,
 }
 
 impl RoutedImageBuilder {
     pub fn new(policy: Arc<dyn BuildPolicy>, local: Arc<dyn ImageBuilder>) -> Self {
-        Self { policy, local }
+        Self {
+            policy,
+            local,
+            hosted: std::sync::Mutex::new(std::collections::VecDeque::new()),
+        }
+    }
+
+    /// Record what a hosted build reported about the image it produced.
+    ///
+    /// Oldest entries are dropped first. A lock poisoned by a panicking
+    /// sibling is recovered rather than propagated: losing a memo makes an
+    /// `inspect_image` fall back to the daemon, which is wrong but recoverable,
+    /// while a panic here would take down a deployment for a cache miss.
+    fn remember(&self, image_name: &str, facts: ImageFacts, size_bytes: u64) {
+        let mut hosted = match self.hosted.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        hosted.retain(|(name, _, _)| name != image_name);
+        if hosted.len() >= REMEMBERED_HOSTED_BUILDS {
+            hosted.pop_front();
+        }
+        hosted.push_back((image_name.to_string(), facts, size_bytes));
+    }
+
+    /// What a hosted build reported about this image, if this builder produced
+    /// it and still remembers.
+    fn recall(&self, image_name: &str) -> Option<(ImageFacts, u64)> {
+        let hosted = match self.hosted.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        hosted
+            .iter()
+            .find(|(name, _, _)| name == image_name)
+            .map(|(_, facts, size)| (facts.clone(), *size))
     }
 
     async fn build_hosted(
+        &self,
         plan: HostedBuildPlan,
         image_name: &str,
     ) -> Result<BuildResult, BuilderError> {
@@ -101,6 +155,14 @@ impl RoutedImageBuilder {
         })
         .await
         .map_err(|e| BuilderError::BuildFailed(e.to_string()))?;
+
+        if let Some(config) = &envelope.config {
+            self.remember(
+                image_name,
+                image_facts_from_config(config),
+                envelope.size_bytes.unwrap_or(0),
+            );
+        }
 
         narrow_to_image(envelope, image_name)
     }
@@ -145,7 +207,7 @@ impl ImageBuilder for RoutedImageBuilder {
             BuildPlacement::Local => self.local.build_image(request).await,
             BuildPlacement::Hosted(plan) => {
                 let image_name = request.image_name.clone();
-                Self::build_hosted(*plan, &image_name).await
+                self.build_hosted(*plan, &image_name).await
             }
         }
     }
@@ -166,7 +228,7 @@ impl ImageBuilder for RoutedImageBuilder {
             BuildPlacement::Local => self.local.build_image_with_callback(request).await,
             BuildPlacement::Hosted(plan) => {
                 let image_name = request.request.image_name.clone();
-                Self::build_hosted(*plan, &image_name).await
+                self.build_hosted(*plan, &image_name).await
             }
         }
     }
@@ -226,8 +288,31 @@ impl ImageBuilder for RoutedImageBuilder {
         self.local.remove_image(image_name).await
     }
 
+    /// Answers from the hosted build's own report when this builder produced
+    /// the image elsewhere, and from the daemon otherwise.
+    ///
+    /// This is the method that makes hosted placement possible without
+    /// touching a single consumer: the three callers downstream of a build ask
+    /// the same question of the same trait and get an answer that is true,
+    /// rather than an answer from a daemon that never saw the image.
     async fn inspect_image(&self, image_name: &str) -> Result<ImageInfo, BuilderError> {
-        self.local.inspect_image(image_name).await
+        let Some((facts, size_bytes)) = self.recall(image_name) else {
+            return self.local.inspect_image(image_name).await;
+        };
+
+        Ok(ImageInfo {
+            id: image_name.to_string(),
+            architecture: facts.architecture.clone().unwrap_or_default(),
+            os: facts.os.clone().unwrap_or_default(),
+            platform: facts.platform().unwrap_or_default(),
+            size_bytes,
+            tags: vec![image_name.to_string()],
+            // The runner does not report a creation timestamp and this host
+            // did not witness one. `None` says so; a value invented here would
+            // be indistinguishable from a real one.
+            created: None,
+            working_dir: facts.working_dir,
+        })
     }
 
     fn get_native_platform(&self) -> String {
@@ -520,6 +605,152 @@ mod image_facts_tests {
             None,
             "half a platform is not a platform: with no os and no architecture \
              there is nothing to format"
+        );
+    }
+}
+
+#[cfg(test)]
+mod recall_tests {
+    use super::*;
+
+    struct NeverBuilds;
+
+    #[async_trait]
+    impl ImageBuilder for NeverBuilds {
+        async fn build_image(&self, _: BuildRequest) -> Result<BuildResult, BuilderError> {
+            unreachable!("these tests never build locally")
+        }
+        async fn build_image_with_callback(
+            &self,
+            _: BuildRequestWithCallback,
+        ) -> Result<BuildResult, BuilderError> {
+            unreachable!("these tests never build locally")
+        }
+        async fn import_image(&self, _: PathBuf, _: &str) -> Result<String, BuilderError> {
+            unreachable!()
+        }
+        async fn save_image(&self, _: &str, _: &Path) -> Result<(), BuilderError> {
+            unreachable!()
+        }
+        async fn extract_from_image(
+            &self,
+            _: &str,
+            _: &str,
+            _: &Path,
+        ) -> Result<(), BuilderError> {
+            unreachable!()
+        }
+        async fn list_images(&self) -> Result<Vec<String>, BuilderError> {
+            unreachable!()
+        }
+        async fn remove_image(&self, _: &str) -> Result<(), BuilderError> {
+            unreachable!()
+        }
+        /// Stands in for the daemon. Reaching here means the router asked a
+        /// daemon about an image the daemon never saw, which is the bug this
+        /// whole design exists to prevent.
+        async fn inspect_image(&self, image_name: &str) -> Result<ImageInfo, BuilderError> {
+            Err(BuilderError::BuildFailed(format!(
+                "fell through to the daemon for {image_name}"
+            )))
+        }
+        fn get_native_platform(&self) -> String {
+            "linux/amd64".to_string()
+        }
+    }
+
+    fn router() -> RoutedImageBuilder {
+        RoutedImageBuilder::new(Arc::new(AlwaysLocal), Arc::new(NeverBuilds))
+    }
+
+    fn facts() -> ImageFacts {
+        ImageFacts {
+            working_dir: Some("/app".to_string()),
+            exposed_ports: vec![8080],
+            architecture: Some("amd64".to_string()),
+            os: Some("linux".to_string()),
+        }
+    }
+
+    /// The whole point: a consumer asks the same trait the same question and
+    /// gets a true answer, without knowing the build ran elsewhere.
+    #[tokio::test]
+    async fn inspect_answers_from_the_hosted_report_and_never_touches_the_daemon() {
+        let router = router();
+        router.remember("app:sha", facts(), 9_000);
+
+        let info = router
+            .inspect_image("app:sha")
+            .await
+            .expect("a remembered image answers without a daemon");
+
+        assert_eq!(info.working_dir.as_deref(), Some("/app"));
+        assert_eq!(info.platform, "linux/amd64");
+        assert_eq!(info.size_bytes, 9_000);
+        assert_eq!(
+            info.created, None,
+            "no creation time was witnessed by anyone here; a value invented \
+             would be indistinguishable from a real one"
+        );
+    }
+
+    /// An image this router did not produce is the daemon's business. Falling
+    /// through must stay the default, or a locally built image would be
+    /// answered from an empty memory.
+    #[tokio::test]
+    async fn an_unknown_image_falls_through_to_the_daemon() {
+        let err = router()
+            .inspect_image("someone-elses:tag")
+            .await
+            .expect_err("the stand-in daemon always refuses");
+        assert!(
+            err.to_string().contains("fell through to the daemon"),
+            "an image nobody remembers must be asked of the daemon; got: {err}"
+        );
+    }
+
+    /// The memo is keyed by image name and bounded. Image names are minted per
+    /// deployment, so an unbounded map here would leak on the busiest machine
+    /// in the cluster.
+    #[tokio::test]
+    async fn the_memory_is_bounded_and_drops_the_oldest_first() {
+        let router = router();
+        for i in 0..(REMEMBERED_HOSTED_BUILDS + 10) {
+            router.remember(&format!("app:{i}"), facts(), i as u64);
+        }
+
+        assert!(
+            router.recall("app:0").is_none(),
+            "the oldest entries must be gone, or this is a leak with extra steps"
+        );
+        let newest = format!("app:{}", REMEMBERED_HOSTED_BUILDS + 9);
+        assert!(
+            router.recall(&newest).is_some(),
+            "the most recent build is the one a downstream job is about to ask about"
+        );
+        let held = router.hosted.lock().expect("uncontended in a test").len();
+        assert_eq!(held, REMEMBERED_HOSTED_BUILDS, "the cap is a cap");
+    }
+
+    /// Rebuilding the same tag must replace what is remembered, not queue a
+    /// second answer behind the first. A stale `WORKDIR` would make the next
+    /// extraction read the previous build's directory.
+    #[tokio::test]
+    async fn rebuilding_a_tag_replaces_what_is_remembered() {
+        let router = router();
+        router.remember("app:latest", facts(), 1);
+
+        let mut newer = facts();
+        newer.working_dir = Some("/srv".to_string());
+        router.remember("app:latest", newer, 2);
+
+        let (recalled, size) = router.recall("app:latest").expect("still remembered");
+        assert_eq!(recalled.working_dir.as_deref(), Some("/srv"));
+        assert_eq!(size, 2);
+        assert_eq!(
+            router.hosted.lock().expect("uncontended").len(),
+            1,
+            "the same tag holds one memo, not a history"
         );
     }
 }
