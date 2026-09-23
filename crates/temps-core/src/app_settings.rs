@@ -3247,6 +3247,120 @@ mod tests {
         assert!(merged.get("admin_gate").is_some());
     }
 
+    /// Layer 1 — deserialization. The console cannot send back a CA it was
+    /// never given: `MultiNodeSettingsMasked` exposes a fingerprint and nothing
+    /// else. `#[serde(default)]` accepts the absence silently and yields `None`,
+    /// so by the time anything downstream sees the document, "the operator did
+    /// not mention the CA" and "the operator asked to clear the CA" have become
+    /// the same value. This is the step that makes the bug invisible.
+    #[test]
+    fn console_payload_without_cluster_ca_deserializes_to_none() {
+        let from_masked_get = serde_json::json!({
+            "preview_domain": "apps.example.com",
+            "multi_node": {
+                "require_mtls": true,
+                "legacy_shared_token_enabled": false
+            }
+        });
+
+        let settings = AppSettings::from_json(from_masked_get);
+
+        assert!(
+            settings.multi_node.cluster_ca_cert_pem.is_none(),
+            "an absent CA field is indistinguishable from an explicit null here"
+        );
+        assert!(settings.multi_node.cluster_ca_key_encrypted.is_none());
+        assert!(
+            settings.multi_node.require_mtls,
+            "the fields the console did send must survive"
+        );
+    }
+
+    /// Layer 2 — serialization. `None` is written out as an explicit `null`
+    /// rather than omitted: neither CA field carries `skip_serializing_if`. That
+    /// null is what the shallow merge then writes over the stored certificate,
+    /// so this is the mechanical cause of #1095.
+    #[test]
+    fn absent_cluster_ca_serializes_as_explicit_null() {
+        let settings = AppSettings::default();
+        let json = settings.to_json();
+
+        assert_eq!(
+            json["multi_node"]["cluster_ca_cert_pem"],
+            serde_json::Value::Null,
+            "the field is emitted as null, not omitted — which is why it overwrites"
+        );
+        assert!(
+            json["multi_node"]
+                .as_object()
+                .expect("multi_node is an object")
+                .contains_key("cluster_ca_cert_pem"),
+            "the key is present in the document, so the merge has something to write"
+        );
+    }
+
+    /// The merge protects *sibling* keys it does not know. It deliberately does
+    /// not reach inside a sub-document this struct owns: `multi_node` is an
+    /// owned key, so it is replaced whole, and anything the incoming document
+    /// left out of it is lost.
+    ///
+    /// That is the correct behaviour — `merge_lets_owned_fields_win_over_stored_values`
+    /// asserts the intent it comes from — and it is exactly why server-owned
+    /// material such as the cluster CA cannot be defended here. `GET /settings`
+    /// masks the CA, so a document round-tripped through the console always
+    /// comes back without it; defending it at this layer would mean a deep
+    /// merge, and a deep merge would make a field impossible to clear.
+    ///
+    /// The defence lives one layer up, under the settings write lock, in
+    /// `preserve_cluster_ca_material`. This test pins the boundary between the
+    /// two so neither side drifts into the other's job.
+    #[test]
+    fn merge_does_not_reach_inside_owned_sub_documents() {
+        let existing = serde_json::json!({
+            "insecure_tls": true,
+            "admin_gate": { "allowed_hosts": ["app.example.com"] },
+            "multi_node": {
+                "cluster_ca_cert_pem": "-----BEGIN CERTIFICATE-----\nMIIB…\n",
+                "cluster_ca_key_encrypted": "gAAAAABm…",
+                "require_mtls": true
+            }
+        });
+
+        // What the console sends back: the masked document, so without the two
+        // CA fields, plus one unrelated edit.
+        let mut payload = existing.clone();
+        let multi_node = payload
+            .get_mut("multi_node")
+            .and_then(|v| v.as_object_mut())
+            .expect("multi_node is an object");
+        multi_node.remove("cluster_ca_cert_pem");
+        multi_node.remove("cluster_ca_key_encrypted");
+
+        let mut settings = AppSettings::from_json(payload);
+        settings.insecure_tls = false;
+
+        let merged = settings.to_json_merged(&existing);
+
+        assert_eq!(
+            merged["admin_gate"], existing["admin_gate"],
+            "a sibling sub-document this struct does not own must survive"
+        );
+        assert_eq!(
+            merged["insecure_tls"].as_bool(),
+            Some(false),
+            "the edit the operator actually made must be applied"
+        );
+        assert!(
+            merged["multi_node"]["cluster_ca_cert_pem"].is_null(),
+            "the merge does not defend fields inside an owned sub-document; \
+             preserve_cluster_ca_material does, under the write lock"
+        );
+        assert!(
+            merged["multi_node"]["cluster_ca_key_encrypted"].is_null(),
+            "same for the encrypted key"
+        );
+    }
+
     /// A fresh/corrupt row has nothing to preserve — the serialized settings
     /// become the whole document.
     #[test]
