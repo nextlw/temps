@@ -6066,17 +6066,35 @@ impl ComposeExecutor {
         {
             return Ok(());
         }
-        docker
+        match docker
             .create_network(bollard::models::NetworkCreateRequest {
                 name: network_name.to_string(),
                 driver: Some("bridge".to_string()),
                 ..Default::default()
             })
             .await
-            .map(|_| ())
-            .map_err(|e| {
-                ComposeError::Docker(format!("Failed to create network {network_name}: {e}"))
-            })
+        {
+            Ok(_) => Ok(()),
+            // 409 from /networks/create means another caller created it between
+            // our list and our create. The listing above is a check-then-act,
+            // so this race is reachable by any two concurrent deployments —
+            // and the outcome it reports is the state this function wanted.
+            // Treating it as failure makes a function documented as idempotent
+            // fail precisely when it was idempotent. Mirrors the 403 no-op on
+            // `/networks/<id>/connect` in `docker.rs`.
+            Err(bollard::errors::Error::DockerResponseServerError {
+                status_code: 409, ..
+            }) => {
+                tracing::debug!(
+                    network = network_name,
+                    "shared network already existed when we tried to create it (409)"
+                );
+                Ok(())
+            }
+            Err(e) => Err(ComposeError::Docker(format!(
+                "Failed to create network {network_name}: {e}"
+            ))),
+        }
     }
 
     /// Pull images for every `image:`-based service in the compose stack.
