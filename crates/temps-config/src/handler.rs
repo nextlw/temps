@@ -3337,6 +3337,179 @@ async fn refresh_route_table(
 mod tests {
     use super::*;
 
+    // ─────────────────────────────────────────────────────────────────────
+    // #1095 over HTTP.
+    //
+    // The bug is reported as `PUT /api/settings`, and the layers underneath it
+    // are covered by their own unit tests. Only a request proves the request:
+    // the handler deserializes raw JSON, strips and re-reads fields, and hands
+    // the result to the service. A test that skips that is a test of something
+    // else.
+    // ─────────────────────────────────────────────────────────────────────
+
+    use axum::body::Body;
+    use axum::http::Request;
+    use sea_orm::{DatabaseBackend, MockDatabase};
+    use tower::ServiceExt;
+
+    struct NoopAuditLogger;
+
+    #[async_trait::async_trait]
+    impl AuditLogger for NoopAuditLogger {
+        async fn create_audit_log(
+            &self,
+            _operation: &dyn temps_core::AuditOperation,
+        ) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn http_test_config() -> Arc<crate::service::ServerConfig> {
+        Arc::new(
+            crate::service::ServerConfig::new(
+                "127.0.0.1:3000".to_string(),
+                "postgresql://test".to_string(),
+                None,
+                Some("127.0.0.1:8000".to_string()),
+            )
+            .expect("ServerConfig::new"),
+        )
+    }
+
+    fn settings_row_holding_cluster_ca() -> temps_entities::settings::Model {
+        let mut app_settings = AppSettings::default();
+        app_settings.preview_domain = "apps.example.com".to_string();
+        app_settings.multi_node.cluster_ca_cert_pem = Some("stored-cert".to_string());
+        app_settings.multi_node.cluster_ca_key_encrypted = Some("stored-key".to_string());
+        app_settings.multi_node.require_mtls = true;
+        temps_entities::settings::Model {
+            id: 1,
+            data: app_settings.to_json(),
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }
+    }
+
+    fn http_test_state() -> (Arc<SettingsState>, Arc<ConfigService>) {
+        let row = settings_row_holding_cluster_ca();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results([
+                [row.clone()],
+                [row.clone()],
+                [row.clone()],
+                [row.clone()],
+                [row.clone()],
+                [row],
+            ])
+            .append_exec_results([
+                sea_orm::MockExecResult {
+                    last_insert_id: 1,
+                    rows_affected: 1,
+                },
+                sea_orm::MockExecResult {
+                    last_insert_id: 1,
+                    rows_affected: 1,
+                },
+            ])
+            .into_connection();
+        let db = Arc::new(db);
+        let config_service = Arc::new(ConfigService::new(http_test_config(), db.clone()));
+        let state = Arc::new(SettingsState {
+            config_service: config_service.clone(),
+            encryption_service: Arc::new(
+                temps_core::EncryptionService::new("0123456789abcdef0123456789abcdef")
+                    .expect("EncryptionService::new"),
+            ),
+            audit_service: Arc::new(NoopAuditLogger),
+            sensitive_action_authorizer: Arc::new(disconnected_authorizer()),
+            route_table_refresher: None,
+            enrollment_token_service: Arc::new(
+                crate::enrollment_tokens::EnrollmentTokenService::new(db),
+            ),
+            update_status: None,
+            self_updater: None,
+        });
+        (state, config_service)
+    }
+
+    fn http_request_metadata() -> temps_core::RequestMetadata {
+        temps_core::RequestMetadata {
+            ip_address: "192.0.2.10".to_string(),
+            user_agent: "settings-http-test".to_string(),
+            headers: Default::default(),
+            visitor_id_cookie: None,
+            session_id_cookie: None,
+            base_url: "http://localhost".to_string(),
+            scheme: "http".to_string(),
+            host: "localhost".to_string(),
+            is_secure: false,
+        }
+    }
+
+    /// The operator's exact sequence, over the wire: read settings, change one
+    /// unrelated field, write the document back. The console never received the
+    /// CA — `MultiNodeSettingsMasked` does not carry it — so the body it sends
+    /// has `multi_node` without those two keys.
+    ///
+    /// Before the fix this returned 200 and left the stored CA null, and nothing
+    /// looked wrong until the next control-plane restart minted a new one and
+    /// every enrolled worker was rejected over mTLS.
+    #[tokio::test]
+    async fn put_settings_over_http_keeps_the_cluster_ca() {
+        let (state, config_service) = http_test_state();
+        let app = configure_routes()
+            .with_state(state)
+            .layer(Extension(http_request_metadata()))
+            .layer(Extension(
+                temps_auth::AuthContext::new_persisted_session(rotation_test_user(true), temps_auth::Role::Admin, 24),
+            ));
+
+        // Exactly what the console holds after a masked GET, plus one edit.
+        let body = serde_json::json!({
+            "preview_domain": "changed.example.com",
+            "multi_node": {
+                "require_mtls": true,
+                "legacy_shared_token_enabled": false
+            }
+        });
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("PUT")
+                    .uri("/settings")
+                    .header(axum::http::header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body.to_string()))
+                    .expect("settings request"),
+            )
+            .await
+            .expect("settings response");
+
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "the settings save itself must succeed"
+        );
+
+        let after = config_service
+            .get_settings()
+            .await
+            .expect("settings readable after the save");
+        assert_eq!(
+            after.multi_node.cluster_ca_cert_pem.as_deref(),
+            Some("stored-cert"),
+            "a PUT that never mentioned the CA must not orphan every enrolled worker"
+        );
+        assert_eq!(
+            after.multi_node.cluster_ca_key_encrypted.as_deref(),
+            Some("stored-key"),
+        );
+        assert_eq!(
+            after.preview_domain, "changed.example.com",
+            "the edit the operator actually made must still be applied"
+        );
+    }
+
     #[test]
     fn generic_settings_write_cannot_enable_plugin_reporting() {
         let mut body = serde_json::json!({

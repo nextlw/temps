@@ -41,3 +41,8 @@ sqlx = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# Testes HTTP do PUT /settings: o bug #1095 chega por requisicao, entao
+# precisa ser provado por requisicao.
+tower = { workspace = true }
+http-body-util = { workspace = true }
+async-trait = { workspace = true }

@@ -10926,12 +10926,14 @@ name = "temps-config"
 version = "0.1.0-beta.56"
 dependencies = [
  "anyhow",
+ "async-trait",
  "axum",
  "base64 0.23.1",
  "chrono",
  "config",
  "dirs",
  "hex",
+ "http-body-util",
  "log",
  "rand 0.10.2",
  "sea-orm",
@@ -10949,6 +10951,7 @@ dependencies = [
  "temps-entities",
  "thiserror 2.0.20",
  "tokio",
+ "tower",
  "tracing",
  "url",
  "utoipa",

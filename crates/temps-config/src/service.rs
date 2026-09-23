@@ -30,6 +30,39 @@ const GEO_SETTINGS_KEY: &str = "geo";
 use serde_derive::{Deserialize, Serialize};
 use temps_core::{AgentSandboxSettings, AppSettings, GeoLicenseKeyIntent, PublicHostnameStrategy};
 
+/// Rebase the cluster CA onto the row locked by the settings writer.
+///
+/// The CA is server-owned material, and a settings payload can only ever
+/// destroy it:
+///
+/// * `GET /settings` never returns it — `MultiNodeSettingsMasked` exposes a
+///   fingerprint and nothing else — so a document built from a GET comes back
+///   with both fields absent, which `#[serde(default)]` turns into `None`.
+/// * `to_json_merged` merges one level deep, so `multi_node` is replaced whole
+///   and the stored CA goes with it. That merge is doing its job: keys this
+///   struct owns must stay settable, including back to their default. The
+///   protection belongs here, not in the merge.
+/// * A client could not supply a valid CA even on purpose:
+///   `cluster_ca_key_encrypted` is ciphertext under this server's
+///   `EncryptionService`, which nothing outside the server can produce.
+///
+/// Nothing fails at write time — the running process still holds the CA in
+/// memory — so the damage only surfaces at the next control-plane restart,
+/// which mints a fresh CA and rejects every enrolled worker over mTLS.
+///
+/// The two legitimate writers, `initialize_cluster_ca_material` and
+/// `rotate_cluster_ca_material`, take their own exclusive lock and never pass
+/// through this path, so rebasing here cannot interfere with minting or
+/// rotation. Deliberate replacement stays where it was designed to live:
+/// `POST /settings/cluster-ca/rotate`, behind a dedicated permission, a
+/// browser session, an admin role, MFA, a typed confirmation and a
+/// fingerprint check.
+pub(crate) fn preserve_cluster_ca_material(incoming: &mut AppSettings, current: &AppSettings) {
+    incoming.multi_node.cluster_ca_cert_pem = current.multi_node.cluster_ca_cert_pem.clone();
+    incoming.multi_node.cluster_ca_key_encrypted =
+        current.multi_node.cluster_ca_key_encrypted.clone();
+}
+
 /// Rebase credential-owned fields onto the row locked by the settings writer.
 /// A bulk settings payload (including one built from an older GET) is never
 /// allowed to create, restore, or verify a provider credential.
@@ -1210,6 +1243,10 @@ WHERE proc_name IN ('policy_compression', 'policy_retention')
         // a stale snapshot can neither erase a check the job just recorded nor
         // revert a key that was stored while this request was in flight.
         preserve_geo_recorded_state(&mut settings, &locked_settings, geo_license_key_intent);
+        // The cluster CA is server-owned: a bulk settings write can only drop
+        // it, never set it, so the locked row always wins. Rotation has its own
+        // endpoint and its own lock.
+        preserve_cluster_ca_material(&mut settings, &locked_settings);
 
         let previous_compression = existing
             .as_ref()
@@ -3072,6 +3109,155 @@ mod tests {
 
         assert_eq!(result.previous_fingerprint, expected);
         assert_eq!(result.revoked_enrollment_tokens, 3);
+    }
+
+    /// The unit the fix lives in: whatever the payload says about the CA, the
+    /// locked row wins. Both directions matter — dropping it is the reported
+    /// bug, and setting it is the one a stale or hostile payload would attempt.
+    #[test]
+    fn preserve_cluster_ca_material_always_takes_the_locked_row() {
+        let mut current = AppSettings::default();
+        current.multi_node.cluster_ca_cert_pem = Some("stored-cert".to_string());
+        current.multi_node.cluster_ca_key_encrypted = Some("stored-key".to_string());
+
+        // 1. The reported bug: a document round-tripped through the masked GET.
+        let mut dropped = AppSettings::default();
+        assert!(dropped.multi_node.cluster_ca_cert_pem.is_none());
+        preserve_cluster_ca_material(&mut dropped, &current);
+        assert_eq!(
+            dropped.multi_node.cluster_ca_cert_pem.as_deref(),
+            Some("stored-cert"),
+            "a payload that omits the CA must not erase it"
+        );
+        assert_eq!(
+            dropped.multi_node.cluster_ca_key_encrypted.as_deref(),
+            Some("stored-key"),
+        );
+
+        // 2. The other direction: a payload that carries a CA cannot install
+        //    one. Rotation has its own endpoint, its own lock and six more
+        //    controls; a bulk settings write is not a way around them.
+        let mut forged = AppSettings::default();
+        forged.multi_node.cluster_ca_cert_pem = Some("attacker-cert".to_string());
+        forged.multi_node.cluster_ca_key_encrypted = Some("attacker-key".to_string());
+        preserve_cluster_ca_material(&mut forged, &current);
+        assert_eq!(
+            forged.multi_node.cluster_ca_cert_pem.as_deref(),
+            Some("stored-cert"),
+            "a settings payload must never install a cluster CA"
+        );
+
+        // 3. No CA stored yet: nothing to preserve, and nothing invented.
+        let mut before_minting = AppSettings::default();
+        before_minting.multi_node.cluster_ca_cert_pem = Some("attacker-cert".to_string());
+        preserve_cluster_ca_material(&mut before_minting, &AppSettings::default());
+        assert!(
+            before_minting.multi_node.cluster_ca_cert_pem.is_none(),
+            "with no CA on the locked row the field is cleared, not carried from the payload"
+        );
+    }
+
+    /// The other writers of the settings row build their document from the
+    /// locked row and mutate one field, so they carry the CA forward by
+    /// construction rather than by a guard. That is true today; this test is
+    /// what keeps it true. If either is ever rewritten to take a caller-supplied
+    /// `AppSettings`, it inherits the #1095 bug and this goes red.
+    #[tokio::test]
+    async fn surgical_writers_do_not_drop_the_cluster_ca() {
+        let stored = settings_row_with_cluster_ca(Some("stored-cert"), Some("stored-key"));
+
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results([[stored.clone()], [stored.clone()]])
+            .append_exec_results([sea_orm::MockExecResult {
+                last_insert_id: 1,
+                rows_affected: 1,
+            }])
+            .into_connection();
+        let service = ConfigService::new(test_config(), Arc::new(db));
+        let after = service
+            .update_cloud_features(true, false, true)
+            .await
+            .expect("cloud feature toggle should succeed");
+        assert_eq!(
+            after.multi_node.cluster_ca_cert_pem.as_deref(),
+            Some("stored-cert"),
+            "toggling cloud features must not touch the cluster CA"
+        );
+
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results([[stored.clone()], [stored]])
+            .append_exec_results([sea_orm::MockExecResult {
+                last_insert_id: 1,
+                rows_affected: 1,
+            }])
+            .into_connection();
+        let service = ConfigService::new(test_config(), Arc::new(db));
+        let after = service
+            .set_cloud_backend_url("https://backend.example.com")
+            .await
+            .expect("backend url write should succeed");
+        assert_eq!(
+            after.multi_node.cluster_ca_key_encrypted.as_deref(),
+            Some("stored-key"),
+            "setting the cloud backend URL must not touch the cluster CA"
+        );
+    }
+
+    /// End to end through the real writer: the exact sequence from the issue —
+    /// read settings, change one unrelated field, write the document back —
+    /// must leave the CA intact.
+    #[tokio::test]
+    async fn update_settings_keeps_cluster_ca_when_payload_omits_it() {
+        let stored = settings_row_with_cluster_ca(Some("stored-cert"), Some("stored-key"));
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results([
+                [stored.clone()],
+                [stored.clone()],
+                [stored.clone()],
+                [stored.clone()],
+                [stored],
+            ])
+            .append_exec_results([
+                sea_orm::MockExecResult {
+                    last_insert_id: 1,
+                    rows_affected: 1,
+                },
+                sea_orm::MockExecResult {
+                    last_insert_id: 1,
+                    rows_affected: 1,
+                },
+            ])
+            .into_connection();
+        let service = ConfigService::new(test_config(), Arc::new(db));
+
+        // What the console holds after a masked GET: no CA, one edit.
+        let mut payload = AppSettings::default();
+        payload.preview_domain = "apps.example.com".to_string();
+        assert!(payload.multi_node.cluster_ca_cert_pem.is_none());
+
+        service
+            .update_settings(payload)
+            .await
+            .expect("settings save should succeed");
+
+        let after = service
+            .get_settings()
+            .await
+            .expect("settings should be readable after the save");
+
+        assert_eq!(
+            after.multi_node.cluster_ca_cert_pem.as_deref(),
+            Some("stored-cert"),
+            "saving unrelated settings must not orphan every enrolled worker"
+        );
+        assert_eq!(
+            after.multi_node.cluster_ca_key_encrypted.as_deref(),
+            Some("stored-key"),
+        );
+        assert_eq!(
+            after.preview_domain, "apps.example.com",
+            "the edit the operator actually made must still be applied"
+        );
     }
 
     #[tokio::test]
