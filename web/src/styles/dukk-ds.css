@@ -13,6 +13,12 @@
  * O escopo é `.dukk-ds`, não `:root`, de propósito: custom properties herdam
  * do ancestral, então tudo dentro do wrapper usa a paleta do Dukk e o resto
  * do painel do Temps segue com a sua própria (Geist/oklch) intocada.
+ *
+ * As fontes moram em `src/assets/`, não em `public/`, e são referenciadas por
+ * caminho relativo: o css-loader do rsbuild tenta RESOLVER uma url absoluta
+ * como módulo em tempo de build e o build falha com "Module not found", mesmo
+ * que o arquivo exista em `public/`. Pelo caminho relativo elas viram asset do
+ * bundle e ganham hash no nome — ou seja, cache-busting de graça.
  */
 
 @font-face {
@@ -20,7 +26,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 400;
-  src: url('/fonts/dukk/lora-latin-400-normal.woff2') format('woff2');
+  src: url('../assets/fonts/dukk/lora-latin-400-normal.woff2') format('woff2');
 }
 
 /*
@@ -34,7 +40,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 500;
-  src: url('/fonts/dukk/lora-latin-500-normal.woff2') format('woff2');
+  src: url('../assets/fonts/dukk/lora-latin-500-normal.woff2') format('woff2');
 }
 
 @font-face {
@@ -42,7 +48,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 400;
-  src: url('/fonts/dukk/quicksand-latin-400-normal.woff2') format('woff2');
+  src: url('../assets/fonts/dukk/quicksand-latin-400-normal.woff2') format('woff2');
 }
 
 @font-face {
@@ -50,7 +56,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 500;
-  src: url('/fonts/dukk/quicksand-latin-500-normal.woff2') format('woff2');
+  src: url('../assets/fonts/dukk/quicksand-latin-500-normal.woff2') format('woff2');
 }
 
 @font-face {
@@ -58,7 +64,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 600;
-  src: url('/fonts/dukk/quicksand-latin-600-normal.woff2') format('woff2');
+  src: url('../assets/fonts/dukk/quicksand-latin-600-normal.woff2') format('woff2');
 }
 
 @font-face {
@@ -66,7 +72,7 @@
   font-style: normal;
   font-display: swap;
   font-weight: 700;
-  src: url('/fonts/dukk/quicksand-latin-700-normal.woff2') format('woff2');
+  src: url('../assets/fonts/dukk/quicksand-latin-700-normal.woff2') format('woff2');
 }
 
 .dukk-ds {

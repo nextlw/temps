@@ -70,6 +70,45 @@ describe('captureReturnTo', () => {
     expect(consumeReturnTo('/dashboard')).toBe('/dashboard')
   })
 
+  /**
+   * The SSO return screen is the sharpest case in this file: `/auth/sso/callback`
+   * is the `return_to` the handoff hands the server, so it IS the current URL at
+   * the moment that screen calls `consumeReturnTo()`. Were it capturable, the
+   * stored destination would be the callback itself and a successful SSO login
+   * would send the operator back to "concluindo acesso" indefinitely.
+   */
+  test('never captures the SSO callback, which would loop the login', () => {
+    setLocation('/auth/sso/callback')
+    captureReturnTo()
+
+    expect(consumeReturnTo('/dashboard')).toBe('/dashboard')
+  })
+
+  // The handoff carries a provider slug, so it cannot be listed exactly --
+  // it is excluded by prefix, and returning to it would restart the SSO
+  // round trip for someone who has already signed in.
+  test.each([
+    '/auth/sso/zitadel-e84d5c97',
+    '/auth/sso/okta-corp',
+  ])('never captures the SSO handoff %s whatever the slug', (path) => {
+    setLocation(path)
+    captureReturnTo()
+
+    expect(consumeReturnTo('/dashboard')).toBe('/dashboard')
+  })
+
+  /**
+   * The prefix must not swallow unrelated routes that merely start with the
+   * same letters. `/auth/ssometrics` is not an auth path, and excluding it
+   * would silently drop a legitimate destination.
+   */
+  test('the SSO prefix does not swallow a route that only looks similar', () => {
+    setLocation('/auth/ssometrics')
+    captureReturnTo()
+
+    expect(consumeReturnTo('/dashboard')).toBe('/auth/ssometrics')
+  })
+
   test('ignores an auth path that carries a query string', () => {
     setLocation('/login?next=%2Fstorage')
     captureReturnTo()
