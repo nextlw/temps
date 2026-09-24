@@ -816,6 +816,27 @@ pub fn build_env_rewrites(
     for record in created {
         if let (Some(source_url), Some(local_url)) = (&record.source_url, &record.local_url) {
             rewrites.push((source_url.clone(), local_url.clone()));
+
+            // The whole-URL swap above only fires when the application happens
+            // to hold the very same connection string the platform reported for
+            // the service — which is the exception, not the rule. An app has its
+            // own role, its own database and often a `?sslmode=`, while the
+            // reported URL is the administrative one. Those strings never match,
+            // so the application kept pointing at the source platform's
+            // container hostname and failed to resolve it once deployed here.
+            //
+            // What actually moves is where the database lives, so the authority
+            // is rewritten too: `host:port` from the source becomes `host:port`
+            // on this instance, leaving credentials, database name and query
+            // untouched. Carrying the port makes the match specific enough not
+            // to disturb an unrelated value that merely mentions the hostname.
+            if let (Some(from), Some(to)) =
+                (url_authority(source_url), url_authority(local_url))
+            {
+                if from != to {
+                    rewrites.push((from, to));
+                }
+            }
         }
     }
 
@@ -830,6 +851,25 @@ pub fn build_env_rewrites(
     }
 
     rewrites
+}
+
+/// The `host:port` of a connection URL, which is the part a migration moves.
+///
+/// Returns `None` when the URL has no host to speak of, so a malformed or
+/// relative value produces no rewrite rather than a nonsense one. The port is
+/// included whenever the URL states it: a bare hostname is a far broader match,
+/// and an env var that merely mentions the old host in prose should not be
+/// quietly edited.
+fn url_authority(raw: &str) -> Option<String> {
+    let parsed = url::Url::parse(raw).ok()?;
+    let host = parsed.host_str()?;
+    if host.is_empty() {
+        return None;
+    }
+    Some(match parsed.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_string(),
+    })
 }
 
 /// Annotate skipped (source-generated, IP-tied) domains with the temps-side
@@ -1073,6 +1113,82 @@ mod tests {
         assert!(dump_restore_command("mariadb").is_some());
         assert!(dump_restore_command("mongodb").is_some());
         assert!(dump_restore_command("redis").is_none());
+    }
+
+    /// The case that actually arrives, and the one the whole-URL swap misses.
+    ///
+    /// The platform reports a service's *administrative* connection string, but
+    /// the application holds its own: its own role, its own database, usually a
+    /// `?sslmode=`. Those two strings never match, so before the authority
+    /// rewrite the application kept the source platform's container hostname and
+    /// could not resolve it once deployed here — the container started, failed
+    /// to reach a database that does not exist on this host, and the deploy
+    /// timed out on connectivity with nothing in the plan admitting it.
+    #[test]
+    fn rewrites_an_application_dsn_that_differs_from_the_reported_one() {
+        let reported = "postgres://postgres:admin@s12siyluhg8oa0l7u5g77u4c:5432/postgres";
+        let app_dsn = "postgres://crm:apppw@s12siyluhg8oa0l7u5g77u4c:5432/crm?sslmode=disable";
+        let mut plan = plan_with(vec![("DATABASE_URL", app_dsn)], "app.1.2.3.4.sslip.io");
+        let created = vec![record(
+            reported,
+            "postgres://postgres:new@postgres-sistema-interno-crm-db:5432/postgres",
+        )];
+
+        let rewrites = build_env_rewrites(&plan, &created, "app.preview.temps.dev");
+        assert_eq!(apply_env_rewrites(&mut plan, &rewrites), 1);
+
+        // Host moved; role, password, database and query are the app's and stay.
+        assert_eq!(
+            plan.deployment.env_vars[0].value,
+            "postgres://crm:apppw@postgres-sistema-interno-crm-db:5432/crm?sslmode=disable"
+        );
+    }
+
+    /// The whole-URL rewrite still wins when it applies: `apply_env_rewrites`
+    /// tries longer patterns first, so an app that does hold the reported string
+    /// gets the complete new URL — credentials included — rather than only its
+    /// host swapped.
+    #[test]
+    fn the_whole_url_rewrite_still_takes_precedence_over_the_authority() {
+        let reported = "postgres://postgres:admin@old-host:5432/postgres";
+        let mut plan = plan_with(vec![("DATABASE_URL", reported)], "app.1.2.3.4.sslip.io");
+        let created = vec![record(reported, "postgres://lab:new@new-host:15001/lab")];
+
+        let rewrites = build_env_rewrites(&plan, &created, "app.preview.temps.dev");
+        apply_env_rewrites(&mut plan, &rewrites);
+
+        assert_eq!(
+            plan.deployment.env_vars[0].value,
+            "postgres://lab:new@new-host:15001/lab"
+        );
+    }
+
+    /// The port keeps the match specific. A value that merely mentions the old
+    /// hostname without the port is prose, not a connection string, and editing
+    /// it would be an unannounced change to something the operator wrote.
+    #[test]
+    fn a_bare_mention_of_the_old_host_is_left_alone() {
+        let reported = "postgres://postgres:admin@old-host:5432/postgres";
+        let mut plan = plan_with(
+            vec![
+                ("DATABASE_URL", "postgres://crm:pw@old-host:5432/crm"),
+                ("NOTE", "migrated away from old-host in september"),
+            ],
+            "app.1.2.3.4.sslip.io",
+        );
+        let created = vec![record(reported, "postgres://postgres:new@new-host:5432/postgres")];
+
+        let rewrites = build_env_rewrites(&plan, &created, "app.preview.temps.dev");
+        assert_eq!(apply_env_rewrites(&mut plan, &rewrites), 1);
+
+        assert_eq!(
+            plan.deployment.env_vars[0].value,
+            "postgres://crm:pw@new-host:5432/crm"
+        );
+        assert_eq!(
+            plan.deployment.env_vars[1].value,
+            "migrated away from old-host in september"
+        );
     }
 
     #[test]
