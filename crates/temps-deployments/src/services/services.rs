@@ -429,6 +429,32 @@ fn deployment_url_from_settings(
     }
 }
 
+/// Give a bare hostname the scheme and port of `reference`.
+///
+/// Bound hostnames and custom domains are stored without a scheme, but they are
+/// served by the very same proxy as the generated environment URL, so that URL
+/// is the authority on how this instance is reached. Assuming `https` instead
+/// would hand an HTTP-only install a dead link, and dropping a non-default port
+/// would point at whatever else listens on 80.
+///
+/// A value that already carries a scheme is returned untouched -- it is not
+/// this function's job to rewrite an operator's explicit choice -- and so is one
+/// whose reference cannot be parsed, since the console normalizes bare
+/// hostnames on its own.
+fn absolutize_like(reference: &str, domain: &str) -> String {
+    if domain.contains("://") {
+        return domain.to_string();
+    }
+    let Ok(parsed) = url::Url::parse(reference) else {
+        return domain.to_string();
+    };
+    let scheme = parsed.scheme();
+    match parsed.port() {
+        Some(port) => format!("{scheme}://{domain}:{port}"),
+        None => format!("{scheme}://{domain}"),
+    }
+}
+
 impl DeploymentService {
     /// Return the currently served deployment media for each requested project.
     ///
@@ -3944,7 +3970,7 @@ impl DeploymentService {
         &self,
         environment_ids: &[i32],
     ) -> Result<HashMap<i32, DeploymentEnvironment>, DeploymentError> {
-        use temps_entities::{environments, project_custom_domains, projects};
+        use temps_entities::{environment_domains, environments, project_custom_domains, projects};
 
         if environment_ids.is_empty() {
             return Ok(HashMap::new());
@@ -3956,6 +3982,24 @@ impl DeploymentService {
             .find_also_related(projects::Entity)
             .all(self.db.as_ref())
             .await?;
+
+        // Domains the operator bound to the environment. This is the table the
+        // proxy routes on, so a hostname here is reachable by definition --
+        // which is exactly what "Visit" needs and what the generated preview
+        // URL below cannot promise.
+        let bound_domains = environment_domains::Entity::find()
+            .filter(environment_domains::Column::EnvironmentId.is_in(environment_ids.to_vec()))
+            .order_by_asc(environment_domains::Column::Id)
+            .all(self.db.as_ref())
+            .await?;
+
+        let mut bound_by_env: HashMap<i32, Vec<String>> = HashMap::new();
+        for domain in bound_domains {
+            bound_by_env
+                .entry(domain.environment_id)
+                .or_default()
+                .push(domain.domain);
+        }
 
         // Fetch all custom domains for these environments
         let custom_domains = project_custom_domains::Entity::find()
@@ -3976,7 +4020,7 @@ impl DeploymentService {
         // Build the result map
         let mut result = HashMap::new();
         for (env, _project) in environments {
-            let mut domains = domains_by_env.remove(&env.id).unwrap_or_default();
+            let custom = domains_by_env.remove(&env.id).unwrap_or_default();
 
             // Build the environment URL from the env's stored `subdomain`
             // (the canonical hostname source). Reconstructing from project_slug
@@ -3986,7 +4030,35 @@ impl DeploymentService {
                 .compute_environment_url(&env.subdomain)
                 .await
                 .unwrap_or_else(|_| format!("http://{}.localhost", env.subdomain));
-            domains.insert(0, env_url);
+
+            // Bound hostnames and custom domains are stored bare, so they
+            // inherit the scheme and port of the generated URL: both are served
+            // by the same proxy, and hardcoding https would produce a dead link
+            // on an HTTP-only install.
+            let bound = bound_by_env
+                .remove(&env.id)
+                .unwrap_or_default()
+                .into_iter()
+                // The row equal to `subdomain` is the auto-managed one, which is
+                // what `env_url` is already built from -- keeping it would list
+                // the same host twice, once without the preview domain.
+                .filter(|domain| *domain != env.subdomain);
+
+            // Ordered most-stable-first: `domains[0]` is what the console links
+            // to. An explicitly bound hostname beats the generated preview URL,
+            // which only resolves where the operator set up wildcard DNS for
+            // `preview_domain` -- on a default install it still says
+            // `localho.st` and points at the visitor's own machine.
+            let mut domains: Vec<String> = Vec::new();
+            for domain in bound.chain(custom) {
+                let domain = absolutize_like(&env_url, &domain);
+                if !domains.contains(&domain) {
+                    domains.push(domain);
+                }
+            }
+            if !domains.contains(&env_url) {
+                domains.push(env_url);
+            }
 
             result.insert(
                 env.id,
@@ -5423,6 +5495,52 @@ mod tests {
 
     use std::sync::Arc;
     use temps_core::EncryptionService;
+
+    #[test]
+    fn bound_domain_inherits_scheme_and_port_of_the_generated_url() {
+        // The proxy that serves the generated environment URL is the same one
+        // that serves a bound hostname, so its scheme is the honest answer for
+        // both. Hardcoding https here is what produces a dead "Visit" link on
+        // an HTTP-only install.
+        assert_eq!(
+            absolutize_like("http://app-production.localho.st", "portal.example.com"),
+            "http://portal.example.com"
+        );
+        assert_eq!(
+            absolutize_like("https://app-production.example.com", "portal.example.com"),
+            "https://portal.example.com"
+        );
+    }
+
+    #[test]
+    fn bound_domain_keeps_a_non_default_proxy_port() {
+        // A local install reached on :8080 serves bound hostnames there too;
+        // dropping the port would link to whatever else listens on 80.
+        assert_eq!(
+            absolutize_like("http://app-production.localho.st:8080", "portal.example.com"),
+            "http://portal.example.com:8080"
+        );
+    }
+
+    #[test]
+    fn absolutize_like_leaves_an_explicit_scheme_alone() {
+        // An operator who stored a full URL already decided how it is reached.
+        assert_eq!(
+            absolutize_like("https://app.example.com", "http://legacy.example.com"),
+            "http://legacy.example.com"
+        );
+    }
+
+    #[test]
+    fn absolutize_like_passes_the_domain_through_when_the_reference_is_unusable() {
+        // `compute_environment_url` has a non-URL fallback path, and the
+        // console normalizes a bare hostname on its own — so an unparseable
+        // reference must not cost us the domain entirely.
+        assert_eq!(
+            absolutize_like("not a url", "portal.example.com"),
+            "portal.example.com"
+        );
+    }
 
     #[test]
     fn archive_cleanup_paths_are_lexically_confined() {

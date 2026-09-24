@@ -9,8 +9,10 @@ import type { DeploymentResponse } from '@/api/client'
  *
  * A deployment's own `url` is derived from its slug (`{project}-{n}`), so it is
  * ephemeral: it changes on every deploy and points at that specific build. The
- * environment's stable URL comes through `environment.domains` (`domains[0]` is
- * the env URL, followed by any active custom domains).
+ * environment's stable URL comes through `environment.domains`, which the
+ * backend orders most-stable-first: hostnames the operator actually bound to
+ * the environment, then active custom domains, and the generated preview URL
+ * last as the fallback for an environment with nothing bound.
  *
  * The current deployment is the one actually served at the environment's stable
  * domain, so surface that; older deployments have no stable domain of their own
