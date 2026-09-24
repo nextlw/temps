@@ -36,6 +36,16 @@ interface InfraLoginFormProps {
    */
   externalError?: string | null
   passwordResetAvailable?: boolean
+  /**
+   * Whether the server will accept an email + password login at all. Comes from
+   * `/auth/email-status`, computed by the same function as the server's gate, so
+   * the form never offers a credential that is about to be refused.
+   *
+   * False collapses the screen to the SSO button alone. That is presentation —
+   * the control is the server refusing the credential; a hidden field stops
+   * nobody who can post to the endpoint.
+   */
+  passwordLoginEnabled?: boolean
 }
 
 export function InfraLoginForm({
@@ -44,6 +54,7 @@ export function InfraLoginForm({
   oidcProviders = [],
   externalError = null,
   passwordResetAvailable = false,
+  passwordLoginEnabled = true,
 }: InfraLoginFormProps) {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -117,8 +128,9 @@ export function InfraLoginForm({
             color: 'rgb(var(--c-ink-3))',
           }}
         >
-          Use as credenciais fornecidas pela sua empresa ou continue com o SSO
-          corporativo.
+          {passwordLoginEnabled
+            ? 'Use as credenciais fornecidas pela sua empresa ou continue com o SSO corporativo.'
+            : 'O acesso a este portal é feito pelo SSO corporativo da sua empresa.'}
         </p>
       </div>
 
@@ -155,169 +167,174 @@ export function InfraLoginForm({
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '16px' }}>
-          <label htmlFor="dukk-login-email" style={labelStyle}>
-            E-mail corporativo
-          </label>
-          <input
-            id="dukk-login-email"
-            type="email"
-            value={email}
-            placeholder="voce@suaempresa.com"
-            autoComplete="username"
-            disabled={isLoading}
-            style={inputStyle}
-            onChange={(e) => {
-              setEmail(e.target.value)
-              setFormError('')
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: '6px',
-            }}
-          >
-            <label
-              htmlFor="dukk-login-password"
-              style={{
-                fontSize: '12px',
-                fontWeight: 600,
-                color: 'rgb(var(--c-ink-2))',
-              }}
-            >
-              Senha
+      {passwordLoginEnabled && (
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '16px' }}>
+            <label htmlFor="dukk-login-email" style={labelStyle}>
+              E-mail corporativo
             </label>
-            {passwordResetAvailable && (
-              <button
-                type="button"
-                style={{
-                  border: 0,
-                  background: 'transparent',
-                  padding: 0,
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: 'rgb(var(--c-lime-fg))',
-                  cursor: 'pointer',
-                  fontFamily: 'var(--font-body)',
-                }}
-                onClick={() => navigate('/forgot-password')}
-              >
-                Esqueceu a senha?
-              </button>
-            )}
-          </div>
-          <div style={{ position: 'relative' }}>
             <input
-              id="dukk-login-password"
-              type={passwordVisible ? 'text' : 'password'}
-              value={password}
-              placeholder="••••••••"
-              autoComplete="current-password"
+              id="dukk-login-email"
+              type="email"
+              value={email}
+              placeholder="voce@suaempresa.com"
+              autoComplete="username"
               disabled={isLoading}
-              style={{ ...inputStyle, padding: '11px 40px 11px 13px' }}
+              style={inputStyle}
               onChange={(e) => {
-                setPassword(e.target.value)
+                setEmail(e.target.value)
                 setFormError('')
               }}
             />
-            <button
-              type="button"
-              title="Mostrar/ocultar senha"
-              aria-label="Mostrar/ocultar senha"
-              style={{
-                position: 'absolute',
-                right: '6px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                border: 0,
-                background: 'transparent',
-                color: 'rgb(var(--c-ink-3))',
-                cursor: 'pointer',
-                padding: '6px',
-                display: 'grid',
-                placeItems: 'center',
-                borderRadius: '6px',
-              }}
-              onClick={() => setPasswordVisible((v) => !v)}
-            >
-              {passwordVisible ? (
-                <EyeOff width={16} height={16} color="currentColor" />
-              ) : (
-                <Eye width={16} height={16} color="currentColor" />
-              )}
-            </button>
           </div>
-        </div>
 
-        <label
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            margin: '14px 0 22px',
-            cursor: 'pointer',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={remember}
+          <div style={{ marginBottom: '10px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: '6px',
+              }}
+            >
+              <label
+                htmlFor="dukk-login-password"
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: 'rgb(var(--c-ink-2))',
+                }}
+              >
+                Senha
+              </label>
+              {passwordResetAvailable && (
+                <button
+                  type="button"
+                  style={{
+                    border: 0,
+                    background: 'transparent',
+                    padding: 0,
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    color: 'rgb(var(--c-lime-fg))',
+                    cursor: 'pointer',
+                    fontFamily: 'var(--font-body)',
+                  }}
+                  onClick={() => navigate('/forgot-password')}
+                >
+                  Esqueceu a senha?
+                </button>
+              )}
+            </div>
+            <div style={{ position: 'relative' }}>
+              <input
+                id="dukk-login-password"
+                type={passwordVisible ? 'text' : 'password'}
+                value={password}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                disabled={isLoading}
+                style={{ ...inputStyle, padding: '11px 40px 11px 13px' }}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setFormError('')
+                }}
+              />
+              <button
+                type="button"
+                title="Mostrar/ocultar senha"
+                aria-label="Mostrar/ocultar senha"
+                style={{
+                  position: 'absolute',
+                  right: '6px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  border: 0,
+                  background: 'transparent',
+                  color: 'rgb(var(--c-ink-3))',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  display: 'grid',
+                  placeItems: 'center',
+                  borderRadius: '6px',
+                }}
+                onClick={() => setPasswordVisible((v) => !v)}
+              >
+                {passwordVisible ? (
+                  <EyeOff width={16} height={16} color="currentColor" />
+                ) : (
+                  <Eye width={16} height={16} color="currentColor" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <label
             style={{
-              width: '15px',
-              height: '15px',
-              accentColor: 'rgb(var(--c-lime))',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              margin: '14px 0 22px',
               cursor: 'pointer',
             }}
-            onChange={(e) => setRemember(e.target.checked)}
-          />
-          <span style={{ fontSize: '13px', color: 'rgb(var(--c-ink-2))' }}>
-            Manter conectado neste dispositivo
-          </span>
-        </label>
-
-        <button
-          type="submit"
-          disabled={isLoading}
-          style={{
-            width: '100%',
-            boxSizing: 'border-box',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            border: 0,
-            background: 'rgb(var(--c-lime))',
-            color: 'rgb(var(--c-on-lime))',
-            padding: '12px 16px',
-            borderRadius: '8px',
-            fontFamily: 'var(--font-body)',
-            fontSize: '14.5px',
-            fontWeight: 700,
-            cursor: isLoading ? 'default' : 'pointer',
-            opacity: isLoading ? 0.7 : 1,
-          }}
-        >
-          {isLoading && (
-            <Loader2
-              className="dukk-spin"
-              width={16}
-              height={16}
-              color="currentColor"
-              aria-hidden="true"
+          >
+            <input
+              type="checkbox"
+              checked={remember}
+              style={{
+                width: '15px',
+                height: '15px',
+                accentColor: 'rgb(var(--c-lime))',
+                cursor: 'pointer',
+              }}
+              onChange={(e) => setRemember(e.target.checked)}
             />
-          )}
-          {isLoading ? 'Entrando…' : 'Entrar'}
-        </button>
-      </form>
+            <span style={{ fontSize: '13px', color: 'rgb(var(--c-ink-2))' }}>
+              Manter conectado neste dispositivo
+            </span>
+          </label>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              border: 0,
+              background: 'rgb(var(--c-lime))',
+              color: 'rgb(var(--c-on-lime))',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              fontFamily: 'var(--font-body)',
+              fontSize: '14.5px',
+              fontWeight: 700,
+              cursor: isLoading ? 'default' : 'pointer',
+              opacity: isLoading ? 0.7 : 1,
+            }}
+          >
+            {isLoading && (
+              <Loader2
+                className="dukk-spin"
+                width={16}
+                height={16}
+                color="currentColor"
+                aria-hidden="true"
+              />
+            )}
+            {isLoading ? 'Entrando…' : 'Entrar'}
+          </button>
+        </form>
+      )}
 
       {provider && (
         <>
+          {/* Sem o formulário acima não há duas opções para separar — o
+              divisor viraria uma linha solta sobre o único caminho. */}
+          {passwordLoginEnabled && (
           <div
             style={{
               display: 'flex',
@@ -352,7 +369,11 @@ export function InfraLoginForm({
               }}
             />
           </div>
+          )}
 
+          {/* Quando é a única via, o SSO assume o peso visual da ação
+              principal. Um botão de contorno sozinho na tela lê como
+              secundário — ou como desabilitado. */}
           <button
             type="button"
             disabled={isLoading}
@@ -363,14 +384,18 @@ export function InfraLoginForm({
               alignItems: 'center',
               justifyContent: 'center',
               gap: '9px',
-              border: '1px solid rgb(var(--c-line))',
-              background: 'rgb(var(--c-paper))',
-              color: 'rgb(var(--c-ink))',
-              padding: '11px 16px',
+              border: passwordLoginEnabled ? '1px solid rgb(var(--c-line))' : 0,
+              background: passwordLoginEnabled
+                ? 'rgb(var(--c-paper))'
+                : 'rgb(var(--c-lime))',
+              color: passwordLoginEnabled
+                ? 'rgb(var(--c-ink))'
+                : 'rgb(var(--c-on-lime))',
+              padding: passwordLoginEnabled ? '11px 16px' : '12px 16px',
               borderRadius: '8px',
               fontFamily: 'var(--font-body)',
-              fontSize: '14px',
-              fontWeight: 600,
+              fontSize: passwordLoginEnabled ? '14px' : '14.5px',
+              fontWeight: passwordLoginEnabled ? 600 : 700,
               cursor: 'pointer',
             }}
             onClick={() =>
@@ -381,6 +406,32 @@ export function InfraLoginForm({
             Continuar com SSO corporativo
           </button>
         </>
+      )}
+
+      {/*
+        Sem senha e sem provedor não há caminho nenhum. O servidor não produz
+        esse estado — a política só vale enquanto existe um provedor habilitado,
+        justamente para a instância nunca ficar sem entrada —, mas uma resposta
+        antiga ou truncada produziria a tela em branco, e uma tela em branco é
+        indistinguível de um portal fora do ar. Então ela diz o que aconteceu e
+        para quem falar.
+      */}
+      {!passwordLoginEnabled && !provider && (
+        <div
+          role="alert"
+          style={{
+            border: '1px solid rgb(var(--c-line))',
+            background: 'rgb(var(--c-paper))',
+            borderRadius: '10px',
+            padding: '14px 16px',
+            fontSize: '13px',
+            lineHeight: 1.55,
+            color: 'rgb(var(--c-ink-2))',
+          }}
+        >
+          O login por senha está desativado e nenhum provedor de SSO está
+          disponível neste portal. Contate o administrador da infraestrutura.
+        </div>
       )}
 
       {/*
