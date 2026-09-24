@@ -280,6 +280,12 @@ const ForgotPassword = lazy(() =>
 const ResetPassword = lazy(() =>
   import('./pages/ResetPassword').then((m) => ({ default: m.ResetPassword }))
 )
+const SsoHandoff = lazy(() =>
+  import('./pages/SsoHandoff').then((m) => ({ default: m.SsoHandoff }))
+)
+const SsoCallback = lazy(() =>
+  import('./pages/SsoCallback').then((m) => ({ default: m.SsoCallback }))
+)
 const RequiredPasswordChange = lazy(() =>
   import('./pages/RequiredPasswordChange').then((m) => ({
     default: m.RequiredPasswordChange,
@@ -1047,6 +1053,13 @@ const AppContent = () => {
                   path="/auth/change-password"
                   element={<RequiredPasswordChange />}
                 />
+                {/* Trajeto do SSO, no design system do Dukk: o handoff para o
+                    IdP e o retorno do callback. Ambas públicas — o handoff roda
+                    antes de existir sessão, e o retorno roda no instante em que
+                    ela acabou de nascer, quando exigir autenticação criaria uma
+                    corrida com o próprio refetch que a tela dispara. */}
+                <Route path="/auth/sso/callback" element={<SsoCallback />} />
+                <Route path="/auth/sso/:slug" element={<SsoHandoff />} />
 
                 {/* Protected routes - layout determined by demo mode */}
                 <Route

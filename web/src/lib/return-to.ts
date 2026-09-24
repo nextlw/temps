@@ -23,11 +23,27 @@ const AUTH_PATHS = new Set([
   '/login',
   '/forgot-password',
   '/auth/reset-password',
+  /*
+   * Trajeto do SSO. `/auth/sso/callback` é o que mais importa: é o `return_to`
+   * que a tela de handoff entrega ao servidor, então ele É a URL corrente
+   * enquanto a própria tela chama `consumeReturnTo()`. Sem esta entrada, uma
+   * captura feita ali guardaria o callback como destino e o login terminaria
+   * voltando para a tela de "concluindo acesso" em loop.
+   */
+  '/auth/sso/callback',
 ])
+
+/**
+ * O handoff é `/auth/sso/{slug}`, com um segmento variável — não dá para
+ * enumerá-lo no conjunto acima. Ele é tão inválido como destino pós-login
+ * quanto o callback: voltar para lá reiniciaria o SSO de quem já entrou.
+ */
+const AUTH_PREFIXES = ['/auth/sso/']
 
 function isAuthPath(path: string): boolean {
   const pathname = path.split('?')[0]?.split('#')[0] ?? path
-  return AUTH_PATHS.has(pathname)
+  if (AUTH_PATHS.has(pathname)) return true
+  return AUTH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
 export function captureReturnTo(): void {
