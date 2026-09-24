@@ -8094,6 +8094,15 @@ export type EmailStatsResponse = {
 export type EmailStatusResponse = {
     email_configured: boolean;
     oidc_providers: Array<OidcProviderSummary>;
+    /**
+     * Whether the login page should offer the email + password fields.
+     *
+     * Computed by the same function the login gate uses
+     * ([`password_login_permitted`]), so the page never offers a credential
+     * the server is going to refuse. It is presentation only — hiding the
+     * fields is not the control; the server refusing them is.
+     */
+    password_login_enabled: boolean;
     password_reset_available: boolean;
 };
 

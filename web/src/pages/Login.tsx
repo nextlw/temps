@@ -148,6 +148,13 @@ export const Login = () => {
         oidcProviders={emailStatus?.oidc_providers ?? []}
         externalError={oidcError}
         passwordResetAvailable={emailStatus?.password_reset_available ?? false}
+        /*
+         * Defaults to `true` while the query is in flight and if an older
+         * server omits the field. Erring the other way would flash an
+         * SSO-only screen at an instance that accepts passwords, and on a
+         * server without SSO configured that screen has no way in at all.
+         */
+        passwordLoginEnabled={emailStatus?.password_login_enabled ?? true}
       />
     </DukkAuthShell>
   )
