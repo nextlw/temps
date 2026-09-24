@@ -58,7 +58,12 @@ pub struct CoolifyApplication {
     pub git_branch: Option<String>,
     #[serde(default)]
     pub build_pack: Option<String>,
-    /// Set when the repository needs an SSH deploy key — null means public
+    /// Set when the repository is cloned with an SSH deploy key.
+    ///
+    /// Null does NOT mean the repository is public: an app wired through
+    /// Coolify's GitHub App integration clones a private repository with no
+    /// deploy key at all. Reading this field as a visibility signal is what
+    /// produced import plans that called private repositories public.
     #[serde(default)]
     pub private_key_id: Option<i64>,
     /// Full URL(s); Coolify separates multiple domains with commas
@@ -175,13 +180,49 @@ pub struct CoolifyEnvVar {
 }
 
 impl CoolifyEnvVar {
-    /// The value to migrate: prefer the resolved value.
+    /// The value to migrate: prefer the resolved value, unquoted.
     pub fn effective_value(&self) -> &str {
-        self.real_value
-            .as_deref()
-            .or(self.value.as_deref())
-            .unwrap_or("")
+        unwrap_quoted(
+            self.real_value
+                .as_deref()
+                .or(self.value.as_deref())
+                .unwrap_or(""),
+        )
     }
+}
+
+/// Strip the quotes Coolify stores around a value.
+///
+/// Coolify keeps environment values in `.env` syntax, so the API hands back
+/// `'production'` and `'postgres://user:pw@host/db'` — quotes included. Copied
+/// verbatim they reach the container as part of the value, and the failure is
+/// silent and misleading: a Go service reading a quoted `DATABASE_URL` does not
+/// report a bad URL, it falls through to libpq's defaults and dies trying to
+/// reach a unix socket as the wrong user. Numeric values happen to survive
+/// because Coolify stores them bare, which makes the broken ones look arbitrary.
+///
+/// Only an actual quoted literal is unwrapped: the same quote character on both
+/// ends, and no occurrence of it in between. A value that contains its own quote
+/// is left exactly as it was — a passphrase ending in an apostrophe is not a
+/// quoted literal, and mangling it would be worse than the quotes.
+fn unwrap_quoted(raw: &str) -> &str {
+    let bytes = raw.as_bytes();
+    if bytes.len() < 2 {
+        return raw;
+    }
+
+    let quote = bytes[0];
+    if (quote != b'\'' && quote != b'"') || bytes[bytes.len() - 1] != quote {
+        return raw;
+    }
+
+    // Both quotes are ASCII, so these indices are always char boundaries.
+    let inner = &raw[1..raw.len() - 1];
+    if inner.as_bytes().contains(&quote) {
+        return raw;
+    }
+
+    inner
 }
 
 #[cfg(test)]
@@ -242,6 +283,90 @@ mod tests {
         assert_eq!(env.key, "NIXPACKS_NODE_VERSION");
         assert_eq!(env.effective_value(), "22");
         assert!(!env.is_shown_once);
+    }
+
+    /// The bug this fixes, as it actually arrived: Coolify hands back `.env`
+    /// syntax, so the value carries its own quotes. Copied verbatim they became
+    /// part of the value inside the container, and a Go service reading a quoted
+    /// `DATABASE_URL` did not report a bad URL — it fell through to libpq's
+    /// defaults and died reaching for a unix socket as the wrong user.
+    #[test]
+    fn a_quoted_value_arrives_unquoted() {
+        let quoted = |raw: &str| CoolifyEnvVar {
+            key: "K".to_string(),
+            value: Some(raw.to_string()),
+            real_value: None,
+            is_preview: false,
+            is_shown_once: false,
+            is_coolify: false,
+        };
+
+        assert_eq!(quoted("'production'").effective_value(), "production");
+        assert_eq!(
+            quoted("'postgres://crm:pw@db:5432/crm'").effective_value(),
+            "postgres://crm:pw@db:5432/crm"
+        );
+        assert_eq!(quoted("\"15m\"").effective_value(), "15m");
+        // Bare values were never broken and must stay untouched, which is why
+        // the numeric ones survived and made the failures look arbitrary.
+        assert_eq!(quoted("8080").effective_value(), "8080");
+    }
+
+    /// Only a real quoted literal is unwrapped. A value containing its own
+    /// quote is not one, and stripping its ends would silently corrupt a
+    /// credential — a worse outcome than leaving the quotes on.
+    #[test]
+    fn a_value_holding_its_own_quote_is_left_alone() {
+        let raw = |v: &str| CoolifyEnvVar {
+            key: "K".to_string(),
+            value: Some(v.to_string()),
+            real_value: None,
+            is_preview: false,
+            is_shown_once: false,
+            is_coolify: false,
+        };
+
+        // Opens and closes with a quote, but holds one too: not a literal.
+        assert_eq!(raw("'it's'").effective_value(), "'it's'");
+        // Mismatched ends.
+        assert_eq!(raw("'mixed\"").effective_value(), "'mixed\"");
+        // Only one end quoted.
+        assert_eq!(raw("'half").effective_value(), "'half");
+        assert_eq!(raw("half'").effective_value(), "half'");
+        // Degenerate inputs must not panic or over-trim.
+        assert_eq!(raw("'").effective_value(), "'");
+        assert_eq!(raw("''").effective_value(), "");
+        assert_eq!(raw("").effective_value(), "");
+    }
+
+    /// Unwrapping happens after the resolved value wins, so a templated value
+    /// Coolify expanded is unquoted too rather than only the raw one.
+    #[test]
+    fn the_resolved_value_is_unquoted_as_well() {
+        let env = CoolifyEnvVar {
+            key: "K".to_string(),
+            value: Some("'{{team.DB}}'".to_string()),
+            real_value: Some("'postgres://resolved'".to_string()),
+            is_preview: false,
+            is_shown_once: false,
+            is_coolify: false,
+        };
+        assert_eq!(env.effective_value(), "postgres://resolved");
+    }
+
+    /// Multi-byte content must survive: the quotes are ASCII, but what they
+    /// wrap need not be, and slicing on the wrong boundary would panic.
+    #[test]
+    fn a_quoted_value_with_multibyte_content_is_unwrapped_safely() {
+        let env = CoolifyEnvVar {
+            key: "K".to_string(),
+            value: Some("'produção — ção'".to_string()),
+            real_value: None,
+            is_preview: false,
+            is_shown_once: false,
+            is_coolify: false,
+        };
+        assert_eq!(env.effective_value(), "produção — ção");
     }
 
     #[test]

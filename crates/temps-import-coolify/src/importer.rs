@@ -354,11 +354,22 @@ fn deployment_config(snapshot: &WorkloadSnapshot) -> DeploymentConfiguration {
             repo: info.repo,
             branch: info.default_branch,
             clone_url: info.clone_url,
-            is_public: snapshot
-                .source_metadata
-                .get("private_key_id")
-                .map(|v| v.is_null())
-                .unwrap_or(true),
+            // Coolify does not report repository visibility, and the absence of
+            // a deploy key does not imply it: an app wired through Coolify's
+            // GitHub App integration clones a private repository with no
+            // `private_key_id` at all. Reading that absence as "public" is what
+            // produced a plan claiming a private repository was public, and the
+            // import then died at the first job with "Failed to clone public
+            // repository".
+            //
+            // Unknown resolves to private because the two failures are not
+            // equally costly. Assuming private when the repository is public
+            // asks the operator to attach a git connection they may not have
+            // needed — a connection that clones public repositories perfectly
+            // well. Assuming public when it is private fails the clone, and
+            // says the repository is public while explaining that it could not
+            // be read, which sends the reader looking in the wrong place.
+            is_public: false,
         });
 
     let ports: Vec<PortMapping> = {
@@ -1659,13 +1670,20 @@ mod tests {
         assert_eq!(plan.project.project_type, ProjectType::Git);
 
         // The plan carries the git source so execution can link the project
-        // and run the real deployment pipeline (short form implies GitHub,
-        // no private key means public).
+        // and run the real deployment pipeline (short form implies GitHub).
         let git = plan.deployment.git.as_ref().expect("git source in plan");
         assert_eq!(git.owner, "heroku");
         assert_eq!(git.repo, "node-js-getting-started");
         assert_eq!(git.branch, "main");
-        assert!(git.is_public);
+        // Not public. This assertion used to read `assert!(git.is_public)`,
+        // pinning an inference that Coolify never supported: the fixture has no
+        // `private_key_id`, which was taken to mean the repository is public. An
+        // app cloned through Coolify's GitHub App integration has no deploy key
+        // either, so a private repository imported as public and the run died at
+        // the first job with "Failed to clone public repository". Unknown
+        // visibility now resolves to private — an unnecessary git connection is
+        // a smaller cost than a clone that fails while claiming to be public.
+        assert!(!git.is_public);
         assert_eq!(
             git.clone_url.as_deref(),
             Some("https://github.com/heroku/node-js-getting-started.git")
