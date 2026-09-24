@@ -196,6 +196,39 @@ impl From<&DockerUnavailable> for Problem {
     }
 }
 
+/// Does this error say the resource we asked Docker to create is already
+/// there?
+///
+/// Every `ensure_*_exists` helper in this workspace lists first and creates
+/// only when the listing came back without the resource. That is a
+/// check-then-act: between the list and the create, another caller can create
+/// it, and the loser of that race gets 409 from the daemon. Reporting 409 as a
+/// failure makes a function documented as idempotent fail in precisely the
+/// case where it was idempotent — the resource exists, which is the state the
+/// caller asked for.
+///
+/// Two concurrent deployments are enough to reach it, so it is a production
+/// race and not a test artifact. It is a predicate rather than three copies of
+/// a match arm because the three call sites
+/// (`temps-providers::utils::ensure_network_exists`,
+/// `DockerDeployer::ensure_network_exists` and
+/// `ComposeDeployer::ensure_temps_network_exists`) duplicated the defect along
+/// with the code, and a single predicate is the only shape in which fixing one
+/// fixes all of them.
+///
+/// Deliberately narrow: only 409 from the daemon counts. A 500 is the daemon
+/// failing, and swallowing it would turn "the network could not be created"
+/// into a silent success — the opposite defect, and a worse one.
+pub fn is_already_exists(error: &bollard::errors::Error) -> bool {
+    matches!(
+        error,
+        bollard::errors::Error::DockerResponseServerError {
+            status_code: 409,
+            ..
+        }
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -292,5 +325,63 @@ mod tests {
         assert!(handle.get().is_some());
         assert!(handle.unavailable_error().is_none());
         assert!(handle.require().is_ok());
+    }
+
+    /// The whole point of the predicate: the create lost a race and the
+    /// resource is there. Without this arm the caller reports failure for the
+    /// state it asked for.
+    #[test]
+    fn conflict_from_the_daemon_means_it_already_exists() {
+        let conflict = bollard::errors::Error::DockerResponseServerError {
+            status_code: 409,
+            message: "network with name temps-network already exists".to_string(),
+        };
+
+        assert!(
+            is_already_exists(&conflict),
+            "409 is the daemon saying the resource is already there; \
+             treating it as a failure is the bug this predicate exists to fix"
+        );
+    }
+
+    /// The guard that keeps the fix from becoming a worse bug. A daemon that
+    /// failed to create the network must still fail the deploy: swallowing it
+    /// would report success for a network that does not exist, and the
+    /// containers would come up unreachable with nothing in the logs.
+    #[test]
+    fn a_server_failure_is_not_an_already_exists() {
+        for status_code in [400_u16, 403, 404, 408, 500, 503] {
+            let error = bollard::errors::Error::DockerResponseServerError {
+                status_code,
+                message: format!("daemon returned {status_code}"),
+            };
+
+            assert!(
+                !is_already_exists(&error),
+                "HTTP {status_code} is not the daemon reporting an existing \
+                 resource; accepting it would turn a real failure into a \
+                 silent success"
+            );
+        }
+    }
+
+    /// A transport failure never reached the daemon, so it says nothing about
+    /// whether the resource exists. Matching on the variant — not on some
+    /// substring of the rendered message — is what makes this hold.
+    #[test]
+    fn an_error_that_never_reached_the_daemon_is_not_an_already_exists() {
+        let io = bollard::errors::Error::IOError {
+            err: std::io::Error::other("connection refused"),
+        };
+        assert!(!is_already_exists(&io));
+
+        let stream = bollard::errors::Error::DockerStreamError {
+            error: "409 already exists".to_string(),
+        };
+        assert!(
+            !is_already_exists(&stream),
+            "the message carries '409' but the error is not a daemon response; \
+             a substring match would wrongly accept this"
+        );
     }
 }

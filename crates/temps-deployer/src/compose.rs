@@ -6075,16 +6075,11 @@ impl ComposeExecutor {
             .await
         {
             Ok(_) => Ok(()),
-            // 409 from /networks/create means another caller created it between
-            // our list and our create. The listing above is a check-then-act,
-            // so this race is reachable by any two concurrent deployments —
-            // and the outcome it reports is the state this function wanted.
-            // Treating it as failure makes a function documented as idempotent
-            // fail precisely when it was idempotent. Mirrors the 403 no-op on
-            // `/networks/<id>/connect` in `docker.rs`.
-            Err(bollard::errors::Error::DockerResponseServerError {
-                status_code: 409, ..
-            }) => {
+            // Another compose deployment created it between our list and our
+            // create. See `is_already_exists` for why that is a success here;
+            // it mirrors the 403 no-op on `/networks/<id>/connect` in
+            // `docker.rs`.
+            Err(e) if temps_core::docker_handle::is_already_exists(&e) => {
                 tracing::debug!(
                     network = network_name,
                     "shared network already existed when we tried to create it (409)"

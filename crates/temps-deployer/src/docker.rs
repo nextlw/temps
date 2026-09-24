@@ -1941,9 +1941,21 @@ impl DockerRuntime {
                 ..Default::default()
             };
 
-            docker.create_network(create_options).await.map_err(|e| {
-                DeployerError::NetworkError(format!("Failed to create network: {}", e))
-            })?;
+            if let Err(e) = docker.create_network(create_options).await {
+                // Another deploy created it between our list and our create.
+                // Returning here would also skip the metadata-egress block
+                // below, which every deploy has to re-apply.
+                if !temps_core::docker_handle::is_already_exists(&e) {
+                    return Err(DeployerError::NetworkError(format!(
+                        "Failed to create network: {}",
+                        e
+                    )));
+                }
+                debug!(
+                    network = %self.network_name,
+                    "network already existed when we created it (409)"
+                );
+            }
         }
 
         // Re-applied on every deploy (not just network creation) so the block
