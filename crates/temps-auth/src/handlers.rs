@@ -77,6 +77,23 @@ fn parse_user_roles(role_names: &[String]) -> Result<Vec<RoleType>, UserServiceE
         .collect()
 }
 
+/// Whether an email + password login may proceed.
+///
+/// Two inputs, and the second is the whole point: the operator's setting only
+/// takes effect while the instance still has an enabled OIDC provider to log in
+/// through. Disable the last provider, delete it, or let its configuration rot,
+/// and password login comes back on its own — instead of leaving an instance
+/// with a console nobody can reach. That is what makes "SSO only" safe to turn
+/// on for a console exposed to the internet: the switch cannot strand the
+/// operator, so it does not need a separate escape hatch to be usable.
+///
+/// A free function on plain values, so the rule is testable without a database
+/// and cannot drift between the gate that enforces it and the page that reads
+/// it — both call this.
+fn password_login_permitted(turned_off_by_operator: bool, enabled_oidc_providers: usize) -> bool {
+    !(turned_off_by_operator && enabled_oidc_providers > 0)
+}
+
 async fn record_login_failure(
     state: &AuthState,
     metadata: &RequestMetadata,
@@ -899,6 +916,13 @@ pub struct EmailStatusResponse {
     pub email_configured: bool,
     pub password_reset_available: bool,
     pub oidc_providers: Vec<crate::oidc_types::OidcProviderSummary>,
+    /// Whether the login page should offer the email + password fields.
+    ///
+    /// Computed by the same function the login gate uses
+    /// ([`password_login_permitted`]), so the page never offers a credential
+    /// the server is going to refuse. It is presentation only — hiding the
+    /// fields is not the control; the server refusing them is.
+    pub password_login_enabled: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1015,6 +1039,67 @@ pub async fn login(
             .with_detail("Invalid email or password."));
     };
     request.email.clone_from(&login_email);
+
+    // SSO-only gate. Checked here, on the server, and not merely by hiding the
+    // fields in the console: a login page is a suggestion, and an instance whose
+    // console answers the public internet has to refuse the credential rather
+    // than decline to draw a box for it. Placed before
+    // `auth_service.login(...)` so a refused instance never verifies a password
+    // hash at all, which also keeps it from being a timing oracle for which
+    // accounts exist.
+    //
+    // Failure to read the policy is a 500, not a guess in either direction —
+    // see `AuthService::password_login_turned_off`.
+    let turned_off = match state.auth_service.password_login_turned_off().await {
+        Ok(value) => value,
+        Err(error) => {
+            error!(
+                email = %login_email,
+                error = %error,
+                "Could not read the password-login policy; refusing the login attempt"
+            );
+            return Err(problem_new(StatusCode::INTERNAL_SERVER_ERROR)
+                .with_title("Authentication Error")
+                .with_detail("Authentication system error. Please try again later."));
+        }
+    };
+    if turned_off {
+        let providers = state
+            .oidc_service
+            .list_enabled_providers()
+            .await
+            .unwrap_or_default();
+        if !password_login_permitted(turned_off, providers.len()) {
+            record_login_failure(
+                state.as_ref(),
+                &metadata,
+                None,
+                &login_email,
+                "password",
+                "password_login_disabled",
+            )
+            .await;
+            // A distinct, honest refusal rather than the generic "invalid email
+            // or password": the credential may be perfectly valid and telling
+            // the operator it is wrong would send them to reset a password that
+            // was never the problem. This leaks no account information — the
+            // answer is identical for every address, existing or not.
+            return Err(problem_new(StatusCode::FORBIDDEN)
+                .with_title("Password Sign-In Disabled")
+                .with_detail(
+                    "This instance signs in through your identity provider. \
+                     Use the single sign-on button on the login page.",
+                )
+                .with_value("error_code", "PASSWORD_LOGIN_DISABLED"));
+        }
+        // Turned off, but nothing to sign in through. Password login stays open
+        // so the instance is not stranded, and this is logged every time
+        // because it means the instance is not actually SSO-only.
+        warn!(
+            "Password login is disabled in settings but no OIDC provider is enabled; \
+             allowing password login so the console remains reachable"
+        );
+    }
 
     match state.auth_service.login(request.into()).await {
         Ok(user) => {
@@ -1395,9 +1480,20 @@ pub async fn email_status(State(state): State<Arc<AuthState>>) -> Json<EmailStat
         .await
         .unwrap_or_default();
 
+    // Same rule as the gate, from the same function. On a settings read failure
+    // the page keeps offering the password fields: this endpoint is unauthenticated
+    // and only decides what to draw, and a login form that refuses to appear is
+    // indistinguishable to the operator from an instance that is down.
+    let turned_off = state
+        .auth_service
+        .password_login_turned_off()
+        .await
+        .unwrap_or(false);
+
     Json(EmailStatusResponse {
         email_configured,
         password_reset_available: email_configured,
+        password_login_enabled: password_login_permitted(turned_off, oidc_providers.len()),
         oidc_providers,
     })
 }
@@ -2754,9 +2850,9 @@ mod tests {
     use super::{
         assign_role, authorize_admin_target, authorize_role_assignment, bounded_audit_identity,
         create_user, delete_user, login, normalized_login_email, parse_user_roles,
-        record_pending_login, remove_role, restore_user, update_user, verify_mfa_challenge,
-        AdminTargetDenied, AssignRoleRequest, CreateUserRequest, LoginRequest, RoleChangeDenied,
-        UpdateUserRequest,
+        password_login_permitted, record_pending_login, remove_role, restore_user, update_user,
+        verify_mfa_challenge, AdminTargetDenied, AssignRoleRequest, CreateUserRequest,
+        LoginRequest, RoleChangeDenied, UpdateUserRequest,
     };
     use crate::auth_service::UserAuthError;
     use crate::context::AuthContext;
@@ -2778,7 +2874,7 @@ mod tests {
     };
     use temps_core::{AuditLogger, RequestMetadata};
     use temps_entities::types::RoleType;
-    use temps_entities::{roles, sessions, user_roles, users};
+    use temps_entities::{oidc_providers, roles, sessions, settings, user_roles, users};
 
     // Regression tests for the user-management privilege-escalation hole. The
     // handlers checked only `UsersWrite`, which `PlatformAdmin` (and admin-owned
@@ -3132,6 +3228,12 @@ mod tests {
     async fn invalid_credentials_are_audited_with_normalized_identity() {
         let audit = Arc::new(RecordingAuditLogger::default());
         let db = MockDatabase::new(DatabaseBackend::Postgres)
+            // The SSO-only gate reads the settings row before any credential
+            // work, so that query is first in the mock's sequence. An empty
+            // result is the "no settings row yet" case, which resolves to
+            // `AppSettings::default()` — password login allowed — and leaves
+            // this test exercising what it is about: the credential rejection.
+            .append_query_results([Vec::<settings::Model>::new()])
             .append_query_results([Vec::<users::Model>::new()])
             .into_connection();
         let state = auth_state_with_audit(db, audit.clone());
@@ -3747,4 +3849,96 @@ mod tests {
         // Slug must carry the hash suffix (separated by '-')
         assert!(summary.slug.contains('-'));
     }
+
+    /// End-to-end through the handler, not just the rule: proves the gate is
+    /// actually wired into `login`, refuses with its own status and error code,
+    /// and audits the attempt. The rule's unit tests below cannot catch a gate
+    /// that is never consulted.
+    ///
+    /// The mock's sequence is the assertion that matters most here. Only two
+    /// queries are provided — the settings row and the enabled providers — so if
+    /// the gate ever stopped short-circuiting and fell through to
+    /// `auth_service.login`, the credential lookup would find no mocked result
+    /// and this test would fail instead of quietly verifying a password hash on
+    /// an instance configured to refuse them.
+    #[tokio::test]
+    async fn sso_only_refuses_a_password_login_before_checking_the_credential() {
+        let now = Utc::now();
+        let audit = Arc::new(RecordingAuditLogger::default());
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results([vec![settings::Model {
+                id: 1,
+                data: serde_json::json!({ "password_login_enabled": false }),
+                created_at: now,
+                updated_at: now,
+            }]])
+            .append_query_results([vec![oidc_providers::Model {
+                id: 1,
+                name: "Corporate SSO".to_string(),
+                issuer_url: "https://idp.example.com".to_string(),
+                client_id: "client".to_string(),
+                client_secret_encrypted: "encrypted".to_string(),
+                scopes: "openid email profile".to_string(),
+                jit_provisioning: true,
+                enabled: true,
+                template: "generic".to_string(),
+                group_claim: "groups".to_string(),
+                role_claim: "roles".to_string(),
+                default_role: "user".to_string(),
+                trust_idp_email: false,
+                managed_by_cloud: false,
+                admin_only_role_required: false,
+                created_at: now,
+                updated_at: now,
+            }]])
+            .into_connection();
+        let state = auth_state_with_audit(db, audit.clone());
+
+        let result = login(
+            State(state),
+            Extension(request_metadata()),
+            Json(LoginRequest {
+                email: "Someone@Example.COM".to_string(),
+                password: "a-perfectly-valid-password".to_string(),
+            }),
+        )
+        .await;
+
+        let problem = expect_problem(result, "password login must be refused");
+        assert_problem_status(problem, StatusCode::FORBIDDEN);
+
+        let events = audit.events();
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].operation_type, "LOGIN_FAILURE");
+        assert_eq!(events[0].data["reason"], "password_login_disabled");
+        // Normalised the same way every other login failure is, so the audit
+        // trail stays joinable across reasons.
+        assert_eq!(events[0].data["attempted_email"], "someone@example.com");
+    }
+
+    /// The switch does its job: with a provider to sign in through, a password
+    /// login is refused.
+    #[test]
+    fn sso_only_refuses_password_login_when_a_provider_exists() {
+        assert!(!password_login_permitted(true, 1));
+        assert!(!password_login_permitted(true, 3));
+    }
+
+    /// The reason this is safe to turn on for an internet-facing console: the
+    /// setting is honoured only while there is something to sign in through.
+    /// Disable the last provider (or delete it) and password login comes back
+    /// on its own, rather than leaving an instance nobody can reach.
+    #[test]
+    fn sso_only_yields_when_there_is_no_provider_to_sign_in_through() {
+        assert!(password_login_permitted(true, 0));
+    }
+
+    /// Untouched instances are unaffected — including one that has SSO
+    /// configured and simply never asked for password login to stop.
+    #[test]
+    fn password_login_is_untouched_when_the_operator_did_not_turn_it_off() {
+        assert!(password_login_permitted(false, 0));
+        assert!(password_login_permitted(false, 1));
+    }
+
 }

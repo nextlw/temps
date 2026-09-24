@@ -53,6 +53,42 @@ pub struct AppSettings {
     #[serde(default)]
     pub console_force_https: Option<bool>,
 
+    /// Whether an email + password login may be used on this instance.
+    ///
+    /// - `None` (default) / `Some(true)` — password login works as it always
+    ///   has.
+    /// - `Some(false)` — the server refuses password logins, so SSO is the only
+    ///   way in. For an instance whose console is reachable from the internet
+    ///   and whose accounts live in a corporate IdP: leaving a password path
+    ///   open there means every account's password is a way in, whether or not
+    ///   the login page still offers the fields.
+    ///
+    /// `Option<bool>`, not `bool`, because `AppSettings` carries
+    /// `#[serde(default)]` and a bare `bool` defaults to `false`: a stored
+    /// settings row written before this field existed would deserialize as
+    /// "password login disabled" and lock every operator out of an instance
+    /// nobody had configured for SSO. The tri-state makes the absent case
+    /// unambiguous.
+    ///
+    /// Refusal is conditional on an enabled OIDC provider actually existing —
+    /// see `temps-auth`'s login gate. That is what stops this from being a foot
+    /// gun: disable the last provider, or have it deleted, and password login
+    /// comes back on its own rather than leaving an instance with no way in.
+    ///
+    /// Break glass, for an operator with a shell on the host when the IdP
+    /// itself is the thing that is down:
+    ///
+    /// ```sql
+    /// UPDATE settings
+    ///    SET data = jsonb_set(data, '{password_login_enabled}', 'true')
+    ///  WHERE id = 1;
+    /// ```
+    ///
+    /// It takes effect on the next login attempt — the value is read per
+    /// request, not cached at startup.
+    #[serde(default)]
+    pub password_login_enabled: Option<bool>,
+
     // Screenshot settings
     pub screenshots: ScreenshotSettings,
 
@@ -1947,6 +1983,7 @@ impl Default for AppSettings {
             edge_target: None,
             cloud: CloudSettings::default(),
             console_force_https: None,
+            password_login_enabled: None,
             screenshots: ScreenshotSettings::default(),
             letsencrypt: LetsEncryptSettings::default(),
             dns_provider: DnsProviderSettings::default(),
@@ -2270,6 +2307,20 @@ impl AppSettings {
             .map(|h| h.trim_end_matches('.').to_ascii_lowercase())
     }
 
+    /// True only when the operator explicitly turned password login off.
+    ///
+    /// Absent (`None`) reads as "on", which is what a settings row written
+    /// before the field existed deserializes to. Answering "off" for an unset
+    /// field is the one wrong answer here: it would refuse every password login
+    /// on an instance whose operator never asked for that.
+    ///
+    /// Whether a refusal actually happens is a second question, answered where
+    /// the login is served: turning this on is only honoured while an enabled
+    /// OIDC provider exists, so the instance always has some way in.
+    pub fn password_login_turned_off(&self) -> bool {
+        self.password_login_enabled == Some(false)
+    }
+
     /// True when `host` is owned by the platform itself and must never be
     /// claimed by a project domain.
     ///
@@ -2484,6 +2535,52 @@ mod tests {
         );
         assert_eq!(with_external_url(Some("   ")).console_hostname(), None);
         assert_eq!(with_external_url(None).console_hostname(), None);
+    }
+
+    /// The tri-state exists for exactly one reason, and this pins it: a
+    /// settings row written before the field existed must read as "password
+    /// login on". `AppSettings` carries `#[serde(default)]`, so a bare `bool`
+    /// would have deserialized the absent field to `false` and refused every
+    /// password login on an instance nobody configured for SSO.
+    #[test]
+    fn a_settings_row_without_the_field_keeps_password_login_on() {
+        let stored_before_the_field_existed = AppSettings::from_json(serde_json::json!({
+            "external_url": "https://console.example.com"
+        }));
+
+        assert_eq!(stored_before_the_field_existed.password_login_enabled, None);
+        assert!(!stored_before_the_field_existed.password_login_turned_off());
+    }
+
+    #[test]
+    fn only_an_explicit_false_turns_password_login_off() {
+        let with = |value: Option<bool>| AppSettings {
+            password_login_enabled: value,
+            ..Default::default()
+        };
+
+        assert!(with(Some(false)).password_login_turned_off());
+        assert!(!with(Some(true)).password_login_turned_off());
+        assert!(!with(None).password_login_turned_off());
+        assert!(!AppSettings::default().password_login_turned_off());
+    }
+
+    /// The break-glass path documented on the field is a `jsonb_set` of this
+    /// key, so the serialized name is part of that contract — renaming the
+    /// field would silently invalidate the recovery instructions an operator
+    /// reaches for while locked out.
+    #[test]
+    fn the_break_glass_key_round_trips_under_its_documented_name() {
+        let reenabled = AppSettings::from_json(serde_json::json!({
+            "password_login_enabled": true
+        }));
+        assert_eq!(reenabled.password_login_enabled, Some(true));
+        assert!(!reenabled.password_login_turned_off());
+
+        let disabled = AppSettings::from_json(serde_json::json!({
+            "password_login_enabled": false
+        }));
+        assert!(disabled.password_login_turned_off());
     }
 
     #[test]

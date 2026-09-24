@@ -1037,6 +1037,23 @@ impl AuthService {
         self.email_service.is_email_provider_configured().await
     }
 
+    /// Whether the operator has turned email + password login off
+    /// (`AppSettings::password_login_enabled == Some(false)`).
+    ///
+    /// Returns the error rather than a bool on a read failure. A caller must
+    /// not have to guess: assuming "on" would serve a password login the
+    /// operator forbade, and assuming "off" would refuse one nobody forbade.
+    /// The login handler turns this into the same 500 it already returns for
+    /// other internal faults — and a request that cannot read the settings row
+    /// could not have authenticated against the same database anyway.
+    ///
+    /// Read per request, never cached: flipping the setting (including the
+    /// documented `jsonb_set` break-glass) takes effect on the next attempt,
+    /// with no restart.
+    pub async fn password_login_turned_off(&self) -> Result<bool, sea_orm::DbErr> {
+        Ok(self.get_settings().await?.password_login_turned_off())
+    }
+
     // Helper to generate secure random tokens
     fn generate_token(&self) -> String {
         Uuid::new_v4().to_string()
