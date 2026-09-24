@@ -6,6 +6,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&display=swap');
 
 @import 'tailwindcss';
+
+/* Design system do Dukk, escopado às telas de autenticação (`.dukk-ds`).
+   Depois do Tailwind de propósito: as regras escopadas precisam vencer o
+   preflight, que zera margens de h1/p. */
+@import './styles/dukk-ds.css';
 @plugin '@tailwindcss/typography';
 
 @source '.';

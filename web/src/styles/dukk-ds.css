@@ -1,0 +1,199 @@
+/* SPDX-FileCopyrightText: 2024-2026 Temps Contributors */
+/* SPDX-License-Identifier: MIT OR Apache-2.0 */
+
+/*
+ * Design system do Dukk, escopado às telas de autenticação do Portal da Infra.
+ *
+ * Os tokens `--c-*` são os mesmos nomes e valores do CRM
+ * (`dukk-front-web/src/assets/main.css`), transcritos aqui em vez de
+ * importados: os dois projetos não compartilham build, e um token de cor
+ * divergente entre login e CRM é justamente o tipo de deriva que se nota.
+ * Se a paleta do CRM mudar, este arquivo é o ponto único a atualizar.
+ *
+ * O escopo é `.dukk-ds`, não `:root`, de propósito: custom properties herdam
+ * do ancestral, então tudo dentro do wrapper usa a paleta do Dukk e o resto
+ * do painel do Temps segue com a sua própria (Geist/oklch) intocada.
+ */
+
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('/fonts/dukk/lora-latin-400-normal.woff2') format('woff2');
+}
+
+/*
+ * O título do login pede weight 600 e a Lora self-hosted do Dukk só tem 400 e
+ * 500 — o navegador sintetiza o 600 a partir do 500, que é exatamente o que a
+ * rota `/design-system` do CRM já faz offline. Buscar o 600 numa CDN de fonte
+ * seria uma dependência externa num portal de infraestrutura interno.
+ */
+@font-face {
+  font-family: 'Lora';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('/fonts/dukk/lora-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Quicksand';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('/fonts/dukk/quicksand-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Quicksand';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url('/fonts/dukk/quicksand-latin-500-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Quicksand';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('/fonts/dukk/quicksand-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Quicksand';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('/fonts/dukk/quicksand-latin-700-normal.woff2') format('woff2');
+}
+
+.dukk-ds {
+  /* Superfícies — areia clara do brand. */
+  --c-canvas: 250 245 234;
+  --c-elevated: 246 240 226;
+  --c-paper: 243 236 219;
+  --c-soft: 236 226 204;
+  --c-line: 220 207 184;
+  --c-line-strong: 152 140 118;
+  --c-input-bg: 255 253 247;
+
+  /* Texto. */
+  --c-ink: 43 27 23;
+  --c-ink-2: 107 73 52;
+  --c-ink-3: 118 92 68;
+
+  /* Acento (o nome `lime` é histórico; hoje é o laranja do brand). */
+  --c-lime: 240 162 43;
+  --c-lime-fg: 160 78 15;
+  --c-on-lime: 255 253 247;
+
+  /* Estados. */
+  --c-danger: 180 42 38;
+  --c-on-danger: 255 253 247;
+  --c-status-ok: 93 195 24;
+  --c-info: 0 102 155;
+
+  --c-dukk-cream: 250 245 234;
+
+  --font-display: 'Lora', Georgia, 'Times New Roman', serif;
+  --font-body: 'Quicksand', system-ui, sans-serif;
+
+  font-family: var(--font-body);
+}
+
+.dark .dukk-ds {
+  --c-canvas: 19 18 21;
+  --c-elevated: 33 34 39;
+  --c-paper: 30 29 34;
+  --c-soft: 40 41 46;
+  --c-line: 54 55 60;
+  --c-line-strong: 92 94 102;
+  --c-input-bg: 30 29 34;
+
+  --c-ink: 247 246 246;
+  --c-ink-2: 201 203 209;
+  --c-ink-3: 148 151 157;
+
+  --c-lime: 255 178 64;
+  --c-lime-fg: 255 178 64;
+  --c-on-lime: 43 27 23;
+
+  --c-danger: 248 113 113;
+  --c-on-danger: 255 253 247;
+  --c-status-ok: 138 184 96;
+  --c-info: 56 189 248;
+}
+
+@keyframes dukk-fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dukk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dukk-drift {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -560px 560px;
+  }
+}
+
+.dukk-ds .dukk-fadeup {
+  animation: dukk-fadeup 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.dukk-ds .dukk-spin {
+  animation: dukk-spin 0.8s linear infinite;
+}
+
+.dukk-ds .dukk-bg-drift {
+  animation: dukk-drift 40s linear infinite;
+}
+
+/* Placeholder herda a cor de texto secundária em vez do padrão do UA. */
+.dukk-ds input::placeholder {
+  color: rgb(var(--c-ink-3));
+  opacity: 1;
+}
+
+.dukk-ds input:focus-visible,
+.dukk-ds button:focus-visible,
+.dukk-ds a:focus-visible {
+  outline: 2px solid rgb(var(--c-lime));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dukk-ds .dukk-fadeup,
+  .dukk-ds .dukk-bg-drift {
+    animation: none !important;
+  }
+}
+
+/*
+ * Colapsa para uma coluna em telas estreitas: só o formulário, igual ao CRM.
+ * Mora aqui e não inline porque media query não existe em style inline.
+ */
+@media (max-width: 900px) {
+  .dukk-auth-shell {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dukk-visual-panel {
+    display: none !important;
+  }
+}
