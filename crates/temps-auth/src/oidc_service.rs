@@ -1147,7 +1147,9 @@ impl OidcService {
         // otherwise follow every JWK rotation.
         let nonce = Nonce::new(login_state.nonce.clone());
         let first_attempt = {
-            let verifier = client.id_token_verifier();
+            let verifier = client
+                .id_token_verifier()
+                .set_other_audience_verifier_fn(|_| true);
             id_token.claims(&verifier, &nonce).cloned()
         };
 
@@ -1166,7 +1168,9 @@ impl OidcService {
                 let refreshed_client = self
                     .core_client_for_provider_refresh(provider, redirect_uri)
                     .await?;
-                let verifier = refreshed_client.id_token_verifier();
+                let verifier = refreshed_client
+                    .id_token_verifier()
+                    .set_other_audience_verifier_fn(|_| true);
                 id_token
                     .claims(&verifier, &nonce)
                     .map_err(|e| OidcError::IdTokenInvalid {
@@ -1180,6 +1184,14 @@ impl OidcService {
                 });
             }
         };
+
+        // Signature, issuer, nonce and expiry are verified at this point, so the
+        // `azp` below is authentic and not merely asserted.
+        enforce_authorized_party(
+            claims.audiences().len(),
+            claims.authorized_party().map(|azp| azp.as_str()),
+            &provider.client_id,
+        )?;
 
         let raw_claims = decode_verified_id_token_payload(id_token)?;
 
@@ -1918,6 +1930,56 @@ fn strict_string_claim(claims: &serde_json::Value, key: &str) -> Vec<String> {
     }
 }
 
+/// OIDC Core §3.1.3.7 steps 4 and 5, which this crate's verifier ships
+/// commented out.
+///
+/// Step 3 — the token must list us as an audience — is enforced by the library
+/// and still is. What the library also did was reject *any* additional
+/// audience, and Zitadel puts the project id alongside the client id whenever
+/// role assertion is on. Role assertion is precisely what delivers the roles
+/// claim this instance maps to Temps roles, so the two could not both be had:
+/// every SSO login failed with `is not a trusted audience` while the token was
+/// otherwise perfectly valid.
+///
+/// Accepting extra audiences without replacing the check the library skips
+/// would be a real loosening — a token minted for a different client of the
+/// same issuer would start being accepted here. So the extra audiences are
+/// allowed at the library boundary and the spec's own compensating control is
+/// applied here instead: a multi-audience token must carry `azp`, and `azp`
+/// must be this client. That is the condition under which the spec permits the
+/// extra audience at all.
+///
+/// Single-audience tokens are untouched — `azp` is optional for them by the
+/// spec, and requiring it would break every conforming IdP that omits it.
+///
+/// Takes the two values it judges rather than the claims object, so the rule is
+/// testable without minting and signing a token.
+fn enforce_authorized_party(
+    audience_count: usize,
+    authorized_party: Option<&str>,
+    client_id: &str,
+) -> Result<(), OidcError> {
+    if audience_count <= 1 {
+        return Ok(());
+    }
+
+    match authorized_party {
+        Some(azp) if azp == client_id => Ok(()),
+        Some(_) => Err(OidcError::IdTokenInvalid {
+            // The value is deliberately not echoed: it comes from the token and
+            // would land in logs and, through the error chain, in a page.
+            reason: "id_token lists multiple audiences and its authorized party \
+                     (azp) is not this client"
+                .to_string(),
+        }),
+        None => Err(OidcError::IdTokenInvalid {
+            reason: "id_token lists multiple audiences without an authorized party \
+                     (azp) claim naming this client"
+                .to_string(),
+        }),
+    }
+}
+
 fn evaluate_role(
     provider: &oidc_providers::Model,
     mappings: &[oidc_role_mappings::Model],
@@ -2273,6 +2335,58 @@ mod tests {
         assert!(validate_return_to("/dashboard\n").is_err());
         assert!(validate_return_to("/dashboard\u{0000}").is_err());
         assert!(validate_return_to("/dashboard\t").is_err());
+    }
+
+    /// The failure this fixes, exactly as it arrived: Zitadel issues the ID
+    /// token with `aud = [client_id, project_id]` whenever role assertion is
+    /// on, and role assertion is what carries the roles claim. Before the fix
+    /// every SSO login died with "`<project id>` is not a trusted audience"
+    /// on a token that was otherwise valid.
+    #[test]
+    fn a_second_audience_is_accepted_when_azp_names_this_client() {
+        assert!(enforce_authorized_party(2, Some("client-abc"), "client-abc").is_ok());
+    }
+
+    /// The compensating control, and the reason accepting the extra audience is
+    /// not a loosening: a token minted for a *different* client of the same
+    /// issuer carries that client in `azp`, and is refused here even though it
+    /// lists us among its audiences.
+    #[test]
+    fn a_second_audience_is_refused_when_azp_names_another_client() {
+        let err = enforce_authorized_party(2, Some("someone-elses-client"), "client-abc")
+            .expect_err("a token authorized for another client must be refused");
+        assert!(matches!(err, OidcError::IdTokenInvalid { .. }));
+    }
+
+    /// Multi-audience without `azp` is refused rather than waved through: the
+    /// spec makes `azp` the thing that says which client the token was minted
+    /// for, and without it there is nothing to check the extra audience against.
+    #[test]
+    fn a_second_audience_without_azp_is_refused() {
+        let err = enforce_authorized_party(2, None, "client-abc")
+            .expect_err("multiple audiences without azp must be refused");
+        assert!(matches!(err, OidcError::IdTokenInvalid { .. }));
+    }
+
+    /// Ordinary single-audience tokens keep working untouched. `azp` is
+    /// optional for them by the spec, so requiring it — or requiring it to
+    /// match — would break every conforming IdP that omits it.
+    #[test]
+    fn a_single_audience_token_is_untouched() {
+        assert!(enforce_authorized_party(1, None, "client-abc").is_ok());
+        assert!(enforce_authorized_party(1, Some("client-abc"), "client-abc").is_ok());
+        // Even a mismatched azp: with one audience there is no extra audience
+        // being admitted, so there is nothing for this gate to compensate for.
+        assert!(enforce_authorized_party(1, Some("odd"), "client-abc").is_ok());
+    }
+
+    /// The refusal must not echo the token's own value back into logs or an
+    /// error page.
+    #[test]
+    fn the_refusal_does_not_echo_the_token_value() {
+        let err = enforce_authorized_party(2, Some("attacker-controlled"), "client-abc")
+            .expect_err("must be refused");
+        assert!(!err.to_string().contains("attacker-controlled"));
     }
 
     #[test]
