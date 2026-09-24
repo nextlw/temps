@@ -5,14 +5,15 @@ use chrono::Utc;
 use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, Condition, DatabaseConnection, EntityTrait, QueryFilter,
-    QuerySelect, Select, Set, TransactionTrait,
+    QueryOrder, QuerySelect, Select, Set, TransactionTrait,
 };
 use std::sync::Arc;
 use std::time::Duration;
 use temps_config::ConfigService;
 use temps_core::{Job, JobQueue, JobReceiver, StatusCheckCompletedJob};
 use temps_entities::{
-    deployment_containers, deployments, environments, projects, status_checks, status_monitors,
+    deployment_containers, deployments, environment_domains, environments, projects, status_checks,
+    status_monitors,
 };
 use tokio::time::{sleep, timeout};
 use tracing::{debug, error, info, warn};
@@ -44,6 +45,30 @@ const STARTUP_GRACE_PERIOD: Duration = Duration::from_secs(20);
 /// running it four times a minute costs far less than the old design, which
 /// probed every active monitor once a minute.
 const SCHEDULER_SWEEP_INTERVAL: Duration = Duration::from_secs(15);
+
+/// Swap a generated environment URL's host for a hostname the operator actually
+/// bound to that environment, keeping the generated scheme and port.
+///
+/// The generated URL is built from `preview_domain`, which on a default install
+/// is still `localho.st` — it resolves to the *monitor's own machine* and every
+/// check comes back refused, so the environment reads "Major Outage" forever
+/// while it is serving traffic perfectly well on its real hostname. The rows in
+/// `environment_domains` are what the proxy routes on, so a hostname there is
+/// reachable by definition, which is exactly what an uptime check needs.
+///
+/// The scheme and port come from the generated URL rather than being assumed:
+/// both hostnames are served by the same listener, and hardcoding https would
+/// break an HTTP-only install — the same trap `get_deployment_url_by_slug`
+/// documents for its own protocol choice.
+fn with_bound_host(generated_url: &str, bound_host: &str) -> Option<String> {
+    let parsed = url::Url::parse(generated_url).ok()?;
+    let scheme = parsed.scheme();
+    let path = parsed.path().trim_end_matches('/');
+    Some(match parsed.port() {
+        Some(port) => format!("{scheme}://{bound_host}:{port}{path}"),
+        None => format!("{scheme}://{bound_host}{path}"),
+    })
+}
 
 fn probe_url(
     public_url: &str,
@@ -433,7 +458,34 @@ impl HealthCheckService {
             .get_deployment_url_by_slug(&environment.subdomain)
             .await
         {
-            Ok(public_url) => {
+            Ok(generated_url) => {
+                // ...but "public" has to mean the hostname that actually serves
+                // this environment, not the one derived from `preview_domain`.
+                // A bound hostname wins; with nothing bound, the generated URL
+                // is still the best guess available.
+                //
+                // The row whose domain equals `subdomain` is the auto-managed
+                // one — it is what the generated URL is already built from, so
+                // using it would change nothing while looking like a fix.
+                let bound_host = environment_domains::Entity::find()
+                    .filter(environment_domains::Column::EnvironmentId.eq(environment.id))
+                    .filter(environment_domains::Column::Domain.ne(environment.subdomain.clone()))
+                    .order_by_asc(environment_domains::Column::Id)
+                    .one(db.as_ref())
+                    .await?;
+                let public_url = match bound_host
+                    .as_ref()
+                    .and_then(|row| with_bound_host(&generated_url, &row.domain))
+                {
+                    Some(url) => {
+                        debug!(
+                            monitor_id = monitor.id,
+                            "Using bound domain for health check instead of the generated host"
+                        );
+                        url
+                    }
+                    None => generated_url,
+                };
                 debug!("Using public URL for health check: {}", public_url);
                 // Use custom check_path if set, otherwise fall back to monitor_type logic.
                 // Defense-in-depth: re-validate the stored path at use time so that any
@@ -1077,6 +1129,51 @@ impl HealthCheckService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bound_host_replaces_the_generated_one() {
+        // The whole point: `localho.st` is the stock `preview_domain` and it
+        // resolves to the monitor's own machine, so the generated URL can never
+        // be reachable while the bound hostname always is.
+        assert_eq!(
+            with_bound_host("https://app-production.localho.st", "portal.example.test"),
+            Some("https://portal.example.test".to_string())
+        );
+    }
+
+    #[test]
+    fn bound_host_keeps_the_generated_scheme_and_port() {
+        // An HTTP-only install reached on a non-default port serves the bound
+        // hostname there too; assuming https, or dropping the port, points the
+        // check at something else entirely and reports a false outage.
+        assert_eq!(
+            with_bound_host("http://app-production.localho.st:8080", "portal.example.test"),
+            Some("http://portal.example.test:8080".to_string())
+        );
+        assert_eq!(
+            with_bound_host("http://app-production.localho.st", "portal.example.test"),
+            Some("http://portal.example.test".to_string())
+        );
+    }
+
+    #[test]
+    fn bound_host_yields_nothing_when_the_generated_url_is_unparseable() {
+        // Falling back to the generated URL is the caller's answer here; a
+        // hostname with no scheme is not a URL we may invent one for.
+        assert_eq!(with_bound_host("not a url", "portal.example.test"), None);
+    }
+
+    #[test]
+    fn bound_host_result_still_accepts_a_check_path() {
+        // The two halves compose: this fix picks the host, `check_path` picks
+        // the path, and the monitor needs both to be right at once.
+        let url = with_bound_host("https://app-production.localho.st", "portal.example.test")
+            .expect("a parseable generated URL yields a rewritten one");
+        assert_eq!(
+            probe_url(&url, "web", Some("/health")).expect("/health is a valid check path"),
+            "https://portal.example.test/health"
+        );
+    }
 
     #[test]
     fn explicit_root_path_probes_deployment_root_for_health_monitor() {
