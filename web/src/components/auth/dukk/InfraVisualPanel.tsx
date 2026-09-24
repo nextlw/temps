@@ -7,8 +7,8 @@
  * Porte React do `LoginVisualPanel.vue` do CRM (`dukk-front-web`), mantendo o
  * mesmo desenho: fundo pontilhado à deriva com máscara radial, parallax sutil
  * do grupo conforme o mouse, traçado tracejado e quatro nós com tooltip no
- * hover. O que muda é a cópia e os quatro nós — aqui eles nomeiam a infra que
- * este portal opera, não os recursos do workspace.
+ * hover. O que muda é a cópia e os quatro nós — aqui eles nomeiam as
+ * capacidades deste portal, não os recursos do workspace.
  *
  * Os ícones vêm do `lucide-react` (o CRM usa Phosphor, que não é dependência
  * do Temps): trazer outra biblioteca de ícone só para quatro glifos custaria
@@ -31,21 +31,28 @@ interface OrbitNode {
   Icon: ComponentType<SVGProps<SVGSVGElement>>
 }
 
+/**
+ * Os rótulos nomeiam o que o portal FAZ, não como a infraestrutura por trás
+ * dele está montada. Este repositório é público e uma tela de login é lida por
+ * qualquer um que alcance a porta: a topologia, o provedor de identidade e os
+ * arranjos de isolamento e retenção não são informação que ajude quem está
+ * entrando, e são exatamente o tipo de detalhe que não se recolhe depois.
+ */
 const NODES: OrbitNode[] = [
   {
-    id: 'sso',
+    id: 'acesso',
     left: '4%',
     top: '8%',
     scale: 0.85,
-    label: 'SSO corporativo via Zitadel',
+    label: 'Acesso único corporativo',
     Icon: ShieldCheck,
   },
   {
-    id: 'build',
+    id: 'implantacoes',
     left: '68%',
     top: '7%',
     scale: 1.1,
-    label: 'Build fora do control plane',
+    label: 'Builds e implantações',
     Icon: Cpu,
   },
   {
@@ -53,15 +60,15 @@ const NODES: OrbitNode[] = [
     left: '84%',
     top: '62%',
     scale: 0.92,
-    label: 'Banco individual por cliente',
+    label: 'Bancos gerenciados',
     Icon: Database,
   },
   {
-    id: 'backup',
+    id: 'backups',
     left: '30%',
     top: '75%',
     scale: 1.2,
-    label: 'Backup próprio, nunca na máquina do dado',
+    label: 'Backups e restauração',
     Icon: HardDrive,
   },
 ]
