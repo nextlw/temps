@@ -1,73 +1,85 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import { LoginForm } from '@/components/auth/login-form'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+/**
+ * Login do Portal da Infra.
+ *
+ * O visual é o do login do CRM (`dukk-front-web`), portado para React no
+ * design system do Dukk — ver `components/auth/dukk/`. A lógica de sessão é a
+ * do Temps e não mudou: MFA, troca de senha obrigatória e `return_to`
+ * continuam sendo tratados exatamente como antes.
+ */
+
 import {
   emailStatusOptions,
   loginMutation,
 } from '@/api/client/@tanstack/react-query.gen'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertCircle } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { toast } from 'sonner'
-import { useNavigate, useSearchParams } from 'react-router'
+import { DukkAuthShell } from '@/components/auth/dukk/DukkAuthShell'
+import { InfraLoginForm } from '@/components/auth/dukk/InfraLoginForm'
 import { useAuth } from '@/contexts/AuthContext'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { consumeReturnTo } from '@/lib/return-to'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from 'react'
+import { toast } from 'sonner'
+import { useNavigate, useSearchParams } from 'react-router'
 
 /**
- * Maps opaque SSO error codes (from `login_error_code_for` in
- * `oidc_handler.rs`) to user-facing messages. Server returns codes
- * instead of raw IdP text so we don't leak IdP error descriptions
- * into the browser URL / history / Referer. Unknown codes fall
- * through to a generic message.
+ * Traduz os códigos opacos de erro de SSO (de `login_error_code_for` em
+ * `oidc_handler.rs`) para mensagens legíveis. O servidor devolve códigos em vez
+ * do texto cru do IdP justamente para não vazar a descrição de erro dele para a
+ * URL / histórico / Referer do navegador. Código desconhecido cai na mensagem
+ * genérica.
+ *
+ * Em português porque esta tela é o login do Portal da Infra — deixar o corpo
+ * da página em português e o erro em inglês só apareceria no pior momento, que
+ * é quando alguém não consegue entrar.
  */
 const OIDC_ERROR_MESSAGES: Record<string, string> = {
   idp_error:
-    'Your identity provider rejected the login. Check that your account is allowed.',
+    'Seu provedor de identidade recusou o login. Verifique se sua conta tem acesso liberado.',
   idp_unreachable:
-    "We couldn't reach your identity provider. Try again in a moment.",
+    'Não conseguimos falar com seu provedor de identidade. Tente de novo em instantes.',
   idp_rejected_code:
-    'Your identity provider rejected the authorization code. Try signing in again.',
+    'Seu provedor de identidade recusou o código de autorização. Inicie o login novamente.',
   state_invalid:
-    'This SSO link is invalid or has already been used. Start sign-in again.',
-  state_expired: 'This SSO link expired. Start sign-in again.',
+    'Este link de SSO é inválido ou já foi usado. Inicie o login novamente.',
+  state_expired: 'Este link de SSO expirou. Inicie o login novamente.',
   id_token_invalid:
-    'Your identity provider returned an invalid token. Contact your administrator.',
-  callback_invalid: 'The SSO callback was malformed. Start sign-in again.',
+    'Seu provedor de identidade devolveu um token inválido. Contate o administrador.',
+  callback_invalid:
+    'O retorno do SSO veio malformado. Inicie o login novamente.',
   email_missing:
-    'Your identity provider did not return an email address. Grant the "email" scope and try again.',
+    'Seu provedor de identidade não devolveu um e-mail. Libere o escopo "email" e tente de novo.',
   email_not_verified:
-    'Your identity provider has not confirmed your email. Verify it at the IdP, then try again.',
+    'Seu provedor de identidade ainda não confirmou seu e-mail. Verifique no provedor e tente de novo.',
   user_not_provisioned:
-    'No Temps account exists for this email. Ask an administrator to create one.',
-  provider_disabled: 'This SSO provider is currently disabled.',
-  provider_not_found: 'The SSO provider configuration was not found.',
+    'Não existe conta neste portal para este e-mail. Peça a um administrador para criá-la.',
+  provider_disabled: 'Este provedor de SSO está desativado no momento.',
+  provider_not_found: 'A configuração do provedor de SSO não foi encontrada.',
   no_provider_configured:
-    'No SSO provider is configured on this Temps instance.',
-  issuer_invalid: 'The SSO provider URL is invalid.',
-  return_to_invalid: 'Invalid post-login redirect target.',
-  role_invalid: 'The role assigned by the SSO provider is invalid.',
-  role_mapping_not_found: 'No matching SSO role mapping.',
-  provider_conflict: 'SSO provider configuration conflict.',
+    'Nenhum provedor de SSO está configurado neste portal.',
+  issuer_invalid: 'A URL do provedor de SSO é inválida.',
+  return_to_invalid: 'Destino de redirecionamento pós-login inválido.',
+  role_invalid: 'O papel atribuído pelo provedor de SSO é inválido.',
+  role_mapping_not_found: 'Nenhum mapeamento de papel do SSO corresponde.',
+  provider_conflict: 'Conflito na configuração do provedor de SSO.',
   provider_managed_by_cloud:
-    'This SSO provider is managed by Temps Cloud and cannot be edited here.',
+    'Este provedor de SSO é gerenciado pelo Temps Cloud e não pode ser editado aqui.',
   insufficient_role:
-    "Your Temps Cloud account doesn't have the owner or admin role on this instance. Ask an instance owner or admin to grant it, then try again.",
+    'Sua conta não tem papel de owner ou admin nesta instância. Peça a um administrador para conceder e tente de novo.',
   issuer_managed_by_cloud:
-    'This issuer is already used by the Temps Cloud-managed sign-in provider. Use "Continue with Temps Cloud" to sign in, or remove the Cloud link before adding a custom provider with this issuer.',
-  internal_error:
-    'An internal error occurred while processing the SSO callback.',
+    'Este issuer já é usado pelo provedor gerenciado pelo Temps Cloud. Entre por ele ou desfaça o vínculo antes de cadastrar um provedor próprio com o mesmo issuer.',
+  internal_error: 'Ocorreu um erro interno ao processar o retorno do SSO.',
 }
 
 function oidcErrorMessage(reason: string | null): string {
-  if (!reason) return 'SSO sign-in failed.'
-  return OIDC_ERROR_MESSAGES[reason] ?? 'SSO sign-in failed.'
+  if (!reason) return 'Não foi possível entrar com o SSO.'
+  return OIDC_ERROR_MESSAGES[reason] ?? 'Não foi possível entrar com o SSO.'
 }
 
 export const Login = () => {
-  usePageTitle('Login')
+  usePageTitle('Entrar')
   const [isLoading, setIsLoading] = useState(false)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -80,11 +92,6 @@ export const Login = () => {
     if (searchParams.get('error') !== 'oidc_failed') {
       return null
     }
-    // The server returns short opaque codes via `?reason=` (see
-    // `login_error_code_for` in `oidc_handler.rs`) so we don't leak
-    // raw IdP error text into the browser address bar / history /
-    // Referer. Translate each known code into a user-facing message
-    // here; unknown values fall through to a generic string.
     const reason = searchParams.get('reason')
     return oidcErrorMessage(reason)
   }, [searchParams])
@@ -92,7 +99,7 @@ export const Login = () => {
   const login = useMutation({
     ...loginMutation(),
     meta: {
-      errorTitle: 'Login failed',
+      errorTitle: 'Falha no login',
     },
     onSuccess: async (data) => {
       if (data.password_change_required) {
@@ -101,13 +108,13 @@ export const Login = () => {
       }
 
       if (data.mfa_required) {
-        toast.success('Please complete MFA verification')
+        toast.success('Conclua a verificação em duas etapas')
         navigate('/mfa-verify')
         return
       }
 
       if (data.mfa_enrollment_required && data.mfa_setup) {
-        toast.success('Set up multi-factor authentication to continue')
+        toast.success('Configure a verificação em duas etapas para continuar')
         navigate('/auth/change-password', {
           replace: true,
           state: { mfaSetup: data.mfa_setup },
@@ -115,7 +122,7 @@ export const Login = () => {
         return
       }
 
-      toast.success('Logged in successfully')
+      toast.success('Login realizado')
       await queryClient.invalidateQueries({ queryKey: ['getCurrentUser'] })
       await refetch()
       navigate(consumeReturnTo('/dashboard'), { replace: true })
@@ -134,44 +141,14 @@ export const Login = () => {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="flex flex-col items-center space-y-6">
-          <div className="flex items-center gap-3">
-            <img
-              src="/svg/temps-icon.svg"
-              alt="Temps logo"
-              className="size-12"
-            />
-            <span className="text-2xl font-bold">Temps</span>
-          </div>
-          <div className="flex flex-col space-y-2 text-center">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Welcome back
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Sign in to your account to continue
-            </p>
-          </div>
-        </div>
-
-        {oidcError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>SSO sign-in failed</AlertTitle>
-            <AlertDescription>{oidcError}</AlertDescription>
-          </Alert>
-        )}
-
-        <LoginForm
-          onSubmit={handleSubmit}
-          isLoading={isLoading || login.isPending}
-          oidcProviders={emailStatus?.oidc_providers ?? []}
-          passwordResetAvailable={
-            emailStatus?.password_reset_available ?? false
-          }
-        />
-      </div>
-    </div>
+    <DukkAuthShell>
+      <InfraLoginForm
+        onSubmit={handleSubmit}
+        isLoading={isLoading || login.isPending}
+        oidcProviders={emailStatus?.oidc_providers ?? []}
+        externalError={oidcError}
+        passwordResetAvailable={emailStatus?.password_reset_available ?? false}
+      />
+    </DukkAuthShell>
   )
 }
