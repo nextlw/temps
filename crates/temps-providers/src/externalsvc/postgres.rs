@@ -3104,7 +3104,7 @@ impl ExternalService for PostgresService {
         const PROBE_TIMEOUT: Duration = Duration::from_secs(5);
         const DEGRADED_MS: u128 = 2000;
 
-        let cfg = match self.get_postgres_config(service_config) {
+        let cfg = match self.get_postgres_config(service_config.clone()) {
             Ok(c) => c,
             Err(e) => {
                 return Ok(HealthProbeResult::down(format!(
@@ -3114,9 +3114,27 @@ impl ExternalService for PostgresService {
             }
         };
 
+        // Endereço resolvido pelo ambiente onde ESTE processo roda, e não os
+        // campos crus de `parameters`. Em Docker o control-plane alcança o
+        // banco pelo nome do container na rede interna; `localhost:<porta
+        // publicada>` aponta para o próprio container do temps, onde não há
+        // Postgres algum — e o probe marcava Down um serviço saudável desde o
+        // primeiro check. É a mesma resolução que o deploy usa para montar
+        // POSTGRES_URL, então monitor e workload passam a enxergar o mesmo
+        // endereço.
+        let (host, port) = match self.get_effective_address(service_config) {
+            Ok(endereco) => endereco,
+            Err(e) => {
+                return Ok(HealthProbeResult::down(format!(
+                    "invalid postgres address: {}",
+                    e
+                )))
+            }
+        };
+
         let conn_str = format!(
             "host={} port={} user={} password={} dbname={} connect_timeout=3",
-            cfg.host, cfg.port, cfg.username, cfg.password, cfg.database
+            host, port, cfg.username, cfg.password, cfg.database
         );
 
         let start = Instant::now();
@@ -3129,13 +3147,13 @@ impl ExternalService for PostgresService {
         match connect {
             Err(_) => Ok(HealthProbeResult::down(format!(
                 "postgres probe to {}:{} timed out after {}s",
-                cfg.host,
-                cfg.port,
+                host,
+                port,
                 PROBE_TIMEOUT.as_secs()
             ))),
             Ok(Err(e)) => Ok(HealthProbeResult::down(format!(
                 "postgres connect to {}:{} failed: {}",
-                cfg.host, cfg.port, e
+                host, port, e
             ))),
             Ok(Ok((client, connection))) => {
                 // Drive the connection on a background task for the lifetime
