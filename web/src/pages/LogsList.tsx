@@ -21,6 +21,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAssistantPageContext } from '@/components/ai/AiAssistantContext'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useQuery } from '@tanstack/react-query'
@@ -79,6 +80,7 @@ export default function LogsList({ project }: LogsListProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   usePageTitle(`Logs - ${project.name}`)
 
   const [timeRange, setTimeRange] = useState<TimeRange>(
@@ -101,11 +103,11 @@ export default function LogsList({ project }: LogsListProps) {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
+      { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
       { label: 'Logs' },
     ])
-  }, [project.name, project.slug, setBreadcrumbs])
+  }, [project.name, project.slug, setBreadcrumbs, t])
 
   // Reset to first page when any filter changes.
   useEffect(() => {

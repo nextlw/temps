@@ -35,6 +35,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { useDebounce } from '@/hooks/useDebounce'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import {
@@ -144,16 +145,17 @@ export default function TraceOperations({ project }: TraceOperationsProps) {
   const [searchParams, setSearchParams] = useSearchParams()
 
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   usePageTitle(`Operations - ${project.name}`)
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
+      { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
       { label: 'Traces', href: `/projects/${project.slug}/traces` },
       { label: 'Operations' },
     ])
-  }, [project.name, project.slug, setBreadcrumbs])
+  }, [project.name, project.slug, setBreadcrumbs, t])
 
   const [timeRange, setTimeRange] = useState<TracesTimeRange>(
     (searchParams.get('range') as TracesTimeRange) || '24h'

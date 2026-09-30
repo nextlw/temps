@@ -18,6 +18,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { cn } from '@/lib/utils'
 import { extractSentryEvent } from '@/lib/sentry-utils'
@@ -41,6 +42,7 @@ export function ErrorEventDetail({ project }: { project: ProjectResponse }) {
   }>()
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
 
   // Fetch event details
   const {
@@ -70,8 +72,8 @@ export function ErrorEventDetail({ project }: { project: ProjectResponse }) {
   useEffect(() => {
     if (event && projectSlug) {
       setBreadcrumbs([
-        { label: 'Projects', href: '/projects' },
-        { label: projectSlug, href: `/projects/${projectSlug}` },
+        { label: t('projects'), href: '/projects' },
+        { label: project.name, href: `/projects/${projectSlug}` },
         { label: 'Error Tracking', href: `/projects/${projectSlug}/errors` },
         {
           label: 'Error Group',
@@ -80,7 +82,7 @@ export function ErrorEventDetail({ project }: { project: ProjectResponse }) {
         { label: 'Event Details' },
       ])
     }
-  }, [setBreadcrumbs, event, projectSlug, errorGroupId])
+  }, [setBreadcrumbs, event, projectSlug, errorGroupId, project.name, t])
 
   const getSeverityColor = (level: string) => {
     switch (level?.toLowerCase()) {

@@ -16,6 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import * as React from 'react'
 import { useNavigate } from 'react-router'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
 interface EditFunnelProps {
@@ -27,6 +28,7 @@ export function EditFunnel({ project, funnelId }: EditFunnelProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const [feedback, setFeedback] = React.useState<{
     type: 'success' | 'error'
     message: string
@@ -50,12 +52,12 @@ export function EditFunnel({ project, funnelId }: EditFunnelProps) {
 
   React.useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
-      { label: project.slug, href: `/projects/${project.slug}` },
+      { label: t('projects'), href: '/projects' },
+      { label: project.name, href: `/projects/${project.slug}` },
       { label: 'Analytics', href: `/projects/${project.slug}/analytics` },
       { label: 'Edit Funnel' },
     ])
-  }, [project, setBreadcrumbs])
+  }, [project, setBreadcrumbs, t])
 
   const updateFunnel = useMutation({
     ...updateFunnelMutation(),

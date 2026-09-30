@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { usePlatformFeatures } from '@/hooks/usePlatformFeatures'
 import {
@@ -104,6 +105,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
   const sourceUploadsUnavailable =
     platformFeatures.data !== undefined && !sourceUploadsSupported
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const [files, setFiles] = useState<DropFile[]>([])
   const [projectName, setProjectName] = useState('')
   const [nameWasEdited, setNameWasEdited] = useState(false)
@@ -130,10 +132,10 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     if (embedded) return
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
+      { label: t('projects'), href: '/projects' },
       { label: 'Drop' },
     ])
-  }, [embedded, setBreadcrumbs])
+  }, [embedded, setBreadcrumbs, t])
   useEffect(
     () => () => {
       detectionAbortRef.current?.abort()

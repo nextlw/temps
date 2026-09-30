@@ -12,6 +12,7 @@ import { ProjectConfigurator } from '@/components/project/ProjectConfigurator'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useSensitiveActionVerification } from '@/hooks/useSensitiveActionVerification'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -28,16 +29,17 @@ export function ImportProject() {
   }>()
   const repositoryId = repositoryIdParam ? parseInt(repositoryIdParam, 10) : NaN
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
+      { label: t('projects'), href: '/projects' },
       { label: 'New Project', href: '/projects/new' },
       { label: 'Import Project' },
     ])
-  }, [setBreadcrumbs])
+  }, [setBreadcrumbs, t])
 
   // Fetch repository by ID. The backend derives owner/name/full_name and the
   // git provider connection from the row itself, so the frontend doesn't need

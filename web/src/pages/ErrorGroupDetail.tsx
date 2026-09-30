@@ -44,6 +44,7 @@ import { TimeAgo } from '@/components/utils/TimeAgo'
 import { useAssistantPageContext } from '@/components/ai/AiAssistantContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { cn } from '@/lib/utils'
 import { extractSentryEvent } from '@/lib/sentry-utils'
@@ -69,6 +70,7 @@ export function ErrorGroupDetail({ project }: { project: ProjectResponse }) {
   }>()
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const queryClient = useQueryClient()
   const [selectedTab, setSelectedTab] = useState('overview')
 
@@ -162,13 +164,13 @@ export function ErrorGroupDetail({ project }: { project: ProjectResponse }) {
   useEffect(() => {
     if (errorGroup && projectSlug) {
       setBreadcrumbs([
-        { label: 'Projects', href: '/projects' },
-        { label: projectSlug, href: `/projects/${projectSlug}` },
+        { label: t('projects'), href: '/projects' },
+        { label: project.name, href: `/projects/${projectSlug}` },
         { label: 'Error Tracking', href: `/projects/${projectSlug}/errors` },
         { label: errorGroup.title || 'Error Details' },
       ])
     }
-  }, [setBreadcrumbs, errorGroup, projectSlug])
+  }, [setBreadcrumbs, errorGroup, projectSlug, project.name, t])
 
   // Tell the assistant which error the user is looking at.
   const assistantContext = errorGroup

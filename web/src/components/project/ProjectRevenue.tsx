@@ -66,6 +66,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { TimeAgo } from '@/components/utils/TimeAgo'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
@@ -98,6 +99,7 @@ interface ProjectRevenueProps {
 
 export function ProjectRevenue({ project }: ProjectRevenueProps) {
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const [currency] = useState('usd')
   const [connectOpen, setConnectOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -107,11 +109,11 @@ export function ProjectRevenue({ project }: ProjectRevenueProps) {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
-      { label: project.slug, href: `/projects/${project.slug}/project` },
+      { label: t('projects'), href: '/projects' },
+      { label: project.name, href: `/projects/${project.slug}/project` },
       { label: 'Revenue' },
     ])
-  }, [project.slug, setBreadcrumbs])
+  }, [project.name, project.slug, setBreadcrumbs, t])
 
   const integrationsQuery = useQuery({
     ...revenueListIntegrationsOptions({ path: { project_id: project.id } }),

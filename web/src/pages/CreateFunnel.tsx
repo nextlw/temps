@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import * as React from 'react'
 import { useNavigate } from 'react-router'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
 interface CreateFunnelProps {
@@ -20,6 +21,7 @@ export function CreateFunnel({ project }: CreateFunnelProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const [feedback, setFeedback] = React.useState<{
     type: 'success' | 'error'
     message: string
@@ -29,12 +31,12 @@ export function CreateFunnel({ project }: CreateFunnelProps) {
 
   React.useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
-      { label: project.slug, href: `/projects/${project.slug}` },
+      { label: t('projects'), href: '/projects' },
+      { label: project.name, href: `/projects/${project.slug}` },
       { label: 'Analytics', href: `/projects/${project.slug}/analytics` },
       { label: 'Create Funnel' },
     ])
-  }, [project, setBreadcrumbs])
+  }, [project, setBreadcrumbs, t])
 
   const createFunnel = useMutation({
     ...createFunnelMutation(),
