@@ -8,6 +8,7 @@ import {
   ErrorFallback,
 } from '@/components/error'
 import { ThemeProvider } from '@/components/providers/ThemeProvider'
+import { i18n } from '@/i18n'
 import { ThemeWrapper } from '@/components/theme/ThemeWrapper'
 import { ProjectsProvider } from '@/contexts/ProjectsContext'
 import { PresetProvider } from '@/contexts/PresetContext'
@@ -26,6 +27,7 @@ import { getCurrentUserOptions } from '@/api/client/@tanstack/react-query.gen'
 import { Loader2 } from 'lucide-react'
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { I18nextProvider } from 'react-i18next'
 import { toast, Toaster } from 'sonner'
 import { problemSetupPath } from '@/lib/api-problem'
 import {
@@ -1228,16 +1230,18 @@ export const TempsConsole = ({
   client.setConfig({ baseUrl })
 
   return (
-    <ThemeProvider defaultTheme="system" enableSystem attribute="class">
-      <ThemeWrapper>
-        <QueryClientProvider client={queryClient}>
-          <ConsoleExtensionsProvider extensions={extensions}>
-            <AppContent />
-          </ConsoleExtensionsProvider>
-        </QueryClientProvider>
-        <Toaster position="top-center" />
-      </ThemeWrapper>
-    </ThemeProvider>
+    <I18nextProvider i18n={i18n}>
+      <ThemeProvider defaultTheme="system" enableSystem attribute="class">
+        <ThemeWrapper>
+          <QueryClientProvider client={queryClient}>
+            <ConsoleExtensionsProvider extensions={extensions}>
+              <AppContent />
+            </ConsoleExtensionsProvider>
+          </QueryClientProvider>
+          <Toaster position="top-center" />
+        </ThemeWrapper>
+      </ThemeProvider>
+    </I18nextProvider>
   )
 }
 
