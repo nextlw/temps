@@ -17,8 +17,8 @@ repo screenshots and media live in [`assets/`](../assets/).
 The default image tags used by the platform are set in
 `crates/temps-providers/src/externalsvc/`.
 
-The MariaDB image is published for `linux/amd64` and `linux/arm64` by
-`.github/workflows/mariadb-walg-image.yml`. After the first publication, an
-organization owner must set the `mariadb-walg` package visibility to **Public**
-under GitHub organization package settings. Public visibility lets a fresh
-Temps installation pull the default image without configuring GHCR credentials.
+The MariaDB image is published for `linux/amd64` and `linux/arm64` by the
+upstream repository (gotempsh/temps). This fork does not ship that workflow, so
+installations keep pulling `ghcr.io/gotempsh/mariadb-walg`. The sandbox, daemon
+and preview-gateway images, by contrast, are published by this fork's release
+workflow under `ghcr.io/<owner>/`.

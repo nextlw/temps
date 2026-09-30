@@ -5,36 +5,16 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-nightly_workflow="$repository_root/.github/workflows/nightly-release.yml"
 release_workflow="$repository_root/.github/workflows/release.yml"
 sandbox_workflow="$repository_root/.github/workflows/sandbox-images-beta.yml"
 e2e_workflow="$repository_root/.github/workflows/e2e-tests.yml"
 rust_tests_workflow="$repository_root/.github/workflows/rust-tests.yml"
-decision_script="$repository_root/.github/scripts/nightly-release-decision.sh"
 validation_script="$repository_root/.github/scripts/validate-release-ref.sh"
 
 fail() {
-  echo "nightly workflow regression: $*" >&2
+  echo "release workflow regression: $*" >&2
   exit 1
 }
-
-# The no-checkout dispatch job must identify both repository and tag explicitly.
-# shellcheck disable=SC2016
-grep -Fq -- '--repo "$REPOSITORY"' "$nightly_workflow" ||
-  fail "the no-checkout dispatch job cannot identify its repository"
-
-# shellcheck disable=SC2016
-grep -Fq -- '--ref "$TAG"' "$nightly_workflow" ||
-  fail "nightly tags are not explicitly dispatched to the release workflow"
-
-grep -Fq -- '--field dry_run=false' "$nightly_workflow" ||
-  fail "nightly release dispatches would use the safe dry-run default"
-
-# The active-run query must be scoped to the nightly tag, not merely the SHA;
-# an unrelated branch dry-run can share the same commit.
-# shellcheck disable=SC2016
-grep -Fq -- '--branch "$last_nightly_tag"' "$nightly_workflow" ||
-  fail "nightly recovery can mistake an unrelated branch run for the release"
 
 grep -A5 -F 'dry_run:' "$release_workflow" | grep -Fq 'default: true' ||
   fail "manual release dispatches must default to a safe dry-run"
@@ -48,28 +28,19 @@ if [[ "$tag_aware_dispatch_count" -ne 6 ]]; then
   fail "expected release channel and version logic to distinguish dry-runs from tag dispatches"
 fi
 
-ruby - "$repository_root" "$nightly_workflow" "$release_workflow" "$sandbox_workflow" "$e2e_workflow" "$rust_tests_workflow" <<'RUBY'
+ruby - "$repository_root" "$release_workflow" "$sandbox_workflow" "$e2e_workflow" "$rust_tests_workflow" <<'RUBY'
 require "yaml"
 
 repository_root = ARGV[0]
-nightly = YAML.safe_load(File.read(ARGV[1]), aliases: true)
-release = YAML.safe_load(File.read(ARGV[2]), aliases: true)
+release = YAML.safe_load(File.read(ARGV[1]), aliases: true)
 daemon = YAML.safe_load(File.read(File.join(repository_root, ".github/workflows/daemon-images.yml")), aliases: true)
-sandbox = YAML.safe_load(File.read(ARGV[3]), aliases: true)
-e2e = YAML.safe_load(File.read(ARGV[4]), aliases: true)
-rust_tests = YAML.safe_load(File.read(ARGV[5]), aliases: true)
+sandbox = YAML.safe_load(File.read(ARGV[2]), aliases: true)
+e2e = YAML.safe_load(File.read(ARGV[3]), aliases: true)
+rust_tests = YAML.safe_load(File.read(ARGV[4]), aliases: true)
 
 e2e_sandbox_channel = e2e.dig("jobs", "e2e-test", "env", "TEMPS_SANDBOX_CHANNEL")
 abort "E2E must pull the beta sandbox images published for main and PR builds" unless
   e2e_sandbox_channel == "beta"
-
-check_permissions = nightly.dig("jobs", "check-and-tag", "permissions")
-abort "check-and-tag permissions are not read-actions/write-contents" unless
-  check_permissions == {"actions" => "read", "contents" => "write"}
-
-dispatch_permissions = nightly.dig("jobs", "dispatch-release", "permissions")
-abort "dispatch-release must only have actions: write" unless
-  dispatch_permissions == {"actions" => "write"}
 
 abort "release builds can bypass ref validation" unless
   release.dig("jobs", "build-web-assets", "needs") == "validate-release-ref"
@@ -135,13 +106,15 @@ publish_index = steps.index { |step| step["name"] == "Build and publish daemon i
 abort "daemon publication step is missing or bypasses failed checks" unless
   publish_index && !steps[publish_index].key?("if") && !steps[publish_index].key?("continue-on-error")
 published_platforms = steps[publish_index].fetch("with").fetch("platforms").split(",")
-daemon_cache = "type=registry,ref=ghcr.io/gotempsh/temps-sandbox-${{ matrix.flavor }}:daemon-buildcache"
+# The cache lives under the repository owner so the fork reads and writes its
+# own registry instead of upstream's (where it has no push rights).
+daemon_cache = "type=registry,ref=ghcr.io/${{ github.repository_owner }}/temps-sandbox-${{ matrix.flavor }}:daemon-buildcache"
 daemon_builds = steps.select { |step| step.fetch("uses", "").start_with?("docker/build-push-action@") }
 abort "every daemon build must read the persistent flavor-specific registry cache" unless
   daemon_builds.length == 3 && daemon_builds.all? { |step| step.dig("with", "cache-from") == daemon_cache }
 abort "only validated publishing runs may export the daemon cache after lifecycle checks" unless
   steps[publish_index].dig("with", "cache-to") ==
-    "${{ steps.metadata.outputs.publish == 'true' && format('type=registry,ref=ghcr.io/gotempsh/temps-sandbox-{0}:daemon-buildcache,mode=max,ignore-error=true', matrix.flavor) || '' }}" &&
+    "${{ steps.metadata.outputs.publish == 'true' && format('type=registry,ref=ghcr.io/{0}/temps-sandbox-{1}:daemon-buildcache,mode=max,ignore-error=true', github.repository_owner, matrix.flavor) || '' }}" &&
   steps.each_with_index.all? { |step, index| index == publish_index || !step.fetch("with", {}).key?("cache-to") }
 abort "daemon publication must cover both supported architectures" unless
   published_platforms.sort == %w[linux/amd64 linux/arm64]
@@ -299,31 +272,6 @@ puts "privileged workflow action pinning valid: #{privileged_action_refs.length}
 puts "release permission allowlists and tool pins are valid"
 RUBY
 
-expect_decision() {
-  local expected="$1"
-  shift
-  local actual
-  actual="$("$decision_script" "$@")"
-  if [[ "$actual" != "$expected" ]]; then
-    fail "unexpected nightly decision for inputs '$*': expected '$expected', got '$actual'"
-  fi
-}
-
-expect_decision $'should_release=true\nshould_create_tag=true\nexisting_tag=' \
-  new-sha "" "" false missing
-expect_decision $'should_release=true\nshould_create_tag=true\nexisting_tag=' \
-  new-sha old-tag old-sha true success
-expect_decision $'should_release=false\nshould_create_tag=false\nexisting_tag=nightly-tag' \
-  same-sha nightly-tag same-sha true success
-expect_decision $'should_release=false\nshould_create_tag=false\nexisting_tag=nightly-tag' \
-  same-sha nightly-tag same-sha false active
-expect_decision $'should_release=true\nshould_create_tag=false\nexisting_tag=nightly-tag' \
-  same-sha nightly-tag same-sha false missing
-expect_decision $'should_release=true\nshould_create_tag=false\nexisting_tag=nightly-tag' \
-  same-sha nightly-tag same-sha true failed
-expect_decision $'should_release=true\nshould_create_tag=false\nexisting_tag=nightly-tag' \
-  same-sha nightly-tag same-sha false success
-
 "$validation_script" true branch main >/dev/null
 "$validation_script" false tag v0.1.0 >/dev/null
 "$validation_script" false tag v0.1.0-beta.55 >/dev/null
@@ -337,5 +285,5 @@ if "$validation_script" false tag latest >/dev/null 2>&1; then
   fail "a malformed release tag was accepted for publishing"
 fi
 
-echo "nightly release workflow wiring and publishing workflow security are valid"
+echo "release workflow wiring and publishing workflow security are valid"
 python3 "$repository_root/.github/scripts/test_release_image_manifest.py"
