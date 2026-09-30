@@ -62,9 +62,12 @@ import { resolvePluginIcon } from '@/lib/pluginIcons'
 import { resolveProjectPrimaryRoute } from '@/lib/project-navigation'
 import { WORKER_NODES_URL } from '@/lib/worker-nodes'
 import { cn } from '@/lib/utils'
+import { SIDEBAR_BACK_TARGET, resolveSidebarMode } from '@/lib/sidebar-mode'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, type LucideIcon } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import type { ParseKeys } from 'i18next'
+import { type LucideIcon } from 'lucide-react'
+import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import {
@@ -87,8 +90,10 @@ import {
   type SettingsNavigationIcon,
 } from '@/components/settings/settings-navigation'
 
+type NavKey = ParseKeys<'nav'>
+
 interface PlatformNavItem {
-  title: string
+  titleKey: NavKey
   url: string
   icon: LucideIcon
   activeWhen?: (pathname: string) => boolean
@@ -96,7 +101,7 @@ interface PlatformNavItem {
 }
 
 interface PlatformNavGroup {
-  label: string
+  labelKey: NavKey
   items: PlatformNavItem[]
 }
 
@@ -105,19 +110,23 @@ interface PlatformNavGroup {
 // on /tools and in Cmd+K.
 const primaryPlatformGroups: PlatformNavGroup[] = [
   {
-    label: 'Build & deliver',
+    labelKey: 'groups.buildDeliver',
     items: [
-      { title: 'AI workspace', url: '/ai-first', icon: Sparkles },
-      { title: 'Projects', url: '/projects', icon: Folder },
-      { title: 'Git providers', url: '/git-providers', icon: GitBranch },
-      { title: 'Domains', url: '/domains', icon: Globe },
+      { titleKey: 'platform.aiWorkspace', url: '/ai-first', icon: Sparkles },
+      { titleKey: 'projects', url: '/projects', icon: Folder },
+      {
+        titleKey: 'platform.gitProviders',
+        url: '/git-providers',
+        icon: GitBranch,
+      },
+      { titleKey: 'platform.domains', url: '/domains', icon: Globe },
       // Lives under the /settings/nodes URL for historical reasons, but it is
       // a build-and-deliver capability: without a worker node a control plane
       // that runs no local workloads cannot build or deploy anything. See
       // WORKER_NODES_URL below for why the sidebar does not treat it as a
       // settings route.
       {
-        title: 'Worker Nodes',
+        titleKey: 'platform.workerNodes',
         url: WORKER_NODES_URL,
         icon: Network,
         featureKey: 'multi-node-worker-join',
@@ -125,27 +134,27 @@ const primaryPlatformGroups: PlatformNavGroup[] = [
     ],
   },
   {
-    label: 'Data',
+    labelKey: 'groups.data',
     items: [
-      { title: 'Databases', url: '/storage', icon: Database },
-      { title: 'Backups', url: '/backups', icon: DatabaseBackup },
+      { titleKey: 'platform.databases', url: '/storage', icon: Database },
+      { titleKey: 'platform.backups', url: '/backups', icon: DatabaseBackup },
     ],
   },
   {
-    label: 'Observe',
+    labelKey: 'groups.observe',
     items: [
-      { title: 'Analytics', url: '/analytics', icon: BarChart3 },
-      { title: 'Traces', url: '/traces', icon: GitFork },
-      { title: 'Logs', url: '/logs', icon: ScrollText },
-      { title: 'Errors', url: '/errors', icon: ShieldAlert },
+      { titleKey: 'platform.analytics', url: '/analytics', icon: BarChart3 },
+      { titleKey: 'platform.traces', url: '/traces', icon: GitFork },
+      { titleKey: 'platform.logs', url: '/logs', icon: ScrollText },
+      { titleKey: 'platform.errors', url: '/errors', icon: ShieldAlert },
       {
-        title: 'Server',
+        titleKey: 'platform.server',
         url: '/monitoring/server',
         icon: Cpu,
         activeWhen: (pathname) => pathname.startsWith('/monitoring/server'),
       },
       {
-        title: 'Monitoring',
+        titleKey: 'platform.monitoring',
         url: '/monitoring/alerts',
         icon: Gauge,
         activeWhen: (pathname) =>
@@ -153,14 +162,14 @@ const primaryPlatformGroups: PlatformNavGroup[] = [
           !pathname.startsWith('/monitoring/server'),
         featureKey: 'alerts-metric-alerts',
       },
-      { title: 'Proxy', url: '/proxy', icon: Activity },
+      { titleKey: 'platform.proxy', url: '/proxy', icon: Activity },
     ],
   },
   {
-    label: 'More',
+    labelKey: 'groups.more',
     items: [
       {
-        title: 'All platform tools',
+        titleKey: 'platform.allPlatformTools',
         url: '/tools',
         icon: Boxes,
         activeWhen: isPlatformToolsRoute,
@@ -169,68 +178,59 @@ const primaryPlatformGroups: PlatformNavGroup[] = [
   },
 ]
 
-// AI drill-down — swapped in for /ai-gateway, /chat, /agent-sandbox,
-// /skills, /mcp-servers, /ai-workflows, mirroring the Settings sidebar
-// swap so AI's several pages read as one coherent area instead of a
-// scattered set of sidebar entries.
-const AI_MODE_PREFIXES = [
-  '/ai-gateway',
-  '/chat',
-  '/agent-sandbox',
-  '/skills',
-  '/mcp-servers',
-  '/ai-workflows',
-]
+// AI drill-down — swapped in on AI_MODE_PREFIXES (see lib/sidebar-mode), so
+// AI's several pages read as one coherent area instead of a scattered set of
+// sidebar entries.
 const aiNavItems: PlatformNavItem[] = [
   {
-    title: 'Harnesses',
+    titleKey: 'ai.harnesses',
     url: '/agent-sandbox/providers',
     icon: Terminal,
     featureKey: 'ai-chat',
   },
   {
-    title: 'Providers',
+    titleKey: 'ai.providers',
     url: '/ai-gateway',
     icon: Sparkles,
     featureKey: 'ai-gateway',
   },
   {
-    title: 'Usage',
+    titleKey: 'ai.usage',
     url: '/ai-gateway/usage',
     icon: BarChart3,
     featureKey: 'ai-gateway',
   },
   {
-    title: 'Activity',
+    titleKey: 'ai.activity',
     url: '/ai-gateway/activity',
     icon: Activity,
     featureKey: 'ai-gateway',
   },
   {
-    title: 'Setup',
+    titleKey: 'ai.setup',
     url: '/ai-gateway/setup',
     icon: Terminal,
     featureKey: 'ai-gateway',
   },
   {
-    title: 'Chats',
+    titleKey: 'ai.chats',
     url: '/chat',
     icon: MessageSquare,
     featureKey: 'ai-chat',
   },
   {
-    title: 'Workflows',
+    titleKey: 'ai.workflows',
     url: '/ai-workflows',
     icon: Bot,
     featureKey: 'ai-agents-workflows',
   },
   {
-    title: 'Skills',
+    titleKey: 'ai.skills',
     url: '/skills',
     icon: Wand2,
     featureKey: 'ai-foundation-api-tools',
   },
-  { title: 'MCP Servers', url: '/mcp-servers', icon: Server },
+  { titleKey: 'ai.mcpServers', url: '/mcp-servers', icon: Server },
 ]
 
 function NavPlugins({
@@ -240,6 +240,7 @@ function NavPlugins({
 }) {
   const location = useLocation()
   const { isMinimal, isMobile } = useSidebar()
+  const { t } = useTranslation('nav')
 
   if (items.length === 0) return null
 
@@ -250,7 +251,7 @@ function NavPlugins({
       }
     >
       <SidebarGroupLabel className={isMinimal && !isMobile ? 'hidden' : ''}>
-        Plugins
+        {t('groups.plugins')}
       </SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {
@@ -293,6 +294,7 @@ function NavPlugins({
 // keyboard-hint badge on the right.
 function NavCommandTrigger() {
   const { isMinimal, isMobile } = useSidebar()
+  const { t } = useTranslation()
   const compact = isMinimal && !isMobile
   const triggerCommand = () => {
     document.dispatchEvent(
@@ -305,7 +307,7 @@ function NavCommandTrigger() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="Find (⌘K)"
+              tooltip={t('findWithShortcut')}
               onClick={triggerCommand}
               className="justify-center text-muted-foreground hover:text-foreground"
             >
@@ -324,7 +326,7 @@ function NavCommandTrigger() {
         className="flex h-8 w-full items-center gap-2 rounded-md border border-sidebar-border bg-transparent px-2 text-sm text-muted-foreground transition-colors hover:border-sidebar-border/80 hover:bg-sidebar-accent/40 hover:text-foreground"
       >
         <Search className="size-4 shrink-0" />
-        <span className="flex-1 text-left">Find…</span>
+        <span className="flex-1 text-left">{t('find')}</span>
         <kbd className="rounded border border-sidebar-border bg-sidebar/60 px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground">
           ⌘K
         </kbd>
@@ -350,39 +352,13 @@ export default function AppSidebar() {
     [platformNavEntries]
   )
 
-  // Route-driven sidebar swap.
-  //   /settings/*       → settings nav (back → default)
-  //   /projects/:slug/* → project nav  (back → default)
-  //   anything else     → default workspace nav
-  // /projects (the list) and /projects/new keep the default nav.
-  // Worker Nodes keeps its historical /settings/nodes URL but is a main-nav
-  // page ("Build & deliver"). Swapping to the settings sidebar there would
-  // hide the entry that is currently active and highlight nothing, so the
-  // route is explicitly excluded from the settings swap.
-  const settingsMode =
-    location.pathname.startsWith('/settings') &&
-    !location.pathname.startsWith(WORKER_NODES_URL)
-  const aiMode = AI_MODE_PREFIXES.some((p) => location.pathname.startsWith(p))
-  const projectMatch = location.pathname.match(/^\/projects\/([^/]+)(?:\/.*)?$/)
-  const projectSlug =
-    projectMatch &&
-    !['new', 'import-wizard', 'import'].includes(projectMatch[1])
-      ? projectMatch[1]
-      : null
-
-  // Override: user pressed Back from a route-driven swap; show DefaultNav
-  // only for that exact navigation. Keyed on `location.key` rather than
-  // pathname — a Link back to the very same URL (e.g. clicking "AI" again
-  // right after backing out of it) still produces a new history entry with
-  // a new key, so the override correctly drops and the swap re-triggers.
-  // Comparing by pathname alone left the sidebar stuck on DefaultNav until
-  // the user navigated somewhere else first.
-  const [forceDefaultKey, setForceDefaultKey] = useState<string | null>(null)
-  const forceDefault = forceDefaultKey === location.key
+  // Route-driven sidebar swap, derived from the URL alone (settings, AI,
+  // /projects/:slug/*, or the default workspace nav). Each contextual nav
+  // leaves through a real link, so page and sidebar never disagree.
+  const mode = resolveSidebarMode(location.pathname)
 
   const compact = isMinimal && !isMobile
-
-  const showDefault = forceDefault || (!settingsMode && !aiMode && !projectSlug)
+  const { t } = useTranslation()
 
   return (
     <Sidebar>
@@ -405,7 +381,7 @@ export default function AppSidebar() {
                 {logoIcon ?? (
                   <img
                     src="/svg/temps-icon.svg"
-                    alt="logo"
+                    alt={t('logo')}
                     className="size-full"
                   />
                 )}
@@ -428,22 +404,15 @@ export default function AppSidebar() {
       <SidebarContent>
         <NavCommandTrigger />
         <GettingStartedNavItem />
-        {showDefault ? (
-          <DefaultNav
-            pluginItems={pluginItems}
-            pinnedProjectSlug={forceDefault && projectSlug ? projectSlug : null}
-            onReturnToProject={() => setForceDefaultKey(null)}
-          />
-        ) : settingsMode ? (
-          <SettingsNav onBack={() => setForceDefaultKey(location.key)} />
-        ) : aiMode ? (
-          <AiNav onBack={() => setForceDefaultKey(location.key)} />
-        ) : projectSlug ? (
-          <ProjectNav
-            slug={projectSlug}
-            onBack={() => setForceDefaultKey(location.key)}
-          />
-        ) : null}
+        {mode.kind === 'settings' ? (
+          <SettingsNav />
+        ) : mode.kind === 'ai' ? (
+          <AiNav />
+        ) : mode.kind === 'project' ? (
+          <ProjectNav slug={mode.slug} />
+        ) : (
+          <DefaultNav pluginItems={pluginItems} />
+        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
@@ -775,12 +744,6 @@ function NavUser() {
 
 interface NavProps {
   pluginItems: { title: string; url: string; icon: LucideIcon }[]
-  // Slug of the project the user is currently viewing (URL still
-  // points inside `/projects/:slug/...`) but has temporarily swapped
-  // the sidebar to default via Back. When set, render a pinned row at
-  // the top so they can return to the project sidebar in one click.
-  pinnedProjectSlug?: string | null
-  onReturnToProject?: () => void
 }
 
 function ExtensionNav({ items }: { items?: ConsoleNavItem[] }) {
@@ -843,13 +806,10 @@ function ExtensionNav({ items }: { items?: ConsoleNavItem[] }) {
   )
 }
 
-function DefaultNav({
-  pluginItems,
-  pinnedProjectSlug,
-  onReturnToProject,
-}: NavProps) {
+function DefaultNav({ pluginItems }: NavProps) {
   const { isMinimal, isMobile } = useSidebar()
   const compact = isMinimal && !isMobile
+  const { t } = useTranslation('nav')
 
   const { navItems: extraNavItems } = useConsoleExtensions()
   const platformUrls = useMemo(
@@ -862,17 +822,14 @@ function DefaultNav({
 
   return (
     <>
-      {pinnedProjectSlug && onReturnToProject && (
-        <CurrentProjectPin
-          slug={pinnedProjectSlug}
-          onReturn={onReturnToProject}
-        />
-      )}
       {primaryPlatformGroups.map((group) => (
         <NavSection
-          key={group.label}
-          label={group.label}
-          items={group.items}
+          key={group.labelKey}
+          label={t(group.labelKey)}
+          items={group.items.map((item) => ({
+            ...item,
+            title: t(item.titleKey),
+          }))}
           siblingUrls={platformUrls.filter(
             (url) => !group.items.some((item) => item.url === url)
           )}
@@ -885,12 +842,12 @@ function DefaultNav({
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              tooltip={compact ? 'Settings' : undefined}
+              tooltip={compact ? t('platform.settingsTooltip') : undefined}
               className={compact ? 'justify-center' : 'justify-start'}
             >
               <Link to="/settings">
                 <Settings />
-                {!compact && <span>Settings</span>}
+                {!compact && <span>{t('platform.settings')}</span>}
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -902,10 +859,11 @@ function DefaultNav({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Settings nav — replaces the whole sidebar when on /settings/*.
-// Back button returns to root.
+// Back links to the main menu.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SettingsNav({ onBack }: { onBack: () => void }) {
+function SettingsNav() {
+  const { t } = useTranslation('nav')
   // Extension-provided links (e.g. an identity-provider page from a
   // console extension) join the built-in groups here, so instance
   // configuration lands in Settings rather than the workspace nav.
@@ -924,7 +882,12 @@ function SettingsNav({ onBack }: { onBack: () => void }) {
   const allSettingsUrls = groups.flatMap((g) => g.items.map((i) => i.url))
   return (
     <>
-      <SwapHeader title="Settings" onBack={onBack} backLabel="Back to menu" />
+      <SwapHeader
+        title={t('settings.title')}
+        backTo={SIDEBAR_BACK_TARGET.settings}
+        backText={t('back.mainMenu')}
+        backLabel={t('back.toMainMenu')}
+      />
       {groups.map((group) => {
         const ownUrls = new Set(group.items.map((i) => i.url))
         const siblings = allSettingsUrls.filter((u) => !ownUrls.has(u))
@@ -943,78 +906,125 @@ function SettingsNav({ onBack }: { onBack: () => void }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AI nav — replaces the whole sidebar for the AI area (Providers, Usage,
-// Chats, Workflows, Skills, MCP Servers). Back button returns to root.
+// Chats, Workflows, Skills, MCP Servers). Back links to the platform tools,
+// where the AI area is listed.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function AiNav({ onBack }: { onBack: () => void }) {
+function AiNav() {
+  const { t } = useTranslation('nav')
+  const items = aiNavItems.map((item) => ({
+    ...item,
+    title: t(item.titleKey),
+  }))
   return (
     <>
-      <SwapHeader title="AI" onBack={onBack} backLabel="Back to menu" />
-      <NavSection label="AI" items={aiNavItems} />
+      <SwapHeader
+        title={t('ai.title')}
+        backTo={SIDEBAR_BACK_TARGET.ai}
+        backText={t('back.platformTools')}
+        backLabel={t('back.toPlatformTools')}
+      />
+      <NavSection label={t('ai.title')} items={items} />
     </>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Project nav — replaces the whole sidebar when on /projects/:slug/*.
+// Back links to the project list.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const projectPrimaryItems = [
-  { title: 'Overview', url: 'project', icon: Home, section: 'project' },
+interface ProjectNavItem {
+  titleKey: NavKey
+  tooltipKey?: NavKey
+  url: string
+  icon: LucideIcon
+  section: string
+}
+
+const projectPrimaryItems: readonly ProjectNavItem[] = [
   {
-    title: 'Deployments',
+    titleKey: 'project.overview',
+    url: 'project',
+    icon: Home,
+    section: 'project',
+  },
+  {
+    titleKey: 'project.deployments',
     url: 'deployments',
     icon: GitBranch,
     section: 'deployments',
   },
   {
-    title: 'Environments',
+    titleKey: 'project.environments',
     url: 'environments',
     icon: Layers,
     section: 'environments',
   },
   {
-    title: 'Environment Variables',
+    titleKey: 'project.environmentVariables',
     url: 'environment-variables',
     icon: Variable,
     section: 'environment-variables',
   },
-  { title: 'Logs', url: 'runtime', icon: ScrollText, section: 'logs' },
-  { title: 'Errors', url: 'errors', icon: ShieldAlert, section: 'errors' },
-  { title: 'Traces', url: 'traces', icon: GitFork, section: 'traces' },
   {
-    title: 'Analytics',
+    titleKey: 'project.logs',
+    url: 'runtime',
+    icon: ScrollText,
+    section: 'logs',
+  },
+  {
+    titleKey: 'project.errors',
+    url: 'errors',
+    icon: ShieldAlert,
+    section: 'errors',
+  },
+  {
+    titleKey: 'project.traces',
+    url: 'traces',
+    icon: GitFork,
+    section: 'traces',
+  },
+  {
+    titleKey: 'project.analytics',
     url: 'analytics',
     icon: BarChart3,
     section: 'analytics',
   },
   {
-    title: 'Monitoring',
+    titleKey: 'project.monitoring',
     url: 'metrics',
     icon: Activity,
     section: 'monitoring',
   },
-  { title: 'Databases', url: 'storage', icon: Database, section: 'storage' },
   {
-    title: 'Security',
+    titleKey: 'project.databases',
+    url: 'storage',
+    icon: Database,
+    section: 'storage',
+  },
+  {
+    titleKey: 'project.security',
     url: 'security',
     icon: ShieldAlert,
     section: 'security',
   },
   {
-    title: 'Settings',
+    titleKey: 'project.settings',
+    tooltipKey: 'project.settingsTooltip',
     url: 'settings/general',
     icon: Settings,
     section: 'settings',
   },
-] as const
+]
 
-function ProjectNav({ slug, onBack }: { slug: string; onBack: () => void }) {
+function ProjectNav({ slug }: { slug: string }) {
   const { data: project } = useQuery(
     getProjectBySlugOptions({ path: { slug } })
   )
   const location = useLocation()
   const { isMinimal, isMobile, setOpenMobile } = useSidebar()
+  const { t } = useTranslation(['nav', 'common'])
   const compact = isMinimal && !isMobile
   const active = resolveProjectPrimaryRoute(
     location.pathname.slice(`/projects/${slug}/`.length)
@@ -1022,17 +1032,20 @@ function ProjectNav({ slug, onBack }: { slug: string; onBack: () => void }) {
   return (
     <>
       <SwapHeader
-        title={project?.name ?? 'Loading…'}
-        onBack={onBack}
-        backLabel="Back to menu"
+        title={project?.name ?? t('common:loading')}
+        backTo={SIDEBAR_BACK_TARGET.project}
+        backText={t('projects')}
+        backLabel={t('back.toProjects')}
       />
       <SidebarGroup className="py-2">
-        <SidebarMenu aria-label="Project navigation">
+        <SidebarMenu aria-label={t('project.navigationLabel')}>
           {projectPrimaryItems.map((item) => (
             <SidebarMenuItem key={item.section} data-tour={item.section}>
               <SidebarMenuButton
                 asChild
-                tooltip={compact ? item.title : undefined}
+                tooltip={
+                  compact ? t(item.tooltipKey ?? item.titleKey) : undefined
+                }
                 className={cn(
                   compact ? 'justify-center' : 'justify-start',
                   active === item.section &&
@@ -1045,7 +1058,7 @@ function ProjectNav({ slug, onBack }: { slug: string; onBack: () => void }) {
                   onClick={() => isMobile && setOpenMobile(false)}
                 >
                   <item.icon />
-                  {!compact && <span>{item.title}</span>}
+                  {!compact && <span>{t(item.titleKey)}</span>}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -1056,89 +1069,39 @@ function ProjectNav({ slug, onBack }: { slug: string; onBack: () => void }) {
   )
 }
 
-// Inverse of SwapHeader: shown at the top of DefaultNav when the user
-// pressed Back from a project sidebar but the URL is still inside that
-// project. One click restores the project sidebar without navigating.
-function CurrentProjectPin({
-  slug,
-  onReturn,
-}: {
-  slug: string
-  onReturn: () => void
-}) {
-  const { isMinimal, isMobile } = useSidebar()
-  const compact = isMinimal && !isMobile
-  const { data: project } = useQuery({
-    ...getProjectBySlugOptions({ path: { slug } }),
-  })
-  const label = project?.name ?? slug
-  if (compact) {
-    return (
-      <SidebarGroup className="pb-0">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              tooltip={`Open ${label}`}
-              onClick={onReturn}
-              className="justify-center"
-            >
-              <Folder />
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroup>
-    )
-  }
-  return (
-    <SidebarGroup className="pb-0">
-      <button
-        type="button"
-        onClick={onReturn}
-        className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm transition-colors hover:bg-sidebar-accent"
-      >
-        <Folder className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-medium text-foreground">
-          {label}
-        </span>
-        <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-      </button>
-    </SidebarGroup>
-  )
-}
-
-// Shared back-arrow header used by Settings, Project, and drill-down
-// sub-views. `onBack` is a state callback — it never navigates.
-//
-// `backLabel` names the destination, and is only surfaced when the sidebar is
-// collapsed: expanded, the row reads "← Analytics" (where you *are*, which the
-// surrounding items already imply), but collapsed there is nothing but an arrow,
-// so the tooltip has to say where it goes.
+// Shared header of the contextual navs (Settings, AI, Project): a real link
+// back to where the nav was entered from, then the name of the area you are
+// in. The link names its destination (`backText`, e.g. "← Projects"), never
+// the current area, so it cannot be mistaken for a local toggle; collapsed,
+// only the arrow remains and `backLabel` ("Back to projects") becomes its
+// tooltip and accessible name.
 function SwapHeader({
   title,
-  onBack,
-  backLabel = 'Back',
+  backTo,
+  backText,
+  backLabel,
 }: {
   title: string
-  onBack: () => void
-  backLabel?: string
+  backTo: string
+  backText: string
+  backLabel: string
 }) {
-  const { isMinimal, isMobile } = useSidebar()
+  const { isMinimal, isMobile, setOpenMobile } = useSidebar()
   const compact = isMinimal && !isMobile
-  // Collapsed, this used to render nothing at all — leaving a second-level nav
-  // (e.g. a project's Analytics sub-items) with no way back out except
-  // re-expanding the sidebar or using the breadcrumb.
+  const closeOnMobile = () => isMobile && setOpenMobile(false)
   if (compact) {
     return (
       <SidebarGroup className="pb-0">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
+              asChild
               tooltip={backLabel}
-              aria-label={backLabel}
-              onClick={onBack}
               className="justify-center text-muted-foreground hover:text-foreground"
             >
-              <ArrowLeft />
+              <Link to={backTo} aria-label={backLabel}>
+                <ArrowLeft />
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -1146,15 +1109,19 @@ function SwapHeader({
     )
   }
   return (
-    <SidebarGroup className="pb-0">
-      <button
-        type="button"
-        onClick={onBack}
+    <SidebarGroup className="gap-1 pb-0">
+      <Link
+        to={backTo}
+        aria-label={backLabel}
+        onClick={closeOnMobile}
         className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
       >
-        <ArrowLeft className="size-4" />
-        <span className="truncate font-medium text-foreground">{title}</span>
-      </button>
+        <ArrowLeft className="size-4 shrink-0" />
+        <span className="truncate">{backText}</span>
+      </Link>
+      <div className="truncate px-2 text-sm font-semibold text-foreground">
+        {title}
+      </div>
     </SidebarGroup>
   )
 }

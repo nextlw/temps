@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useMemo } from 'react'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics'
 import { useDashboardHealth } from '@/hooks/useDashboardHealth'
 import { useProjectsMonitorHealth } from '@/hooks/useProjectsMonitorHealth'
@@ -45,6 +46,7 @@ const SEARCH_CATALOG_LIMIT = 50
 
 export function Projects() {
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const [searchParams, setSearchParams] = useSearchParams()
   const { page, pageSize } = readProjectPagination(searchParams)
   const projectSearch = searchParams.get('q') ?? ''
@@ -128,8 +130,8 @@ export function Projects() {
   }, [normalizedProjectSearch, projectsData?.projects])
 
   useEffect(() => {
-    setBreadcrumbs([{ label: 'Projects' }])
-  }, [setBreadcrumbs])
+    setBreadcrumbs([{ label: t('projects') }])
+  }, [setBreadcrumbs, t])
 
   usePageTitle('Projects')
 

@@ -55,6 +55,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
@@ -711,6 +712,7 @@ export default function TracesList({ project }: TracesListProps) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   usePageTitle(`Traces - ${project.name}`)
 
   // State from URL params
@@ -866,11 +868,11 @@ export default function TracesList({ project }: TracesListProps) {
   // Breadcrumbs
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
+      { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
       { label: 'Traces' },
     ])
-  }, [project.name, project.slug, setBreadcrumbs])
+  }, [project.name, project.slug, setBreadcrumbs, t])
 
   const timeBounds = tracesListTimeBounds(debouncedSearch || undefined, {
     startTime,

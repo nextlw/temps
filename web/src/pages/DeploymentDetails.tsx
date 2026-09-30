@@ -58,6 +58,7 @@ import { ReloadableImage } from '@/components/utils/ReloadableImage'
 import GithubIcon from '@/icons/Github'
 import { useAssistantPageContext } from '@/components/ai/AiAssistantContext'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { writeToClipboard } from '@/lib/clipboard'
 import { formatMicrocores } from '@/lib/cpu-format'
@@ -783,6 +784,7 @@ function DeploymentHeader({
   buildStats: StatItem[]
   actions: OverviewActions
 }) {
+  const { t } = useTranslation('nav')
   const shortHash = deployment.commit_hash?.slice(0, 7)
   const firstLine = deployment.commit_message?.split('\n')[0]
   const hasCommit = Boolean(shortHash || firstLine || deployment.branch)
@@ -795,9 +797,12 @@ function DeploymentHeader({
           asChild
           className="-ml-2 h-8 shrink-0 gap-1.5 px-2 text-muted-foreground"
         >
-          <Link to={`/projects/${project.slug}/deployments`}>
+          <Link
+            to={`/projects/${project.slug}/deployments`}
+            aria-label={t('back.toDeployments')}
+          >
             <ArrowLeft className="h-4 w-4" />
-            Back
+            {t('back.deployments')}
           </Link>
         </Button>
         <span
@@ -899,6 +904,7 @@ interface DeploymentDetailsProps {
 export function DeploymentDetails({ project }: DeploymentDetailsProps) {
   const { deploymentId } = useParams()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const [isRedeployModalOpen, setIsRedeployModalOpen] = useState(false)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -1135,12 +1141,12 @@ export function DeploymentDetails({ project }: DeploymentDetailsProps) {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
-      { label: project.slug, href: `/projects/${project.slug}` },
+      { label: t('projects'), href: '/projects' },
+      { label: project.name, href: `/projects/${project.slug}` },
       { label: 'Deployments', href: `/projects/${project.slug}/deployments` },
       { label: `Deployment ${deploymentId}` },
     ])
-  }, [setBreadcrumbs, project.slug, deploymentId])
+  }, [setBreadcrumbs, project.name, project.slug, deploymentId, t])
 
   // Tell the assistant which deployment the user is looking at.
   const assistantContext = deployment

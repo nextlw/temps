@@ -1,0 +1,18 @@
+{
+  "project": {
+    "singular": "Project",
+    "plural": "Projects",
+    "singularLower": "project",
+    "pluralLower": "projects"
+  },
+  "projectGroup": {
+    "singular": "Project",
+    "plural": "Projects",
+    "singularLower": "project",
+    "pluralLower": "projects"
+  },
+  "externalServices": "Databases",
+  "platformResources": "Platform resources",
+  "containers": "Containers",
+  "otelService": "OTel service"
+}

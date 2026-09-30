@@ -3,19 +3,21 @@
 
 import { useEffect } from 'react'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { GitImportClone } from '@/components/project/GitImportClone'
 import { PageContainer } from '@/components/layout/PageContainer'
 
 export function NewProject() {
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
+      { label: t('projects'), href: '/projects' },
       { label: 'New Project' },
     ])
-  }, [setBreadcrumbs])
+  }, [setBreadcrumbs, t])
 
   usePageTitle('New Project')
 

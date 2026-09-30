@@ -52,6 +52,7 @@ import { AlertRulesManagement } from '@/components/monitoring/AlertRulesManageme
 import { AlertRuleForm } from '@/pages/AlertRuleForm'
 import { ErrorAlert } from '@/components/utils/ErrorAlert'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import { useTranslation } from 'react-i18next'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { resolveStableUrl } from '@/lib/deployment-url'
 import { legacyDatabasesRedirectPath } from '@/lib/project-detail-routes'
@@ -99,6 +100,7 @@ export function ProjectDetail() {
   const { slug } = useParams()
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const variableRoute = useMatch('/projects/:slug/environment-variables/*')
   const variableSubpath = variableRoute?.params['*'] ?? ''
   const [breadcrumbVariableId, breadcrumbSection] = variableSubpath.split('/')
@@ -305,8 +307,8 @@ export function ProjectDetail() {
     const projectPath = `/projects/${project?.slug || slug}`
     const variablesPath = `${projectPath}/environment-variables`
     setBreadcrumbs([
-      { label: 'Projects', href: '/projects' },
-      { label: project?.slug || 'Project Details', href: projectPath },
+      { label: t('projects'), href: '/projects' },
+      { label: project?.name || t('projectDetails'), href: projectPath },
       ...(isVariableRoute
         ? [
             { label: 'Environment variables', href: variablesPath },
@@ -326,6 +328,8 @@ export function ProjectDetail() {
     ])
   }, [
     setBreadcrumbs,
+    t,
+    project?.name,
     project?.slug,
     slug,
     isVariableRoute,
