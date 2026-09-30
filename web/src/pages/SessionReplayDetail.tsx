@@ -53,6 +53,7 @@ import {
   User,
 } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 
 // Type definitions for event data
@@ -196,19 +197,26 @@ export function SessionReplayDetail({ project }: { project: ProjectResponse }) {
     slug: string
   }>()
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t } = useTranslation('nav')
   const { get, patch } = useUrlState<'event'>()
   const selectedEventId = get('event')
 
   usePageTitle(`Session Replay - ${sessionId}`)
 
   useEffect(() => {
+    const analyticsPath = `/projects/${project.slug}/analytics`
     setBreadcrumbs([
-      { label: 'Visitors', href: '/visitors' },
-      { label: visitorId || '', href: `/visitors/${visitorId}` },
-      { label: 'Session Replay' },
-      { label: sessionId?.slice(0, 8) || '' },
+      { label: t('projects'), href: '/projects' },
+      { label: project.name, href: `/projects/${project.slug}` },
+      { label: t('crumbs.analytics'), href: analyticsPath },
+      { label: t('crumbs.visitors'), href: `${analyticsPath}/visitors` },
+      {
+        label: visitorId || '',
+        href: `${analyticsPath}/visitors/${visitorId}`,
+      },
+      { label: t('crumbs.sessionReplay') },
     ])
-  }, [setBreadcrumbs, visitorId, sessionId])
+  }, [setBreadcrumbs, t, project.name, project.slug, visitorId])
 
   const {
     data: sessionData,
