@@ -40,6 +40,7 @@ services:
         esac
 
   # PostgreSQL Database (with TimescaleDB + WAL-G for backups)
+  # Stays on upstream's image: the fork does not publish the *-walg images.
   postgres:
     image: gotempsh/timescaledb-walg:pg18
     container_name: temps-postgres
@@ -181,10 +182,13 @@ services:
 
   # Temps Application
   # Pulls the pre-built release image instead of compiling the Rust workspace
-  # (see the file header). Pin TEMPS_VERSION to a released tag (e.g. v0.12.0)
-  # for a reproducible, non-drifting deployment; it defaults to `latest`.
+  # (see the file header). Pin TEMPS_VERSION to a released version, without
+  # the leading `v` of the git tag (e.g. 0.1.0-nextlw.3), for a reproducible,
+  # non-drifting deployment. It defaults to `beta`: the fork only cuts
+  # prereleases, so its release workflow never moves `:latest`.
   temps:
-    image: ghcr.io/gotempsh/temps:${TEMPS_VERSION:-latest}
+    # Published by this fork's release workflow (ghcr.io/<repository owner>).
+    image: ghcr.io/nextlw/temps:${TEMPS_VERSION:-beta}
     container_name: temps-app
     restart: unless-stopped
     # Docker socket access is root-equivalent. Temps needs it to manage

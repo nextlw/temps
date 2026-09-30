@@ -38,6 +38,9 @@ mod release_manifest;
 pub mod request_policy_gate;
 /// Immutable image references embedded at compile time in official releases.
 pub mod release_images {
+    /// Fallback for builds without a release manifest (local and CI builds).
+    /// It stays on upstream's published gateway; a fork's release replaces it
+    /// through `PREVIEW_GATEWAY`, which the manifest binds to that fork.
     pub const LOCAL_PREVIEW_GATEWAY_IMAGE: &str = "ghcr.io/gotempsh/temps-preview-gateway@sha256:02d5cdd382c3285d569032e84321d5ce8fc089372a3f08651119f6eda8cb1448";
     include!(concat!(env!("OUT_DIR"), "/release_images.rs"));
 }
@@ -74,7 +77,7 @@ pub use self_update::{
 pub use serve_profile::{
     policy_or_default, LocalWorkloadPolicy, PROFILE_CONTROL_PLANE, PROFILE_FULL,
 };
-pub use update_status::{AvailableUpdate, UpdateStatusSlot, UPGRADE_DOCS_URL};
+pub use update_status::{AvailableUpdate, UpdateStatusSlot, RELEASES_REPOSITORY, UPGRADE_DOCS_URL};
 mod app_settings;
 mod constants;
 mod cookie_crypto;

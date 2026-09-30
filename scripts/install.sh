@@ -115,16 +115,19 @@ command -v curl >/dev/null ||
     error 'curl is required to install temps'
 
 # Channel selection. Mirrors `temps upgrade --channel`:
-#   stable (default) — track non-prerelease tags only
-#   beta             — track the newest tag, prerelease or not, EXCLUDING
+#   stable           — track non-prerelease tags only
+#   beta (default)   — track the newest tag, prerelease or not, EXCLUDING
 #                       nightly builds (a `-nightly.` tag never satisfies beta)
-#   nightly          — track only automated nightly builds (`-nightly.` tags),
-#                       cut once a day from `main` when it has new commits
+#   nightly          — track only nightly builds (`-nightly.` tags); the
+#                       nextlw/temps fork does not publish any
 #
-# CLI-only by design: there is no env-var fallback. A user must pass
-# `--channel beta` or `--channel nightly` explicitly to opt into prereleases.
-# `bash install.sh` always lands on stable — same contract as `temps upgrade`.
-channel="stable"
+# The default is beta because the fork only publishes `-nextlw.N`
+# prereleases: `/releases/latest` (stable) never returns one of them, so a
+# stable default would fail on every fresh install. `temps upgrade` then
+# keeps the host on the channel of the version installed here.
+#
+# CLI-only by design: there is no env-var fallback.
+channel="beta"
 positional=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -173,7 +176,11 @@ esac
 
 GITHUB=${GITHUB-"https://github.com"}
 
-github_repo="$GITHUB/gotempsh/temps"
+# Releases come from the nextlw/temps fork; upstream (gotempsh/temps) tags do
+# not carry the fork's changes. Runtime images such as gotempsh/*-walg are
+# still pulled from upstream, which is the only place they are published.
+releases_repo="nextlw/temps"
+github_repo="$GITHUB/$releases_repo"
 
 exe_name=temps
 
@@ -211,7 +218,7 @@ if [[ ${#positional[@]} -eq 0 ]]; then
     #   shipped releases.
     set +e
     if [[ "$channel" = "stable" ]]; then
-        temps_tag=$(curl --silent "https://api.github.com/repos/gotempsh/temps/releases/latest" |
+        temps_tag=$(curl --silent "https://api.github.com/repos/$releases_repo/releases/latest" |
                     grep '"tag_name":' |
                     head -n 1 |
                     sed -E 's/.*"([^"]+)".*/\1/' 2>/dev/null)
@@ -219,7 +226,7 @@ if [[ ${#positional[@]} -eq 0 ]]; then
         temps_tag=""
         page=1
         while [[ -z "$temps_tag" && $page -le 5 ]]; do
-            page_tags=$(curl --silent "https://api.github.com/repos/gotempsh/temps/releases?per_page=100&page=$page" |
+            page_tags=$(curl --silent "https://api.github.com/repos/$releases_repo/releases?per_page=100&page=$page" |
                         grep -oE '"tag_name": *"[^"]*"' |
                         sed -E 's/.*"([^"]+)"$/\1/')
             [[ -z "$page_tags" ]] && break
@@ -240,12 +247,12 @@ if [[ ${#positional[@]} -eq 0 ]]; then
     if [[ -z "$temps_tag" ]]; then
         echo ""
         error "No releases found on channel '$channel'. Try a specific version:
-    curl -fsSL https://raw.githubusercontent.com/gotempsh/temps/main/scripts/install.sh | bash -s -- v0.1.0
+    curl -fsSL https://raw.githubusercontent.com/nextlw/temps/main/scripts/install.sh | bash -s -- v0.1.0
 
 Or pick a different channel:
-    curl -fsSL https://raw.githubusercontent.com/gotempsh/temps/main/scripts/install.sh | bash -s -- --channel beta
+    curl -fsSL https://raw.githubusercontent.com/nextlw/temps/main/scripts/install.sh | bash -s -- --channel beta
 
-Available versions: https://github.com/gotempsh/temps/releases"
+Available versions: https://github.com/nextlw/temps/releases"
     fi
 
     info "Latest version on $channel: $temps_tag"

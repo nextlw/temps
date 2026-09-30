@@ -14,6 +14,16 @@ use std::sync::RwLock;
 /// Docs page operators are pointed at when a newer release is available.
 pub const UPGRADE_DOCS_URL: &str = "https://temps.sh/docs/upgrade-temps";
 
+/// GitHub repository (`owner/name`) whose releases `temps upgrade` and the
+/// update notifier follow. This binary is built from the nextlw/temps fork,
+/// which cuts its own `v*-nextlw.N` releases; following upstream gotempsh/temps
+/// would offer, and install, binaries without the fork's changes. A mirror can
+/// override it at build time with `TEMPS_RELEASES_REPOSITORY`.
+pub const RELEASES_REPOSITORY: &str = match option_env!("TEMPS_RELEASES_REPOSITORY") {
+    Some(repository) if !repository.is_empty() => repository,
+    _ => "nextlw/temps",
+};
+
 /// A newer published release found for this install's channel.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AvailableUpdate {
@@ -91,7 +101,9 @@ mod tests {
             current_version: "v0.1.0".to_string(),
             latest_version: latest.to_string(),
             channel: "stable".to_string(),
-            release_url: format!("https://github.com/gotempsh/temps/releases/tag/{latest}"),
+            release_url: format!(
+                "https://github.com/{RELEASES_REPOSITORY}/releases/tag/{latest}"
+            ),
             checked_at: Utc::now(),
         }
     }
