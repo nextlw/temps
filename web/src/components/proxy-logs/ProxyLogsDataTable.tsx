@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { DateTimeRange } from '@/components/ui/date-time-range'
 import { resolveTimeRange } from '@/lib/time-range-filter'
 
@@ -317,6 +318,7 @@ export function ProxyLogsDataTable({
   environmentId,
   onRowClick,
 }: ProxyLogsDataTableProps) {
+  const { t } = useTranslation('observability')
   const [searchParams, setSearchParams] = useSearchParams()
   const isInitialMount = useRef(true)
   const scopedProjectId =
@@ -643,7 +645,9 @@ export function ProxyLogsDataTable({
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>Scoped to:</span>
           {scopedProjectId !== undefined && (
-            <Badge variant="outline">Project {scopedProjectId}</Badge>
+            <Badge variant="outline">
+              {t('proxyLogs.scopedProject', { id: scopedProjectId })}
+            </Badge>
           )}
           {scopedEnvironmentId !== undefined && (
             <Badge variant="outline">Environment {scopedEnvironmentId}</Badge>
@@ -943,7 +947,9 @@ export function ProxyLogsDataTable({
                     <SelectItem value="routed">Routed</SelectItem>
                     <SelectItem value="failed">Failed</SelectItem>
                     <SelectItem value="not_found">Not Found</SelectItem>
-                    <SelectItem value="no_project">No Project</SelectItem>
+                    <SelectItem value="no_project">
+                      {t('proxyLogs.noProject')}
+                    </SelectItem>
                     <SelectItem value="error">Error</SelectItem>
                   </SelectContent>
                 </Select>
@@ -1703,6 +1709,7 @@ function DetailField({
 }
 
 function ProxyLogInlineDetail({ log }: { log: ProxyLogResponse }) {
+  const { t } = useTranslation('observability')
   const fullUrl = `${log.host}${log.path}${log.query_string ? `?${log.query_string}` : ''}`
 
   return (
@@ -1780,7 +1787,7 @@ function ProxyLogInlineDetail({ log }: { log: ProxyLogResponse }) {
         )}
         <DetailField label="Referrer" value={log.referrer} mono />
 
-        <DetailField label="Project ID" value={log.project_id} />
+        <DetailField label={t('proxyLogs.projectId')} value={log.project_id} />
         <DetailField label="Environment ID" value={log.environment_id} />
         <DetailField label="Deployment ID" value={log.deployment_id} />
         <DetailField label="Container" value={log.container_id} mono />

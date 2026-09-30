@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Bot, Gauge, Workflow } from 'lucide-react'
@@ -24,6 +25,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 // lists projects with a direct link into each one's Workflows tab, plus a
 // link to the infra-health dashboard at /agent-sandbox.
 export function AiWorkflowsOverview() {
+  const { t } = useTranslation('ai')
   usePageTitle('AI Workflows')
 
   const { data, isPending } = useQuery({
@@ -39,7 +41,7 @@ export function AiWorkflowsOverview() {
             AI Workflows
           </h1>
           <p className="text-sm text-muted-foreground">
-            Autofixer and agent runs, configured per project.
+            {t('workflows.subtitle')}
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -59,17 +61,14 @@ export function AiWorkflowsOverview() {
       ) : projects.length === 0 ? (
         <EmptyState
           icon={Workflow}
-          title="No projects yet"
-          description="Workflows run inside a project. Create a project first, then open its Workflows tab to configure an agent."
+          title={t('workflows.empty')}
+          description={t('workflows.emptyDescription')}
         />
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Projects</CardTitle>
-            <CardDescription>
-              Open a project&apos;s Workflows tab to configure or run its
-              agents.
-            </CardDescription>
+            <CardTitle>{t('workflows.title')}</CardTitle>
+            <CardDescription>{t('workflows.description')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-1">
             {projects.map((project) => (

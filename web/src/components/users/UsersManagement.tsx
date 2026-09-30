@@ -3,6 +3,7 @@
 
 'use client'
 
+import { i18n } from '@/i18n'
 import { PageHeader } from '@/components/layout/PageContainer'
 
 import {
@@ -62,12 +63,12 @@ const availableRoles = [
   {
     value: 'admin',
     label: 'Administrator',
-    description: 'Full control of projects, users, settings, and the system.',
+    description: i18n.t('projects:roles.adminShort'),
   },
   {
     value: 'user',
     label: 'User',
-    description: 'Can deploy and operate every existing and future project.',
+    description: i18n.t('projects:roles.userShort'),
   },
 ]
 

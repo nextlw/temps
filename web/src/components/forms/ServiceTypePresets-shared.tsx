@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { DEFAULT_RUSTFS_IMAGE } from '@/lib/service-images'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
@@ -133,7 +134,7 @@ export function useMariDbPreset(): PresetState {
     ui: (
       <PresetGroup
         label="MariaDB version"
-        description="Create a shared MariaDB server. Linked projects get separate databases inside it; use the size profile below to tune the container for the host."
+        description={i18n.t('projects:serviceMentions.mariadb')}
         options={MARIADB_OPTIONS}
         selected={selected}
         customValue={custom}

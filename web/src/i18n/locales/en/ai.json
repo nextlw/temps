@@ -1,0 +1,114 @@
+{
+  "dock": {
+    "contextProject": "$t(terms:project.singular)",
+    "newProjectChat": "New $t(terms:project.singularLower) chat",
+    "pickHint": "Choose a $t(terms:project.singularLower) to start a general chat about it.",
+    "intro": "Resume any AI conversation across your $t(terms:project.pluralLower), or start a new chat for a $t(terms:project.singularLower).",
+    "newInOther": "New chat in another $t(terms:project.singularLower)",
+    "projectFallback": "$t(terms:project.singular)",
+    "emptyHint": "Ask anything about this $t(terms:project.singularLower) — deployments, logs, traces, and errors.",
+    "askProject": "Ask about this $t(terms:project.singularLower)…",
+    "startHint": "Start a $t(terms:project.singularLower) chat to investigate deployments, logs, traces, and errors with context.",
+    "listEmptyHint": "Click “New chat” to start one for a $t(terms:project.singularLower), or open a failed deployment / firing alert and choose “Debug with AI”.",
+    "searchProjects": "Search $t(terms:project.pluralLower)…",
+    "noProjects": "No $t(terms:project.pluralLower) yet",
+    "noProjectsHint": "Create a $t(terms:project.singularLower) to start an AI chat for it.",
+    "noMatch": "No $t(terms:project.pluralLower) match “{{query}}”.",
+    "truncated": "Showing the 100 most recent $t(terms:project.pluralLower). If you don't see yours, open it and start the chat from there."
+  },
+  "chat": {
+    "projectChatTitle": "$t(terms:project.singular) chat",
+    "emptyHint": "Ask anything about this $t(terms:project.singularLower).",
+    "applicationProjects": "Application $t(terms:project.pluralLower)",
+    "projectAttached": "$t(terms:project.singular) created and attached to the persistent workspace"
+  },
+  "cloudMetadata": {
+    "body": "This $t(terms:project.singularLower) stores spans in Cloud without all the metadata needed for AI Activity. Enable AI metadata in telemetry settings to see model calls and token usage for new spans. Previously omitted attributes cannot be recovered."
+  },
+  "deployment": {
+    "deployProject": "Deploy $t(terms:project.singularLower)",
+    "noProjectId": "The trigger completed, but its response did not include a $t(terms:project.singularLower) id, so live deployment progress is unavailable."
+  },
+  "collection": {
+    "title": "$t(terms:project.plural)",
+    "empty": "No $t(terms:project.pluralLower) are visible to your current role."
+  },
+  "proposal": {
+    "targetProject": "Target $t(terms:project.singularLower)",
+    "projectValue": "$t(terms:project.singular) {{id}}",
+    "linkHint": "Make this database available to the selected $t(terms:project.singularLower) and its application workspace.",
+    "databaseLabel": "$t(terms:externalService.singular)",
+    "databaseValue": "$t(terms:externalService.singular) {{id}}",
+    "refreshHint": "Temps will refresh workspace networking and $t(terms:project.singularLower) context after the link is created."
+  },
+  "workspace": {
+    "operationFailed": "The $t(terms:project.singularLower) operation failed.",
+    "applicationProjects": "Application $t(terms:project.pluralLower)",
+    "applicationProjectsHint": "Each $t(terms:project.singularLower) has its own deployment settings while sharing this application's persistent workspace.",
+    "keepOne": "An application must keep at least one $t(terms:project.singularLower)",
+    "unlink": "Unlink $t(terms:project.singularLower)",
+    "createHint": "Creates the Temps $t(terms:project.singularLower) and projects/<slug> directory as one operation.",
+    "linkExistingLabel": "Existing $t(terms:project.singularLower) to link",
+    "linkLoadFailed": "Could not load the $t(terms:project.pluralLower) available to link.",
+    "topologyHint": "$t(terms:project.singular) topology is injected fresh into every AI turn.",
+    "databasesViaProject": "Databases are linked through an application $t(terms:project.singularLower).",
+    "addProjectFirst": "Add a $t(terms:project.singularLower) first",
+    "addProjectFirstHint": "Create a workspace $t(terms:project.singularLower) or link an existing one above, then its databases can join the private sandbox network.",
+    "databaseUnlinked": "Database unlinked from the $t(terms:project.singularLower) and sandbox",
+    "linkedServicesHint": "Linked databases provide $t(terms:project.singularLower) runtime variables and join this workspace's private sandbox network.",
+    "manageDatabasesLabel": "$t(terms:project.singular) whose databases to manage",
+    "databasesLoadFailed": "Could not load databases for this $t(terms:project.singularLower).",
+    "linkToFallback": "this $t(terms:project.singularLower)",
+    "statelessHint": "This stateless control plane cannot retain workspace files, attachments, or local imports across replacement. Use AI chat from a $t(terms:project.singularLower) page for diagnostics, or run a full-profile instance for persistent workspaces.",
+    "quarantined": "This persistent workspace is quarantined because $t(terms:project.singularLower) access changed. Restore access, then resume it from Workspace settings.",
+    "allAccessible": "All accessible $t(terms:project.pluralLower) ·",
+    "globalEmptyHint": "Ask about any $t(terms:project.singularLower) or platform resource you can access. Temps will gather evidence before proposing changes.",
+    "notAnchored": "This chat is yours and is not anchored to a $t(terms:project.singularLower). Selectors are explicit, and every platform call re-checks your current role and $t(terms:project.singularLower) memberships.",
+    "ownedByYou": "This thread belongs to you, not a $t(terms:project.singularLower). The harness runs in a persistent managed sandbox and every platform operation inherits your current role and $t(terms:project.singularLower) access.",
+    "noProjectsYet": "No $t(terms:project.pluralLower) yet. Ask the thread to create the application topology when you are ready.",
+    "noStarter": "The workspace was created without a starter $t(terms:project.singularLower).",
+    "autopackHint": "Temps creates a deployable Autopack $t(terms:project.singularLower) and keeps its files on this machine between threads.",
+    "startFromHint": "Import code now, or let the assistant build the $t(terms:project.singularLower) from scratch.",
+    "blankProject": "Blank $t(terms:project.singularLower)",
+    "pickerPlaceholder": "Choose a $t(terms:project.singularLower)…",
+    "pickerFind": "Find a $t(terms:project.singularLower)…",
+    "pickerEmpty": "No $t(terms:project.pluralLower) found.",
+    "pickerHeading": "$t(terms:project.plural)",
+    "projectCount_one": "{{count}} $t(terms:project.singularLower)",
+    "projectCount_other": "{{count}} $t(terms:project.pluralLower)",
+    "gitHint": "Choose the account and repository for each $t(terms:project.singularLower). Connections never fall back to another account.",
+    "gitProjectFallback": "$t(terms:project.singular) {{id}}",
+    "gitDisconnect": "Disconnect {{remote}} from $t(terms:project.singularLower) {{id}}",
+    "gitProjectLabel": "$t(terms:project.singular)",
+    "gitChooseProject": "Choose a $t(terms:project.singularLower)",
+    "gitDuplicate": "This $t(terms:project.singularLower) already has that remote. Disconnect it before choosing another account.",
+    "linkedCount_one": "{{count}} linked $t(terms:project.singularLower) ·",
+    "linkedCount_other": "{{count}} linked $t(terms:project.pluralLower) ·"
+  },
+  "onboarding": {
+    "createProject": "Create a $t(terms:project.singularLower)",
+    "intro": "Your harness can inspect $t(terms:project.pluralLower), create databases, deploy applications, and verify the result using the same pinned Temps CLI workflow.",
+    "keyDescription": "The harness needs platform access to create and verify $t(terms:project.pluralLower), databases, deployments, domains, and other resources.",
+    "verifyDescription": "Confirm the harness is targeting this instance and can read its $t(terms:project.pluralLower). Neither verification command changes platform state.",
+    "verifyProjects": "Verify $t(terms:project.singularLower) access"
+  },
+  "workflows": {
+    "subtitle": "Autofixer and agent runs, configured per $t(terms:project.singularLower).",
+    "empty": "No $t(terms:project.pluralLower) yet",
+    "emptyDescription": "Workflows run inside a $t(terms:project.singularLower). Create a $t(terms:project.singularLower) first, then open its Workflows tab to configure an agent.",
+    "title": "$t(terms:project.plural)",
+    "description": "Open a $t(terms:project.singularLower)'s Workflows tab to configure or run its agents."
+  },
+  "gateway": {
+    "selectProject": "Select $t(terms:project.singularLower)",
+    "noProject": "No $t(terms:project.singularLower) selected",
+    "noProjectDescription": "Select a $t(terms:project.singularLower) to view AI agent activity traces."
+  },
+  "workspaceDetail": {
+    "description": "Manage $t(terms:project.pluralLower), persistent files, and the compute attached to this workspace.",
+    "linkedLabel": "Linked $t(terms:project.pluralLower)",
+    "title": "$t(terms:project.plural)",
+    "hint": "Linked $t(terms:project.pluralLower) stay available when workspace compute is stopped.",
+    "empty": "No linked $t(terms:project.pluralLower)."
+  }
+}

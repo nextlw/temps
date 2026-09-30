@@ -31,6 +31,7 @@ import {
 import { useEffect, useRef } from 'react'
 import { useForm, Controller, useWatch } from 'react-hook-form'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 import { useMutation } from '@tanstack/react-query'
 
 interface ProjectSecuritySettingsProps {
@@ -71,6 +72,9 @@ export function ProjectSecuritySettings({
   project,
   refetch,
 }: ProjectSecuritySettingsProps) {
+  const { t } = useTranslation('projects', {
+    keyPrefix: 'settings.security',
+  })
   const updateDeploymentConfig = useMutation({
     ...updateProjectDeploymentConfigMutation(),
     meta: {
@@ -250,9 +254,9 @@ export function ProjectSecuritySettings({
             body: projectSettings,
           }),
           {
-            loading: 'Updating project settings...',
-            success: 'Project settings updated successfully',
-            error: 'Failed to update project settings',
+            loading: t('updating'),
+            success: t('updated'),
+            error: t('updateFailed'),
           }
         )
       }
@@ -334,10 +338,7 @@ export function ProjectSecuritySettings({
       <Alert>
         <InfoIcon className="h-4 w-4" />
         <AlertTitle>Configuration Inheritance</AlertTitle>
-        <AlertDescription>
-          Project-level security settings override global settings. Leave fields
-          empty to inherit from global configuration.
-        </AlertDescription>
+        <AlertDescription>{t('inheritance')}</AlertDescription>
       </Alert>
 
       {/* Attack Mode Card */}
@@ -351,7 +352,7 @@ export function ProjectSecuritySettings({
             <div className="space-y-0.5">
               <Label htmlFor="attack-mode">Enable Attack Mode</Label>
               <p className="text-sm text-muted-foreground">
-                Require CAPTCHA verification for all visitors to this project
+                {t('attackModeHint')}
               </p>
             </div>
             <Switch
@@ -392,7 +393,7 @@ export function ProjectSecuritySettings({
       {/* AI Assistance Card */}
       <SettingsSection
         title="AI Assistance"
-        description="Configure AI summaries and assistance for this project"
+        description={t('aiDescription')}
         icon={Bot}
       >
         <div className="space-y-4">
@@ -457,9 +458,7 @@ export function ProjectSecuritySettings({
                 Enable vulnerability scanning
               </Label>
               <p className="text-sm text-muted-foreground">
-                Scan this project&apos;s deployed Docker images for known CVEs,
-                categorized by severity, after every deploy and once daily. Off
-                by default.
+                {t('vulnerabilityHint')}
               </p>
             </div>
             <Switch
@@ -483,7 +482,7 @@ export function ProjectSecuritySettings({
       {/* Security Headers Card */}
       <SettingsSection
         title="Security Headers"
-        description="Configure project HTTP security headers that override global settings"
+        description={t('headersDescription')}
         icon={ShieldCheck}
       >
         <div className="space-y-4">
@@ -607,7 +606,7 @@ export function ProjectSecuritySettings({
       {/* Rate Limiting Card */}
       <SettingsSection
         title="Rate Limiting"
-        description="Configure project rate limits that override global settings"
+        description={t('rateLimitDescription')}
         icon={TrafficCone}
       >
         <div className="space-y-4">
@@ -674,9 +673,9 @@ export function ProjectSecuritySettings({
 
               <div className="space-y-4">
                 <div>
-                  <Label>Whitelist IPs (Project-specific)</Label>
+                  <Label>{t('whitelistLabel')}</Label>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Additional IPs that bypass rate limiting for this project
+                    {t('whitelistHint')}
                   </p>
                   <div className="space-y-2">
                     {(securityConfig?.rateLimiting?.whitelistIps || []).map(
@@ -712,9 +711,9 @@ export function ProjectSecuritySettings({
                 </div>
 
                 <div>
-                  <Label>Blacklist IPs (Project-specific)</Label>
+                  <Label>{t('blacklistLabel')}</Label>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Additional IPs to block for this project
+                    {t('blacklistHint')}
                   </p>
                   <div className="space-y-2">
                     {(securityConfig?.rateLimiting?.blacklistIps || []).map(

@@ -141,6 +141,7 @@ function tailRatioBadge(ratio: number) {
 }
 
 export default function TraceOperations({ project }: TraceOperationsProps) {
+  const { t: to } = useTranslation('observability')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -425,7 +426,7 @@ export default function TraceOperations({ project }: TraceOperationsProps) {
                   <TableRow>
                     <TableHead>Operation</TableHead>
                     <TableHead className="hidden md:table-cell">
-                      Service
+                      {to('misc.otelService')}
                     </TableHead>
                     <TableHead className="text-right">Calls</TableHead>
                     <TableHead className="text-right">Errors</TableHead>

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import {
   deleteWebhookMutation,
@@ -53,6 +54,7 @@ interface WebhooksSettingsProps {
 }
 
 export function WebhooksSettings({ project }: WebhooksSettingsProps) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const [webhookToDelete, setWebhookToDelete] = useState<number | null>(null)
 
@@ -101,8 +103,7 @@ export function WebhooksSettings({ project }: WebhooksSettingsProps) {
         <div>
           <h2 className="text-lg font-semibold">Webhooks</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Configure webhooks to receive real-time notifications about events
-            in your project
+            {t('settings.webhooks.subtitle')}
           </p>
         </div>
         <CreateActionButton
@@ -275,8 +276,7 @@ export function WebhooksSettings({ project }: WebhooksSettingsProps) {
               No webhooks configured
             </h3>
             <p className="text-sm text-muted-foreground text-center mb-4 max-w-md">
-              Webhooks allow you to receive real-time HTTP notifications about
-              events in your project, such as deployments, errors, and more.
+              {t('settings.webhooks.emptyDescription')}
             </p>
             <Button
               onClick={() =>

@@ -124,7 +124,7 @@ test.describe('command palette', () => {
 
     // Each hit still says which section it came from, since the grouping no
     // longer does.
-    await expect(project.locator(':scope > span').last()).toHaveText('Project')
+    await expect(project.locator(':scope > span').last()).toHaveText('Service')
     await expect(navigation.locator(':scope > span').last()).toHaveText(
       'Navigation'
     )

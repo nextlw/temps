@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import { kvStatusOptions } from '@/api/client/@tanstack/react-query.gen'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
@@ -44,6 +45,7 @@ interface KvServiceProps {
 }
 
 export function KvService({ project }: KvServiceProps) {
+  const { t } = useTranslation('storage')
   const { setBreadcrumbs } = useBreadcrumbs()
 
   const { data: status, isLoading } = useQuery({
@@ -148,11 +150,8 @@ export function KvService({ project }: KvServiceProps) {
         <TabsContent value="overview" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Service Status</CardTitle>
-              <CardDescription>
-                Cluster-wide status of the KV service. Once enabled, every
-                project on this instance can use it through the SDK below.
-              </CardDescription>
+              <CardTitle>{t('platform.statusTitle')}</CardTitle>
+              <CardDescription>{t('platform.kvStatus')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {isEnabled ? (
@@ -202,10 +201,9 @@ export function KvService({ project }: KvServiceProps) {
                     <Info className="h-4 w-4" />
                     <AlertTitle>KV Store is not enabled</AlertTitle>
                     <AlertDescription>
-                      An administrator must enable the KV service from{' '}
-                      <strong>Storage Settings → Platform Services</strong>.
-                      Once enabled, the SDK on the Documentation tab works out
-                      of the box — no further per-project setup needed.
+                      {t('platform.kvEnableHint')}{' '}
+                      <strong>{t('platform.settingsPath')}</strong>.{' '}
+                      {t('platform.enableTail')}
                     </AlertDescription>
                   </Alert>
                   <Button asChild>
@@ -307,8 +305,7 @@ TEMPS_PROJECT_ID=42`}
                   language="bash"
                 />
                 <p className="text-sm text-muted-foreground">
-                  Need an isolated client (multiple projects, custom timeouts,
-                  testing)? Use{' '}
+                  {t('platform.isolatedClient')}{' '}
                   <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
                     createClient
                   </code>

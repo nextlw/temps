@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
+
 export interface ChatRouteItem {
   public_id: string
 }
@@ -116,7 +118,7 @@ export function createProjectChat(
     projectName: project.name,
     contextType: 'project',
     contextId,
-    title: 'Project chat',
+    title: i18n.t('ai:chat.projectChatTitle'),
     autoStart: false,
   }
 }

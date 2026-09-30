@@ -41,6 +41,7 @@ import { ProjectFeatureFlags } from '@/components/project/flags/ProjectFeatureFl
 import { AutopilotPage } from '@/components/agents/AutopilotPage'
 import { AutofixerPage } from '@/components/autofixer/AutofixerPage'
 import { ProjectSetup } from '@/pages/ProjectSetup'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { usePluginsContext } from '@/contexts/PluginsContext'
 import { useConsoleExtensions } from '@temps-sdk/console-kit'
@@ -65,6 +66,7 @@ export function CombinedProjectSettings({
   project: ProjectResponse
   refetch: () => void
 }) {
+  const { t } = useTranslation('projects')
   usePageTitle(`${titles[page]} · ${project.name}`)
   let sections: { title: string; icon: LucideIcon; content: ReactNode }[]
   // How this project's containers are created belongs next to the rest of the
@@ -76,12 +78,12 @@ export function CombinedProjectSettings({
     case 'general':
       sections = [
         {
-          title: 'Project settings',
+          title: t('settings.sections.projectSettings'),
           icon: Settings2,
           content: <GeneralSettings project={project} refetch={refetch} />,
         },
         {
-          title: 'Project setup',
+          title: t('settings.sections.projectSetup'),
           icon: ListChecks,
           content: <ProjectSetup project={project} />,
         },
@@ -226,6 +228,7 @@ export function CombinedProjectSettings({
 }
 
 function ProjectExtensionLinks({ project }: { project: ProjectResponse }) {
+  const { t } = useTranslation('projects')
   const { projectNavEntries } = usePluginsContext()
   const { projectToolLinks } = useConsoleExtensions()
   const links = [
@@ -254,7 +257,7 @@ function ProjectExtensionLinks({ project }: { project: ProjectResponse }) {
     </div>
   ) : (
     <p className="text-sm text-muted-foreground">
-      Installed project extensions will appear here.
+      {t('settings.extensionsEmpty')}
     </p>
   )
 }

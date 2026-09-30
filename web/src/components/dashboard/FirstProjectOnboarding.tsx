@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 
 import { Link, useNavigate } from 'react-router'
@@ -135,6 +136,7 @@ const CLI_STEPS = [
 export function FirstProjectOnboarding({
   gitConnected,
 }: FirstProjectOnboardingProps) {
+  const { t } = useTranslation('projects')
   const origin = typeof window !== 'undefined' ? window.location.origin : ''
   const cliCommands = buildCliCommands(origin)
   const { data: apiKeysData } = useQuery({
@@ -173,12 +175,10 @@ export function FirstProjectOnboarding({
                 Ask your harness to build the first resource
               </h2>
               <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                Connect Codex, Claude Code, Cursor, or another harness, then ask
-                it to create a project or PostgreSQL database and verify the
-                result in Temps.
+                {t('onboarding.harnessHint')}
               </p>
               <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                <span>Create a project</span>
+                <span>{t('onboarding.harnessCreate')}</span>
                 <span>Add PostgreSQL</span>
                 <span>Verify deployments</span>
               </div>
@@ -301,6 +301,7 @@ export function FirstProjectOnboarding({
 }
 
 function EmptyStateDropCard() {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const folderInputRef = useRef<HTMLInputElement>(null)
   const zipInputRef = useRef<HTMLInputElement>(null)
@@ -339,15 +340,14 @@ function EmptyStateDropCard() {
         setError(null)
         try {
           const files = await filesFromDrop(event)
-          if (files.length === 0)
-            throw new Error('Choose a project folder or ZIP')
+          if (files.length === 0) throw new Error(t('onboarding.dropChoose'))
           handOffDropFiles(files)
           navigate('/projects/new?source=drop')
         } catch (caught) {
           setError(
             caught instanceof Error
               ? caught.message
-              : 'Those project files could not be read'
+              : t('onboarding.dropUnreadable')
           )
         }
       }}
@@ -357,7 +357,7 @@ function EmptyStateDropCard() {
           <UploadCloud className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
         </div>
         <div className="min-w-0">
-          <h4 className="text-sm font-semibold">Drop project files</h4>
+          <h4 className="text-sm font-semibold">{t('onboarding.dropTitle')}</h4>
           <p className="text-xs text-muted-foreground">
             Package locally, then detect on this Temps instance
           </p>
@@ -367,7 +367,7 @@ function EmptyStateDropCard() {
       <div className="mt-4 flex flex-1 flex-col justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 p-4 text-center transition-colors group-hover:border-muted-foreground/50">
         <p className="text-sm font-medium">
           {isDragging
-            ? 'Release to inspect your project'
+            ? t('onboarding.dropRelease')
             : 'Drop a folder or ZIP here'}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">

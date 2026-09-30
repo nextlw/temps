@@ -3,6 +3,7 @@
 
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import {
   getBackupOptions,
   getS3SourceOptions,
@@ -213,6 +214,7 @@ function BackupDetailSkeleton({ backAction }: { backAction: React.ReactNode }) {
 }
 
 export function BackupDetail() {
+  const { t } = useTranslation('storage')
   const { id, backupId } = useParams<{ id: string; backupId: string }>()
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
@@ -404,7 +406,7 @@ export function BackupDetail() {
   // performance, so nothing is shown twice.
   const facts: DetailFact[] = [
     {
-      label: backup.external_service ? 'Service' : 'S3 source',
+      label: backup.external_service ? t('backups.factLabel') : 'S3 source',
       value: backup.external_service ? (
         <Link to={`/storage/${backup.external_service.id}`} className="hover:underline">
           {backup.external_service.name}
@@ -601,10 +603,10 @@ export function BackupDetail() {
               <Card className="overflow-hidden shadow-none">
                 <CardHeader className="border-b px-5 py-4">
                   <CardTitle className="text-base font-semibold">
-                    Services in this backup
+                    {t('backups.childrenTitle')}
                   </CardTitle>
                   <CardDescription>
-                    External services whose data was captured in this backup run.
+                    {t('backups.childrenDescription')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -612,7 +614,7 @@ export function BackupDetail() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Service</TableHead>
+                          <TableHead>{t('backups.column')}</TableHead>
                           <TableHead>Type</TableHead>
                           <TableHead>State</TableHead>
                           <TableHead className="hidden sm:table-cell">

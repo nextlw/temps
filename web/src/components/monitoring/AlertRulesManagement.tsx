@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   deleteAlertRuleMutation,
   listAlertRulesOptions,
@@ -91,6 +92,7 @@ interface AlertRulesManagementProps {
 export function AlertRulesManagement({
   projectId: fixedProjectId,
 }: AlertRulesManagementProps = {}) {
+  const { t } = useTranslation('observability')
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
@@ -181,8 +183,8 @@ export function AlertRulesManagement({
     return (
       <EmptyState
         icon={ShieldAlert}
-        title="No projects found"
-        description="Create a project first to configure error alert rules."
+        title={t('alerts.noProjects')}
+        description={t('alerts.noProjectsDescription')}
       />
     )
   }
@@ -203,8 +205,11 @@ export function AlertRulesManagement({
               value={String(projectId)}
               onValueChange={(v) => setSelectedProjectId(Number(v))}
             >
-              <SelectTrigger className="w-[200px]" aria-label="Project">
-                <SelectValue placeholder="Select project" />
+              <SelectTrigger
+                className="w-[200px]"
+                aria-label={t('alerts.projectLabel')}
+              >
+                <SelectValue placeholder={t('alerts.selectProject')} />
               </SelectTrigger>
               <SelectContent>
                 {projectList!.map((p) => (

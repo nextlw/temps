@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { AuditLogIpInfo, AuditLogUserInfo } from '@/api/client'
 import {
   Bell,
@@ -156,12 +157,12 @@ export const CATEGORY_META: Record<
     tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
   },
   project: {
-    label: 'Project',
+    label: i18n.t('audit:categories.project'),
     icon: FolderKanban,
     tone: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
   },
   service: {
-    label: 'Service',
+    label: i18n.t('audit:categories.externalService'),
     icon: Plug,
     tone: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400',
   },

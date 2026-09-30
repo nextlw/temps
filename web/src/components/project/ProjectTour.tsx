@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { Sparkles, X } from 'lucide-react'
@@ -48,7 +49,7 @@ const STEPS: TourStep[] = [
     route: 'project',
     anchor: 'project',
     title: 'Overview',
-    body: 'Your project home — deployments, status and setup all live here.',
+    body: i18n.t('projects:tour.overview'),
   },
   {
     route: 'analytics',

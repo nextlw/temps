@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import type { ProjectResponse } from '@/api/client'
@@ -16,6 +17,7 @@ export function EnvironmentVariablePage({
   project: ProjectResponse
   configure?: boolean
 }) {
+  const { t } = useTranslation('projects')
   const { variableId } = useParams<{ variableId: string }>()
   const id = Number(variableId)
   const valid = Number.isSafeInteger(id) && id > 0
@@ -42,7 +44,7 @@ export function EnvironmentVariablePage({
         <div className="space-y-3">
           <h2 className="text-xl font-semibold">Variable not found</h2>
           <p className="text-sm text-muted-foreground">
-            This variable may have been deleted or is not part of this project.
+            {t('settings.variables.notFoundHint')}
           </p>
           <Button asChild variant="outline">
             <Link to={listPath}>Back to environment variables</Link>

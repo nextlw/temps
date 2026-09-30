@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   Check,
   ChevronsUpDown,
@@ -49,6 +50,8 @@ type Props = {
 }
 
 export function ApplicationDataServicesPanel({ application }: Props) {
+  const { t: ts } = useTranslation('storage')
+  const { t } = useTranslation('ai')
   const defaultProjectId =
     application.projects.find((project) => project.is_primary)?.id ??
     application.projects[0]?.id ??
@@ -96,16 +99,17 @@ export function ApplicationDataServicesPanel({ application }: Props) {
         <div className="space-y-1">
           <h2 className="text-base font-semibold tracking-tight">Databases</h2>
           <p className="text-sm text-muted-foreground">
-            Databases are linked through an application project.
+            {t('workspace.databasesViaProject')}
           </p>
         </div>
         <div className="flex items-start gap-2 rounded-lg border border-dashed border-border p-3">
           <Database className="size-4 shrink-0 text-muted-foreground" />
           <div className="min-w-0">
-            <p className="text-sm font-medium">Add a project first</p>
+            <p className="text-sm font-medium">
+              {t('workspace.addProjectFirst')}
+            </p>
             <p className="text-xs text-muted-foreground">
-              Create a workspace project or link an existing one above, then its
-              databases can join the private sandbox network.
+              {t('workspace.addProjectFirstHint')}
             </p>
           </div>
         </div>
@@ -135,7 +139,7 @@ export function ApplicationDataServicesPanel({ application }: Props) {
         path: { id, project_id: projectId },
       })
       await linkedQuery.refetch()
-      toast.success('Database unlinked from the project and sandbox')
+      toast.success(t('workspace.databaseUnlinked'))
     } catch (cause) {
       toast.error(errorMessage(cause, 'Could not unlink the database.'))
     }
@@ -153,8 +157,7 @@ export function ApplicationDataServicesPanel({ application }: Props) {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Linked data services provide project runtime variables and join this
-          workspace&apos;s private sandbox network.
+          {t('workspace.linkedServicesHint')}
         </p>
       </div>
 
@@ -164,7 +167,7 @@ export function ApplicationDataServicesPanel({ application }: Props) {
             Manage databases for
           </p>
           <RichProjectPicker
-            ariaLabel="Project whose databases to manage"
+            ariaLabel={t('workspace.manageDatabasesLabel')}
             disabled={busy}
             onValueChange={(nextProjectId) => {
               setRequestedProjectId(nextProjectId)
@@ -188,7 +191,7 @@ export function ApplicationDataServicesPanel({ application }: Props) {
       ) : servicesQuery.isError || linkedQuery.isError ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
           <p className="text-sm text-destructive">
-            Could not load databases for this project.
+            {t('workspace.databasesLoadFailed')}
           </p>
           <Button
             className="mt-2"
@@ -267,7 +270,7 @@ export function ApplicationDataServicesPanel({ application }: Props) {
                   <p className="text-sm font-medium">No databases linked</p>
                   <p className="text-xs text-muted-foreground">
                     Link one below to make it available to{' '}
-                    {selectedProject?.name ?? 'this project'}.
+                    {selectedProject?.name ?? t('workspace.linkToFallback')}.
                   </p>
                 </div>
               </div>
@@ -276,7 +279,7 @@ export function ApplicationDataServicesPanel({ application }: Props) {
 
           <div className="space-y-2 border-t border-border pt-4">
             <p className="text-xs font-medium text-muted-foreground">
-              Add a data service
+              {ts('misc.addData')}
             </p>
             {availableServices.length > 0 && (
               <div className="flex min-w-0 gap-2">

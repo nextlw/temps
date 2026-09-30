@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { upgradeServiceMutation } from '@/api/client/@tanstack/react-query.gen'
 import { Button } from '@/components/ui/button'
 import {
@@ -51,6 +52,7 @@ export function UpgradeServiceDialog({
   serviceType,
   onSuccess,
 }: UpgradeServiceDialogProps) {
+  const { t } = useTranslation('storage')
   const queryClient = useQueryClient()
   const supportedImages = getSupportedImages(serviceType)
 
@@ -87,7 +89,7 @@ export function UpgradeServiceDialog({
       form.reset()
     },
     onError: (error: Error) => {
-      toast.error('Failed to upgrade service', {
+      toast.error(t('deep.upgradeFailed'), {
         description:
           (error as any).detail ||
           error.message ||
@@ -138,10 +140,7 @@ export function UpgradeServiceDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Upgrade {serviceName}</DialogTitle>
-          <DialogDescription>
-            Select a new Docker image. The service will be stopped during the
-            upgrade. Data is preserved on the Docker volume.
-          </DialogDescription>
+          <DialogDescription>{t('deep.upgradeDescription')}</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -236,9 +235,7 @@ export function UpgradeServiceDialog({
                   Important
                 </p>
                 <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                  The service will be stopped during the upgrade. For PostgreSQL
-                  major version changes (e.g., 17 → 18), data migration runs
-                  automatically via pg_upgrade.
+                  {t('deep.upgradeImportant')}
                 </p>
               </div>
             </div>
@@ -259,7 +256,7 @@ export function UpgradeServiceDialog({
                 {upgradeService.isPending && (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 )}
-                Upgrade Service
+                {t('deep.upgradeButton')}
               </Button>
             </DialogFooter>
           </form>

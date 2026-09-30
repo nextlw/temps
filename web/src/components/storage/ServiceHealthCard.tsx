@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getServiceHealthStatus,
   triggerServiceHealthCheck,
@@ -85,6 +86,7 @@ export function ServiceHealthBadge({
  * otherwise it stays thin and out of the way.
  */
 export function ServiceHealthCard({ serviceId }: { serviceId: number }) {
+  const { t } = useTranslation('storage')
   const queryClient = useQueryClient()
   const { data, isLoading, isError } = useQuery<ServiceHealthResponse>({
     queryKey: ['service-health', serviceId],
@@ -102,10 +104,10 @@ export function ServiceHealthCard({ serviceId }: { serviceId: number }) {
       queryClient.invalidateQueries({ queryKey: ['service-health-batch'] })
       toast.success(
         snapshot.status === 'operational'
-          ? 'Service is operational'
+          ? t('health.operational')
           : snapshot.status === 'degraded'
-            ? 'Service is degraded'
-            : 'Service is down'
+            ? t('health.degraded')
+            : t('health.down')
       )
     },
     onError: (err: Error) => {
@@ -199,8 +201,8 @@ export function ServiceHealthCard({ serviceId }: { serviceId: number }) {
           <AlertDescription className="space-y-1">
             <p className="font-medium">
               {data.consecutive_failures >= 3
-                ? `Service has failed ${data.consecutive_failures} consecutive checks — an alert has been sent.`
-                : `Service has failed ${data.consecutive_failures} check(s) in a row.`}
+                ? t('health.failedAlert', { count: data.consecutive_failures })
+                : t('health.failedRow', { count: data.consecutive_failures })}
             </p>
             {data.last_error ? (
               <p className="break-words text-xs opacity-80">
@@ -213,16 +215,13 @@ export function ServiceHealthCard({ serviceId }: { serviceId: number }) {
         <Alert variant="warning">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="space-y-1">
-            <p className="font-medium">Service is degraded.</p>
+            <p className="font-medium">{t('health.degradedTitle')}</p>
             {data.last_error ? (
               <p className="break-words text-xs opacity-80">
                 {data.last_error}
               </p>
             ) : (
-              <p className="text-xs opacity-80">
-                The last health check succeeded but the service responded
-                slowly. Check load and network latency to this instance.
-              </p>
+              <p className="text-xs opacity-80">{t('health.slow')}</p>
             )}
           </AlertDescription>
         </Alert>

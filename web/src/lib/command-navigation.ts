@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
+
 export interface CommandDestination {
   id: string
   title: string
@@ -79,7 +81,9 @@ export function resolveExplicitProjectEnvironment(
     namedSlug ??
     uniquePartialSlug ??
     (normalized.includes('this project') ||
-    normalized.includes('current project')
+    normalized.includes('current project') ||
+    normalized.includes('this service') ||
+    normalized.includes('current service')
       ? currentProjectSlug
       : undefined)
   if (!slug) return undefined
@@ -160,11 +164,11 @@ export function buildCommandSampleQueries({
   return [
     'Show me the latest S3 backups',
     postgres
-      ? `Open the PostgreSQL service ${postgres.name}`
-      : 'Show me all database services',
+      ? i18n.t('command:suggestions.openPostgres', { name: postgres.name })
+      : i18n.t('command:suggestions.allDatabases'),
     primaryProject
       ? `Open the production environment for ${primaryProject}`
-      : 'Show me all projects',
+      : i18n.t('command:suggestions.allProjects'),
     secondaryProject
       ? `Show visitors for ${secondaryProject}`
       : primaryProject

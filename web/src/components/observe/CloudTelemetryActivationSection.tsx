@@ -21,6 +21,7 @@
  *   Cloud and the only honest affordance is a retry of the history.
  */
 
+import { useTranslation } from 'react-i18next'
 import {
   cancelBulkActivationJobMutation,
   createBulkActivationJobMutation,
@@ -254,6 +255,7 @@ function JobProgress({
   job: BulkActivationJobResponse
   projectLabel: (projectId: number) => string
 }) {
+  const { t } = useTranslation('observability')
   const eta = etaLabel(job.eta_state, job.eta_seconds)
   const rate = throughputLabel(job.observed_spans_per_sec)
   const hasPercent =
@@ -301,7 +303,7 @@ function JobProgress({
           }
         />
         <ActivationStat
-          label="Current project"
+          label={t('activation.currentProject')}
           value={
             typeof job.current_project_id === 'number'
               ? projectLabel(job.current_project_id)
@@ -310,7 +312,7 @@ function JobProgress({
           hint={
             typeof job.current_project_id === 'number'
               ? 'Being switched or backfilled right now'
-              : 'Between projects'
+              : t('activation.betweenProjects')
           }
         />
       </div>
@@ -359,6 +361,7 @@ function ProjectRowReason({
   project: BulkActivationJobProjectResponse
   slugByProjectId: ReadonlyMap<number, string>
 }) {
+  const { t } = useTranslation('observability')
   if (project.status === 'skipped') {
     return (
       <div className="space-y-1">
@@ -388,7 +391,7 @@ function ProjectRowReason({
         <SetupLink
           setupPath={project.setup_path}
           slugByProjectId={slugByProjectId}
-          label="Open project settings"
+          label={t('activation.openSettings')}
         />
       </div>
     )
@@ -406,13 +409,14 @@ function JobProjectTable({
   projectLabel: (projectId: number) => string
   slugByProjectId: ReadonlyMap<number, string>
 }) {
+  const { t } = useTranslation('observability')
   if (projects.length === 0) return null
   return (
     <div className="overflow-x-auto">
       <Table className="min-w-[560px]">
         <TableHeader>
           <TableRow>
-            <TableHead>Project</TableHead>
+            <TableHead>{t('activation.projectColumn')}</TableHead>
             <TableHead>State</TableHead>
             <TableHead className="hidden text-right md:table-cell">
               Spans
@@ -504,13 +508,14 @@ function ConfirmActivationDialog({
   projectLabel: (projectId: number) => string
   slugByProjectId: ReadonlyMap<number, string>
 }) {
+  const { t } = useTranslation('observability')
   const canConfirm = !!estimate?.plan_token && estimate.eligible_projects > 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Switch projects to Temps Cloud</DialogTitle>
+          <DialogTitle>{t('activation.dialogTitle')}</DialogTitle>
           <DialogDescription>
             This sends existing history to Temps Cloud, which is metered egress
             and costs money. Nothing is sent until you confirm.
@@ -557,6 +562,7 @@ function ConfirmDialogBody({
   projectLabel: (projectId: number) => string
   slugByProjectId: ReadonlyMap<number, string>
 }) {
+  const { t } = useTranslation('observability')
   if (!estimate) {
     return (
       <div className="space-y-2">
@@ -582,7 +588,7 @@ function ConfirmDialogBody({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <ActivationStat
-          label="Projects"
+          label={t('activation.projectsStat')}
           value={`${estimate.eligible_projects}`}
           hint={`${estimate.skipped_projects} skipped of ${estimate.total_projects}`}
         />
@@ -607,10 +613,7 @@ function ConfirmDialogBody({
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Nothing is eligible right now</AlertTitle>
-          <AlertDescription>
-            Every project in this scope was skipped, so there is no bill to
-            confirm. Each reason is listed below with the page that unblocks it.
-          </AlertDescription>
+          <AlertDescription>{t('activation.nothingEligible')}</AlertDescription>
         </Alert>
       )}
 
@@ -618,7 +621,7 @@ function ConfirmDialogBody({
         <Table className="min-w-[520px]">
           <TableHeader>
             <TableRow>
-              <TableHead>Project</TableHead>
+              <TableHead>{t('activation.projectColumn')}</TableHead>
               <TableHead className="text-right">Spans</TableHead>
               <TableHead className="hidden text-right sm:table-cell">
                 Bytes
@@ -640,9 +643,7 @@ function ConfirmDialogBody({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Each project is switched to Cloud-primary first — instant, and it sends
-        nothing — and its history follows behind. A project whose backfill fails
-        stays on Cloud for new data; its history can be retried from this page.
+        {t('activation.switchOrder')}
       </p>
     </div>
   )
@@ -681,6 +682,7 @@ export function CloudTelemetryActivationSection({
   /** Where the operator goes to fix that. */
   setupPath?: string
 }) {
+  const { t } = useTranslation('observability')
   const queryClient = useQueryClient()
 
   const currentJobQuery = useQuery({
@@ -765,8 +767,9 @@ export function CloudTelemetryActivationSection({
 
   const projectLabel = useCallback(
     (projectId: number) =>
-      nameByProjectId.get(projectId) ?? `Project ${projectId}`,
-    [nameByProjectId]
+      nameByProjectId.get(projectId) ??
+      t('activation.projectFallback', { id: projectId }),
+    [nameByProjectId, t]
   )
 
   const estimateMutation = useMutation(estimateBulkActivationMutation())
@@ -869,11 +872,7 @@ export function CloudTelemetryActivationSection({
       setConfirmOpen(false)
       setEstimate(null)
       invalidateJobQueries(created.batch_id)
-      toast.success(
-        `Activation queued for ${created.projects_total} project${
-          created.projects_total === 1 ? '' : 's'
-        }. Progress is shown here.`
-      )
+      toast.success(t('activation.queued', { count: created.projects_total }))
       return
     } catch (error) {
       const status = problemStatus(error)
@@ -915,7 +914,7 @@ export function CloudTelemetryActivationSection({
         )
       )
     }
-  }, [createMutation, estimate, invalidateJobQueries, requestQuote, scope])
+  }, [createMutation, estimate, invalidateJobQueries, requestQuote, scope, t])
 
   // A 404 means the remembered job no longer exists. Rendering nothing is the
   // honest answer; rendering an error would imply something is broken.
@@ -971,9 +970,7 @@ export function CloudTelemetryActivationSection({
             Cloud telemetry activation
           </h3>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Switch every eligible project to Cloud-primary writes and ship the
-            history this instance is still holding, in one queued job instead of
-            one API call and one CLI run per project.
+            {t('activation.intro')}
           </p>
         </div>
         {job && (
@@ -1020,10 +1017,7 @@ export function CloudTelemetryActivationSection({
           <AlertDialogHeader>
             <AlertDialogTitle>Stop this activation?</AlertDialogTitle>
             <AlertDialogDescription>
-              Projects already switched stay on Temps Cloud — the switch is
-              never rolled back. Spans already shipped are not re-sent if you
-              resume later, and the job stops at the next chunk boundary rather
-              than mid-batch.
+              {t('activation.stopBody')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1066,17 +1060,13 @@ function ActivationBody({
   onCancel: () => void
   onRetryScoped: (projectIds: number[]) => void
 }) {
+  const { t } = useTranslation('observability')
   if (isDenied) {
     return (
       <Alert>
         <AlertTriangle className="h-4 w-4" />
         <AlertTitle>You cannot see activation jobs on this instance</AlertTitle>
-        <AlertDescription>
-          Bulk Cloud telemetry activation is restricted to instance
-          administrators, so this section cannot show whether one is running.
-          Projects can still be switched one at a time from their own telemetry
-          settings.
-        </AlertDescription>
+        <AlertDescription>{t('activation.restricted')}</AlertDescription>
       </Alert>
     )
   }
@@ -1093,9 +1083,7 @@ function ActivationBody({
   if (!job) {
     return (
       <p className="text-xs leading-5 text-muted-foreground">
-        No activation is running. Starting one quotes every eligible project
-        first — you see the exact span count and metered bytes before anything
-        is sent.
+        {t('activation.noJob')}
       </p>
     )
   }
@@ -1147,6 +1135,7 @@ function JobActions({
   onCancel: () => void
   onRetryScoped: (projectIds: number[]) => void
 }) {
+  const { t } = useTranslation('observability')
   if (isJobActive(job)) {
     return (
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1173,8 +1162,8 @@ function JobActions({
     const ids = retryableProjectIds(job)
     return (
       <RetryAction
-        label={`Retry ${ids.length} project${ids.length === 1 ? '' : 's'}`}
-        description="Re-quotes only the projects that failed or were skipped, and asks you to confirm the new bill before anything is sent."
+        label={t('activation.retry', { count: ids.length })}
+        description={t('activation.retryDescription')}
         projectIds={ids}
         onRetryScoped={onRetryScoped}
       />
@@ -1187,8 +1176,8 @@ function JobActions({
     const ids = resumableProjectIds(job)
     return (
       <RetryAction
-        label={`Resume ${ids.length} project${ids.length === 1 ? '' : 's'}`}
-        description="Picks up the projects this activation never finished. Spans already acknowledged by Temps Cloud are not sent again."
+        label={t('activation.resume', { count: ids.length })}
+        description={t('activation.resumeDescription')}
         projectIds={ids}
         onRetryScoped={onRetryScoped}
       />
@@ -1251,6 +1240,7 @@ function StartAction({
   isDenied: boolean
   onStart: () => void
 }) {
+  const { t } = useTranslation('observability')
   const blocked = statusPending || !configured || jobIsActive || isDenied
   const resolvedSetupPath = isInternalConsolePath(setupPath)
     ? setupPath
@@ -1270,12 +1260,11 @@ function StartAction({
           ) : (
             <CloudUpload className="size-3.5" />
           )}
-          Switch all projects to Cloud
+          {t('activation.switchAll')}
         </Button>
         {!blocked && (
           <p className="text-xs text-muted-foreground">
-            Quotes every eligible project first. Nothing is sent until you
-            confirm the total.
+            {t('activation.quotesFirst')}
           </p>
         )}
       </div>
@@ -1307,6 +1296,7 @@ function StartActionExplanation({
   jobIsActive: boolean
   isDenied: boolean
 }) {
+  const { t } = useTranslation('observability')
   if (statusPending) {
     // Not "not connected" — not known yet. Saying the former for half a second
     // and then contradicting it is worse than saying nothing definite.
@@ -1345,9 +1335,7 @@ function StartActionExplanation({
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
         {reason ??
           'This instance is not connected to Temps Cloud. Connect it to send spans to Cloud instead of storing them here.'}{' '}
-        Once connected, this button quotes every project — for example &ldquo;12
-        projects, 4.1 million spans, 3.2&nbsp;GB&rdquo; — and switches them all
-        after you confirm.
+        {t('activation.notConnectedTail')}
       </p>
       <Button asChild size="sm" variant="outline" className="mt-3 gap-1.5">
         <Link to={setupPath}>

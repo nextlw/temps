@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   Boxes,
   CheckCircle2,
@@ -184,6 +185,7 @@ function ProjectCollectionArtifact({
   artifact: ThreadArtifactResponse
   payload: Record<string, unknown>
 }) {
+  const { t } = useTranslation('ai')
   const items = rows(payload.items ?? payload.rows)
   const projects = items.flatMap((item) => {
     const id = positiveInteger(item.id ?? item.project_id)
@@ -205,7 +207,7 @@ function ProjectCollectionArtifact({
 
   return (
     <GeneratedProjectCollection
-      title={artifact.title ?? 'Projects'}
+      title={artifact.title ?? t('collection.title')}
       presentation={{
         items: projects,
         total: projects.length,

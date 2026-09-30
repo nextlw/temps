@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -27,6 +28,7 @@ export function DomainChallengeStep({
   onSuccess,
   onBack,
 }: DomainChallengeStepProps) {
+  const { t } = useTranslation('projects')
   // For wildcard domains, DNS-01 is the only valid challenge type
   const challengeType: ChallengeType = 'dns-01'
   const [createdDomain, setCreatedDomain] = useState<DomainResponse | null>(
@@ -170,7 +172,7 @@ export function DomainChallengeStep({
             {wildcardDomain}
           </code>
           <br />
-          This will allow all your projects to use subdomains automatically.
+          {t('onboarding.subdomainsHint')}
         </AlertDescription>
       </Alert>
 

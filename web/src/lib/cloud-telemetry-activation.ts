@@ -10,6 +10,7 @@
  * the same thing" — are testable in isolation rather than buried in JSX.
  */
 
+import { i18n } from '@/i18n'
 import type {
   BulkActivationEtaState,
   BulkActivationJobProjectResponse,
@@ -63,12 +64,12 @@ export const JOB_STATUS_LABELS: Record<BulkJobStatus, string> = {
  */
 export const JOB_STATUS_DETAIL: Record<BulkJobStatus, string> = {
   pending: 'Queued. The activation starts as soon as the worker picks it up.',
-  running: 'Switching projects to Temps Cloud and shipping their history.',
-  completed: 'Every project in this activation is on Temps Cloud.',
-  completed_with_failures:
-    'The activation ran to the end, but some projects did not finish. Each one is listed below with its reason.',
-  aborted:
-    'An instance-wide condition stopped this activation. Projects it never reached are still queued, so resuming picks up where it left off — nothing already paid for is sent twice.',
+  running: i18n.t('observability:activation.status.running'),
+  completed: i18n.t('observability:activation.status.completed'),
+  completed_with_failures: i18n.t(
+    'observability:activation.status.completedWithFailures'
+  ),
+  aborted: i18n.t('observability:activation.status.aborted'),
   cancelled:
     'Someone asked this activation to stop. Progress is durable: resuming re-sends nothing that already reached Cloud.',
 }
@@ -94,15 +95,12 @@ export const PROJECT_STATUS_LABELS: Record<BulkJobProjectStatus, string> = {
  * which of the two it is stuck in.
  */
 export const PROJECT_STATUS_HINTS: Record<BulkJobProjectStatus, string> = {
-  pending: 'Not started yet — nothing has been sent for this project.',
+  pending: i18n.t('observability:activation.status.pending'),
   switching:
     'Pointing new spans at Temps Cloud. Instant, and it sends no history.',
-  backfilling:
-    'Sending this project’s existing history. This is the part that ' +
-    'takes time and costs egress.',
+  backfilling: i18n.t('observability:activation.status.backfilling'),
   done: 'Switched, and its history has been shipped.',
-  failed:
-    'History backfill failed. New spans are still going to Temps Cloud — the switch is never rolled back — so this is a recorded hole in history, not a broken project.',
+  failed: i18n.t('observability:activation.status.failed'),
   skipped: 'Not eligible, so nothing was switched and nothing was sent.',
 }
 
@@ -131,7 +129,7 @@ export function skipReasonText(
 ): string {
   if (project.skip_detail) return project.skip_detail
   if (project.skip_reason) return project.skip_reason
-  return 'The instance recorded no reason for skipping this project.'
+  return i18n.t('observability:activation.status.noSkipReason')
 }
 
 /**

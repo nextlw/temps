@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { projectColor } from './ProjectBadge-shared'
 
@@ -51,6 +52,7 @@ export function ProjectDot({
   name: string
   className?: string
 }) {
+  const { t } = useTranslation('observability')
   return (
     <span
       className={cn('h-2.5 w-2.5 shrink-0 rounded-full', className)}
@@ -60,7 +62,7 @@ export function ProjectDot({
       // role-less generic element is ignored by most screen readers, which
       // would leave the project unreadable once the slug text is gone.
       role="img"
-      aria-label={`Project: ${name}`}
+      aria-label={t('badgeLabel', { name })}
     />
   )
 }
@@ -73,10 +75,11 @@ export function ProjectLegend({
   projects: Array<{ project_id: number; project_name: string }>
   className?: string
 }) {
+  const { t } = useTranslation('observability')
   if (projects.length === 0) return null
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
-      <span className="text-xs text-muted-foreground">Projects:</span>
+      <span className="text-xs text-muted-foreground">{t('legend')}</span>
       {projects.map((p) => (
         <ProjectBadge
           key={p.project_id}

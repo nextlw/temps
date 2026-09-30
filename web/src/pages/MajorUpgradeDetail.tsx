@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,6 +125,7 @@ function MajorUpgradeDetailSkeleton({ backAction }: { backAction: React.ReactNod
 }
 
 export function MajorUpgradeDetail() {
+  const { t } = useTranslation('storage')
   const { id, upgradeId } = useParams<{ id: string; upgradeId: string }>()
   const serviceIdNum = id ? parseInt(id, 10) : NaN
   const upgradeIdNum = upgradeId ? parseInt(upgradeId, 10) : NaN
@@ -138,10 +140,10 @@ export function MajorUpgradeDetail() {
   useEffect(() => {
     setBreadcrumbs([
       { label: 'Databases', href: '/storage' },
-      { label: `Service ${id}`, href: `/storage/${id}` },
+      { label: t('deep.fallbackWithId', { id }), href: `/storage/${id}` },
       { label: `Upgrade #${upgradeId}` },
     ])
-  }, [id, upgradeId, setBreadcrumbs])
+  }, [id, upgradeId, setBreadcrumbs, t])
 
   const upgradeQuery = useQuery<PgUpgrade>({
     queryKey: ['pg-upgrades', serviceIdNum, upgradeIdNum],
@@ -193,8 +195,7 @@ export function MajorUpgradeDetail() {
     mutationFn: () => rollbackPgUpgrade(serviceIdNum, upgradeIdNum),
     onSuccess: () => {
       toast.success('Rollback complete', {
-        description:
-          'The service has been restored to its pre-upgrade PGDATA volume.',
+        description: t('deep.rollbackDone'),
       })
       queryClient.invalidateQueries({
         queryKey: ['pg-upgrades', serviceIdNum, upgradeIdNum],

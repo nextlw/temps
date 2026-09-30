@@ -63,7 +63,9 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { i18n } from '@/i18n'
 import { toast } from 'sonner'
 import { getProject } from '@/api/client'
 import { useEnterSubmit } from '@/hooks/useEnterSubmit'
@@ -156,8 +158,8 @@ const STEP_CONFIG = {
     icon: GitBranch,
   },
   'configure-project': {
-    title: 'Configure Project',
-    description: 'Set up project name, framework, and deployment settings',
+    title: i18n.t('projects:create.configureProject'),
+    description: i18n.t('projects:importWizard.configureStepDescription'),
     icon: FileCode,
   },
   'review-plan': {
@@ -167,7 +169,7 @@ const STEP_CONFIG = {
   },
   execute: {
     title: 'Executing Import',
-    description: 'Creating your project',
+    description: i18n.t('projects:importWizard.executeStepDescription'),
     icon: Package,
   },
 }
@@ -178,6 +180,7 @@ export function ImportWizard({
   initialSource,
 }: ImportWizardProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation('projects')
 
   // State management
   const [currentStep, setCurrentStep] = useState<WizardStep>('select-source')
@@ -422,7 +425,7 @@ export function ImportWizard({
       // Import is synchronous, so we get the result immediately
       if (data.project_id) {
         toast.success('Import completed successfully!', {
-          description: 'Navigating to your new project...',
+          description: t('importWizard.navigating'),
         })
 
         try {
@@ -437,8 +440,8 @@ export function ImportWizard({
             navigate('/projects')
           }
         } catch {
-          toast.error('Failed to fetch project details', {
-            description: 'Redirecting to projects list...',
+          toast.error(t('importWizard.fetchFailed'), {
+            description: t('importWizard.redirecting'),
           })
           // Fallback: navigate to projects list if we can't get the project
           setTimeout(() => {
@@ -1052,8 +1055,7 @@ export function ImportWizard({
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Configure your project settings. The framework preset is
-                auto-detected from your repository.
+                {t('importWizard.configureHint')}
               </AlertDescription>
             </Alert>
 
@@ -1063,15 +1065,15 @@ export function ImportWizard({
                 {/* Project Name */}
                 <div className="space-y-2">
                   <Label className="text-base font-semibold">
-                    Project Name
+                    {t('create.nameLabel')}
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Enter a name for your project
+                    {t('importWizard.nameHint')}
                   </p>
                   <Input
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="my-awesome-project"
+                    placeholder={t('create.nameSlugPlaceholder')}
                     autoFocus
                   />
                 </div>
@@ -1108,7 +1110,7 @@ export function ImportWizard({
                     Framework Preset
                   </Label>
                   <p className="text-sm text-muted-foreground">
-                    Configure the project type based on the detected framework
+                    {t('importWizard.presetHint')}
                   </p>
                   {!selectedBranch ? (
                     <Alert>
@@ -1174,11 +1176,13 @@ export function ImportWizard({
 
                 <Card>
                   <CardHeader>
-                    <CardTitle>Project Configuration</CardTitle>
+                    <CardTitle>{t('create.configurationTitle')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="text-muted-foreground">Project Name:</div>
+                      <div className="text-muted-foreground">
+                        {t('importWizard.nameColon')}
+                      </div>
                       <div className="font-medium">{projectName}</div>
 
                       <div className="text-muted-foreground">
@@ -1313,7 +1317,7 @@ export function ImportWizard({
                   <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                   <p className="text-lg font-medium">Executing Import...</p>
                   <p className="text-sm text-muted-foreground">
-                    Please wait while we create your project...
+                    {t('importWizard.creating')}
                   </p>
                 </>
               ) : executeImportMut.isSuccess ? (
@@ -1321,7 +1325,7 @@ export function ImportWizard({
                   <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
                   <p className="text-lg font-medium">Import Completed!</p>
                   <p className="text-sm text-muted-foreground">
-                    Redirecting to your project...
+                    {t('importWizard.redirectingToProject')}
                   </p>
                 </>
               ) : executeImportMut.isError ? (
@@ -1350,7 +1354,9 @@ export function ImportWizard({
 
                     {executeImportMut.data.project_id && (
                       <>
-                        <div className="text-muted-foreground">Project ID:</div>
+                        <div className="text-muted-foreground">
+                          {t('importWizard.idColon')}
+                        </div>
                         <div className="font-medium">
                           {executeImportMut.data.project_id}
                         </div>
@@ -1469,7 +1475,8 @@ export function ImportWizard({
             >
               {currentStep === 'select-source' && 'Discover Workloads'}
               {currentStep === 'discover-workloads' && 'Continue'}
-              {currentStep === 'select-repository' && 'Configure Project'}
+              {currentStep === 'select-repository' &&
+                t('create.configureProject')}
               {currentStep === 'configure-project' && 'Create Plan'}
               {currentStep === 'review-plan' && 'Execute Import'}
               <ArrowRight className="h-4 w-4 ml-2" />

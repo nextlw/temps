@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import {
   getEnvironmentsOptions,
@@ -99,6 +100,7 @@ interface ErrorTrackingProps {
 }
 
 export function ErrorTracking({ project }: ErrorTrackingProps) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user: currentUser } = useAuth()
@@ -1084,8 +1086,9 @@ After setup, trigger a test error and check the Temps error tracking dashboard t
                               <CopyButton value={dsn.dsn || ''} />
                             </div>
                             <p className="text-xs text-muted-foreground">
-                              Use this DSN in your {env?.name?.toLowerCase()}{' '}
-                              environment to send errors to this project
+                              {t('errors.dsnHint', {
+                                environment: env?.name?.toLowerCase(),
+                              })}
                             </p>
                           </div>
                         </div>
@@ -1270,9 +1273,7 @@ sentry_sdk.init(
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create DSN</DialogTitle>
-            <DialogDescription>
-              Create a new Data Source Name for error tracking in your project.
-            </DialogDescription>
+            <DialogDescription>{t('errors.createDsn')}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">

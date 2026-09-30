@@ -11,15 +11,16 @@ import { PageContainer } from '@/components/layout/PageContainer'
 export function NewProject() {
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
+  const { t: tp } = useTranslation('projects')
 
   useEffect(() => {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
-      { label: 'New Project' },
+      { label: tp('create.newProject') },
     ])
-  }, [setBreadcrumbs, t])
+  }, [setBreadcrumbs, t, tp])
 
-  usePageTitle('New Project')
+  usePageTitle(tp('create.newProject'))
 
   return (
     <PageContainer>

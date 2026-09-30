@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useEffect, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { ProjectSelect } from '@/components/project/ProjectSelect'
@@ -66,9 +67,10 @@ export function ProjectScope({
   view: GlobalView
   disabled?: boolean
 }) {
+  const { t } = useTranslation('observability')
   return (
     <ProjectSelect
-      ariaLabel="Project scope"
+      ariaLabel={t('scope.label')}
       value={disabled ? null : (view.projectId ?? null)}
       onValueChange={(id) =>
         view.patch({ project_id: id == null ? undefined : String(id) })
@@ -186,6 +188,7 @@ export function QueryContent({
   retry: () => void
   children: ReactNode
 }) {
+  const { t } = useTranslation('observability')
   if (loading)
     return (
       <div
@@ -214,12 +217,9 @@ export function QueryContent({
     return (
       <div className="rounded-lg border border-dashed p-8 text-center">
         <h2 className="font-medium">No {title.toLowerCase()} in this view</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Choose another project or time range, or clear your search. If you
-          have not sent data yet, open a project to configure collection.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">{t('empty.hint')}</p>
         <Button asChild variant="outline" className="mt-4">
-          <Link to="/projects">Open projects</Link>
+          <Link to="/projects">{t('empty.openProjects')}</Link>
         </Button>
       </div>
     )

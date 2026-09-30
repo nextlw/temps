@@ -402,6 +402,7 @@ function OtelSetupSection({
   project: ProjectResponse
   onVerified?: () => void
 }) {
+  const { t } = useTranslation('observability')
   const navigate = useNavigate()
   const [wizardStep, setWizardStep] = useState<WizardStepId>('framework')
   const [selectedEnvId, setSelectedEnvId] = useState<string>('')
@@ -471,7 +472,7 @@ OTEL_SERVICE_NAME=${project.name}`
     <div id="traces-setup">
       <SetupWizardShell
         title="Setup OpenTelemetry"
-        description="Pick your framework — the snippet and endpoint are pre-filled for this project. Apps deployed on Temps get these env vars automatically."
+        description={t('traces.setupDescription')}
         currentStep={wizardStep}
         steps={steps}
         celebrate={celebrate}
@@ -713,6 +714,7 @@ export default function TracesList({ project }: TracesListProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
+  const { t: to } = useTranslation('observability')
   usePageTitle(`Traces - ${project.name}`)
 
   // State from URL params
@@ -1160,10 +1162,12 @@ export default function TracesList({ project }: TracesListProps) {
                     onValueChange={handleServiceChange}
                   >
                     <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Service" />
+                      <SelectValue placeholder={to('traces.serviceFilter')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__all__">All Services</SelectItem>
+                      <SelectItem value="__all__">
+                        {to('traces.allServices')}
+                      </SelectItem>
                       {serviceNames.map((name) => (
                         <SelectItem key={name} value={name}>
                           {name}
@@ -1283,7 +1287,7 @@ export default function TracesList({ project }: TracesListProps) {
                       <TableHead className="min-w-[200px] md:w-[300px]">
                         Trace
                       </TableHead>
-                      <TableHead>Service</TableHead>
+                      <TableHead>{to('traces.serviceColumn')}</TableHead>
                       {environmentId === 'all' && (
                         <TableHead className="hidden lg:table-cell">
                           Environment

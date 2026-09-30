@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import { getProjectOptions } from '@/api/client/@tanstack/react-query.gen'
 import { cn } from '@/lib/utils'
 import { useQueries } from '@tanstack/react-query'
@@ -22,13 +24,14 @@ function repositoryLabel(project: ProjectCollectionItem): string | null {
  * artifacts and intercepted `get_projects` read-tool receipts. */
 export function GeneratedProjectCollection({
   presentation,
-  title = 'Projects',
+  title = i18n.t('ai:collection.title'),
   framed = true,
 }: {
   presentation: ProjectCollectionPresentation
   title?: string
   framed?: boolean
 }) {
+  const { t } = useTranslation('ai')
   const projectIds = [
     ...new Set(
       presentation.items
@@ -73,7 +76,7 @@ export function GeneratedProjectCollection({
 
       {presentation.items.length === 0 ? (
         <div className="border-t px-4 py-5 text-xs text-muted-foreground">
-          No projects are visible to your current role.
+          {t('collection.empty')}
         </div>
       ) : (
         <div className="divide-y border-t">

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
@@ -172,6 +173,7 @@ export default function Sandboxes({
 }: {
   workspacesOnly?: boolean
 }) {
+  const { t } = useTranslation('projects')
   usePageTitle(workspacesOnly ? 'Workspaces' : 'Sandboxes')
   const platformFeatures = usePlatformFeatures()
   const [includeWorkspaceCompute, setIncludeWorkspaceCompute] = useState(false)
@@ -302,7 +304,7 @@ export default function Sandboxes({
         title={workspacesOnly ? 'Workspaces' : 'Sandboxes'}
         description={
           workspacesOnly
-            ? 'Persistent projects and working context, with compute when you need it.'
+            ? t('serviceMentions.workspacesDescription')
             : 'Standalone compute environments managed through the CLI, API, or SDK.'
         }
         actions={
@@ -572,6 +574,7 @@ export function ManagedApplicationWorkspaces({
   activityLoading?: boolean
   activityError?: boolean
 }) {
+  const { t } = useTranslation('projects')
   const visibleEntries = computeOnly
     ? entries.filter(({ workspace }) => workspace?.sandbox_public_id)
     : entries
@@ -595,7 +598,7 @@ export function ManagedApplicationWorkspaces({
             <p className="text-sm text-muted-foreground">
               {computeOnly
                 ? 'Compute attached to a workspace. Manage its lifecycle from the owning workspace.'
-                : 'Projects and persistent context, with optional compute and AI threads.'}
+                : t('serviceMentions.workspacesList')}
             </p>
           </div>
           {entries.length > 0 && (

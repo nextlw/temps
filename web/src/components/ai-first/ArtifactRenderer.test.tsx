@@ -4,7 +4,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { ThreadArtifactResponse } from '@/api/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToStaticMarkup } from '@/i18n/testing'
 import { MemoryRouter } from 'react-router'
 import { ArtifactRenderer } from './ArtifactRenderer'
 
@@ -68,7 +68,7 @@ describe('semantic artifact renderers', () => {
       })
     )
 
-    expect(html).toContain('Deploy project')
+    expect(html).toContain('Deploy service')
     expect(html).toContain('Queued')
     expect(html).toContain('Environment 11')
   })

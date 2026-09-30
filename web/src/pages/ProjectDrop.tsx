@@ -38,7 +38,9 @@ import { prepareAndInspectDrop } from '@/lib/drop-preset-detection'
 import { cn } from '@/lib/utils'
 import { Loader2, UploadCloud, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { i18n } from '@/i18n'
 
 type Stage =
   'idle' | 'packing' | 'detecting' | 'saving' | 'uploading' | 'deploying'
@@ -61,7 +63,9 @@ function stageLabel(
       return 'Starting deployment'
     default:
       if (detectedLabel) return `Deploy ${detectedLabel}`
-      return hasFiles ? 'Retry preset detection' : 'Select project files'
+      return hasFiles
+        ? 'Retry preset detection'
+        : i18n.t('projects:drop.selectFiles')
   }
 }
 
@@ -84,6 +88,7 @@ function stageLabel(
  */
 export function ProjectDrop({ project }: { project: ProjectResponse }) {
   const navigate = useNavigate()
+  const { t } = useTranslation('projects')
   const platformFeatures = usePlatformFeatures()
   const sourceUploadsSupported = sourceArchiveUploadsSupported(
     platformFeatures.data
@@ -226,7 +231,7 @@ export function ProjectDrop({ project }: { project: ProjectResponse }) {
         return
       }
 
-      if (!candidate) throw new Error('Choose a detected project')
+      if (!candidate) throw new Error(t('drop.chooseDetected'))
 
       // Only persist directory/preset, and only when they actually changed.
       const currentDirectory =
@@ -400,7 +405,7 @@ export function ProjectDrop({ project }: { project: ProjectResponse }) {
 
                 {inspection && inspection.candidates.length > 1 && (
                   <div className="space-y-2">
-                    <Label>Detected projects</Label>
+                    <Label>{t('drop.detectedProjects')}</Label>
                     <DetectedPresetGrid
                       candidates={inspection.candidates}
                       selectedIndex={Number(candidateIndex)}

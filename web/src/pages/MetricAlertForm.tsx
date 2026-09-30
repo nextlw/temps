@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import type {
   AnomalyAlgorithm,
@@ -223,6 +224,7 @@ function AlertFormBody({
   id,
   existing,
 }: AlertFormBodyProps) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const goBack = useGoBack(`/projects/${project.slug}/metrics/alerts`)
   const queryClient = useQueryClient()
@@ -1330,9 +1332,7 @@ function AlertFormBody({
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Maps to the notification severity. Alerts are delivered
-                      through the notification channels configured for this
-                      project.
+                      {t('serviceMentions.alertChannels')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

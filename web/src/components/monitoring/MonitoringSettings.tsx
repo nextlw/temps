@@ -3,6 +3,7 @@
 
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { getPreferences, updatePreferences } from '@/api/client/sdk.gen'
 import { NotificationPreferencesResponse } from '@/api/client/types.gen'
 import { Button } from '@/components/ui/button'
@@ -63,6 +64,7 @@ function ProjectAlerts({
   onSave,
   defaultValues,
 }: AlertComponentProps<ProjectAlertsFormData>) {
+  const { t } = useTranslation('projects')
   const form = useForm<ProjectAlertsFormData>({
     resolver: zodResolver(projectAlertsSchema),
     defaultValues: {
@@ -184,7 +186,7 @@ function ProjectAlerts({
 
         <div className="flex justify-end">
           <Button disabled={!form.formState.isDirty} type="submit">
-            Save project alerts
+            {t('monitoring.saveAlerts')}
           </Button>
         </div>
       </form>
@@ -624,6 +626,7 @@ function WeeklyDigest({
   onSave,
   defaultValues,
 }: AlertComponentProps<WeeklyDigestFormData>) {
+  const { t } = useTranslation('projects')
   const form = useForm<WeeklyDigestFormData>({
     resolver: zodResolver(weeklyDigestSchema),
     defaultValues: {
@@ -655,8 +658,7 @@ function WeeklyDigest({
       <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Receive a comprehensive weekly summary of your project&apos;s
-            activity, performance, and health metrics
+            {t('monitoring.digestIntro')}
           </p>
 
           <FormField
@@ -669,7 +671,7 @@ function WeeklyDigest({
                     Enable Weekly Digest
                   </FormLabel>
                   <FormDescription>
-                    Get a weekly email with project insights and metrics
+                    {t('monitoring.digestDescription')}
                   </FormDescription>
                 </div>
                 <FormControl>
@@ -817,7 +819,7 @@ function WeeklyDigest({
                     render={({ field }) => (
                       <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
                         <FormLabel className="font-normal">
-                          Project Updates
+                          {t('monitoring.digestProjects')}
                         </FormLabel>
                         <FormControl>
                           <Switch
@@ -845,6 +847,7 @@ function WeeklyDigest({
 }
 
 export function MonitoringSettings() {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const { section } = useParams()
   const currentSection = section || 'alerts'
@@ -880,9 +883,9 @@ export function MonitoringSettings() {
         },
       }),
       {
-        loading: 'Saving project alert settings...',
-        success: 'Project alert settings saved successfully',
-        error: 'Failed to save project alert settings',
+        loading: t('monitoring.saving'),
+        success: t('monitoring.saved'),
+        error: t('monitoring.saveFailed'),
       }
     )
   }
@@ -1108,7 +1111,7 @@ export function MonitoringSettings() {
         return (
           <div className="max-w-5xl space-y-10">
             <SettingsGroup
-              title="Project Health"
+              title={t('monitoring.healthTitle')}
               description="Choose which deployment and runtime events trigger alerts."
             >
               <ProjectAlerts

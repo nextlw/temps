@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 
 import { Fragment } from 'react'
@@ -146,6 +147,7 @@ function KindSpecificDetails({
   event: ObservabilityEvent
   projectSlug: string
 }) {
+  const { t } = useTranslation('observability')
   switch (event.type) {
     case 'request':
       return (
@@ -197,7 +199,7 @@ function KindSpecificDetails({
           <Section title="Span">
             <KvList
               items={[
-                ['Service', event.service],
+                [t('misc.otelService'), event.service],
                 ['Operation', event.operation],
                 ['Span ID', event.span_id],
                 ['Parent span', event.parent_span_id],

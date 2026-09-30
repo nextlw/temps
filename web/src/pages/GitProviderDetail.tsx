@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   deleteGitProviderMutation,
   getGitProviderOptions,
@@ -76,6 +77,7 @@ import { toast } from 'sonner'
 import { isGitHubApp, isGitLabOAuth } from '@/lib/provider'
 
 export default function GitProviderDetail() {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const { setBreadcrumbs } = useBreadcrumbs()
@@ -586,9 +588,8 @@ export default function GitProviderDetail() {
             <DialogDescription>
               Are you sure you want to delete &quot;{provider.name}&quot;? This
               action cannot be undone. Its {connections?.length ?? 0}{' '}
-              connection(s) and their synced repositories are deleted with it.
-              Projects still deployed from this provider block the delete — the
-              error names them.
+              connection(s) and their synced repositories are deleted with it.{' '}
+              {t('serviceMentions.gitProviderDelete')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

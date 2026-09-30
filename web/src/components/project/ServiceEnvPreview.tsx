@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getServicePreviewEnvironmentVariablesMaskedOptions } from '@/api/client/@tanstack/react-query.gen'
@@ -28,6 +29,7 @@ export function ServiceEnvPreview({
   serviceName,
   serviceType,
 }: ServiceEnvPreviewProps) {
+  const { t } = useTranslation('storage')
   const [isOpen, setIsOpen] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
 
@@ -106,7 +108,7 @@ export function ServiceEnvPreview({
 
           {!isOpen && (
             <CardDescription className="text-xs">
-              Click to see available environment variables for this service
+              {t('misc.envPreview')}
             </CardDescription>
           )}
         </CardHeader>

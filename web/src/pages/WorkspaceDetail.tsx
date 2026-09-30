@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import {
@@ -15,6 +16,7 @@ import { ArrowLeft, Folder, ArrowUpRight } from 'lucide-react'
 import { usePageTitle } from '@/hooks/usePageTitle'
 
 export default function WorkspaceDetail() {
+  const { t } = useTranslation('ai')
   const { workspaceId = '' } = useParams()
   const global = workspaceId === 'global'
   const application = useQuery({
@@ -34,7 +36,7 @@ export default function WorkspaceDetail() {
     <PageContainer>
       <PageHeader
         title={name}
-        description="Manage projects, persistent files, and the compute attached to this workspace."
+        description={t('workspaceDetail.description')}
         actions={
           <>
             <Button variant="outline" asChild>
@@ -80,16 +82,22 @@ export default function WorkspaceDetail() {
         <p>Loading workspace…</p>
       ) : application.data ? (
         <>
-          <section className="space-y-3" aria-label="Linked projects">
+          <section
+            className="space-y-3"
+            aria-label={t('workspaceDetail.linkedLabel')}
+          >
             <div>
-              <h2 className="text-sm font-semibold">Projects</h2>
+              <h2 className="text-sm font-semibold">
+                {t('workspaceDetail.title')}
+              </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Linked projects stay available when workspace compute is
-                stopped.
+                {t('workspaceDetail.hint')}
               </p>
             </div>
             {application.data.projects.length === 0 ? (
-              <p className="text-muted-foreground">No linked projects.</p>
+              <p className="text-muted-foreground">
+                {t('workspaceDetail.empty')}
+              </p>
             ) : (
               <ul role="list" className="divide-y rounded-lg border bg-card">
                 {application.data.projects.map((project) => (

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -103,6 +104,7 @@ export function MajorUpgradeDialog({
   serviceName,
   currentImage,
 }: MajorUpgradeDialogProps) {
+  const { t } = useTranslation('storage')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -296,9 +298,7 @@ export function MajorUpgradeDialog({
                 </p>
                 <ul className="list-disc pl-4 space-y-0.5 text-yellow-700 dark:text-yellow-300">
                   <li>Full backup is taken to your default S3 source.</li>
-                  <li>
-                    Service is stopped; data volume is snapshotted for rollback.
-                  </li>
+                  <li>{t('deep.majorStopped')}</li>
                   <li>New container runs pg_upgrade, then ANALYZE.</li>
                   <li>Old volume is retained for 7 days, then swept.</li>
                 </ul>

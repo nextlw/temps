@@ -16,7 +16,7 @@ describe('completeServiceCreation', () => {
       onSuccess: (service) => completedServiceIds.push(service.id),
     })
 
-    expect(notifications).toEqual(['Service created successfully'])
+    expect(notifications).toEqual(['Database created successfully'])
     expect(completedServiceIds).toEqual([42])
   })
 

@@ -62,6 +62,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import { i18n } from '@/i18n'
 
 type DropStage =
   | 'idle'
@@ -81,18 +82,20 @@ function stageLabel(
     case 'packing':
       return 'Packing files locally'
     case 'creating':
-      return 'Creating project'
+      return i18n.t('projects:drop.creating')
     case 'detecting':
       return 'Detecting preset'
     case 'uploading':
-      return 'Uploading project'
+      return i18n.t('projects:drop.uploading')
     case 'deploying':
       return 'Starting deployment'
     case 'done':
       return 'Deployment started'
     default:
       if (detectedLabel) return `Deploy ${detectedLabel}`
-      return hasFiles ? 'Retry preset detection' : 'Select project files'
+      return hasFiles
+        ? 'Retry preset detection'
+        : i18n.t('projects:drop.selectFiles')
   }
 }
 
@@ -106,6 +109,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
     platformFeatures.data !== undefined && !sourceUploadsSupported
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
+  const { t: tp } = useTranslation('projects')
   const [files, setFiles] = useState<DropFile[]>([])
   const [projectName, setProjectName] = useState('')
   const [nameWasEdited, setNameWasEdited] = useState(false)
@@ -128,7 +132,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
   const detectionRunRef = useRef(0)
   const detectionAbortRef = useRef<AbortController | null>(null)
 
-  usePageTitle(embedded ? 'New Project' : 'Drop')
+  usePageTitle(embedded ? tp('create.newProject') : 'Drop')
   useEffect(() => {
     if (embedded) return
     setBreadcrumbs([
@@ -287,7 +291,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
       }
 
       const candidate = detected.candidates[Number(selectedCandidateIndex)]
-      if (!candidate) throw new Error('Choose a detected project preset')
+      if (!candidate) throw new Error(tp('drop.choosePreset'))
 
       setStage('creating')
       const projectResult = await createProject({
@@ -310,7 +314,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
         },
       })
       createdProject = projectResult.data
-      if (!createdProject) throw new Error('Temps created no project record')
+      if (!createdProject) throw new Error(tp('drop.noProjectRecord'))
 
       const environmentsResult = await getEnvironments({
         throwOnError: true,
@@ -321,8 +325,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
         environments.find((item) => item.name.toLowerCase() === 'production') ||
         environments.find((item) => !item.is_preview) ||
         environments[0]
-      if (!targetEnvironment)
-        throw new Error('The project has no deployment environment')
+      if (!targetEnvironment) throw new Error(tp('drop.noEnvironment'))
 
       setStage('uploading')
       if (!candidate.isStatic) {
@@ -372,7 +375,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
             throwOnError: true,
             path: { id: createdProject.id },
           })
-          message += ' The incomplete project was removed.'
+          message += tp('drop.incompleteRemoved')
         } catch (cleanupError) {
           message += ` Cleanup also failed: ${dropErrorMessage(cleanupError)}`
         }
@@ -397,8 +400,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
             {project.name} is on its way live.
           </h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-            Temps accepted the bundle and started the deployment. The project
-            page has the live build log and final status.
+            {tp('drop.acceptedBody')}
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Button asChild size="lg">
@@ -504,7 +506,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
 
               <div className="flex-1 space-y-6 py-6">
                 <div className="space-y-2">
-                  <Label htmlFor="drop-name">Project name</Label>
+                  <Label htmlFor="drop-name">{tp('drop.projectName')}</Label>
                   <Input
                     id="drop-name"
                     value={projectName}
@@ -563,7 +565,7 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
 
                 {inspection && inspection.candidates.length > 1 && (
                   <div className="space-y-2">
-                    <Label>Detected projects</Label>
+                    <Label>{tp('drop.detectedProjects')}</Label>
                     <DetectedPresetGrid
                       candidates={inspection.candidates}
                       selectedIndex={Number(selectedCandidateIndex)}

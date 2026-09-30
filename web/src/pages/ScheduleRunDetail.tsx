@@ -3,6 +3,7 @@
 
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { PageHeader } from '@/components/layout/PageContainer'
 
 import {
@@ -106,6 +107,7 @@ function formatDuration(ms: number): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function ScheduleRunDetail() {
+  const { t } = useTranslation('storage')
   const { scheduleId, runId } = useParams<{
     scheduleId: string
     runId: string
@@ -416,7 +418,7 @@ export function ScheduleRunDetail() {
                     <Table className="min-w-[560px]">
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Service</TableHead>
+                          <TableHead>{t('backups.column')}</TableHead>
                           <TableHead className="hidden sm:table-cell">
                             Engine
                           </TableHead>

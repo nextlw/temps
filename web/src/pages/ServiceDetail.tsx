@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   deleteServiceMutation,
   getProjectsOptions,
@@ -179,6 +180,7 @@ function memberDisplayRole(member: {
 }
 
 export function ServiceDetail() {
+  const { t } = useTranslation('storage')
   const { id } = useParams<{ id: string }>()
   const location = useLocation()
   const { setBreadcrumbs } = useBreadcrumbs()
@@ -359,9 +361,9 @@ export function ServiceDetail() {
 
   const linkService = useMutation({
     ...linkServiceToProjectMutation(),
-    meta: { errorTitle: 'Failed to link project' },
+    meta: { errorTitle: t('detail.linkFailed') },
     onSuccess: () => {
-      toast.success('Project linked successfully')
+      toast.success(t('detail.linked'))
       refetchLinkedProjects()
       setIsLinkPopoverOpen(false)
     },
@@ -370,21 +372,21 @@ export function ServiceDetail() {
   useEffect(() => {
     if (service) {
       setBreadcrumbs([
-        { label: 'Databases', href: '/storage' },
+        { label: t('detail.databases'), href: '/storage' },
         {
-          label: service.service.name || 'Service Details',
+          label: service.service.name || t('detail.fallbackName'),
           href: `/storage/${id}`,
         },
       ])
     } else {
       setBreadcrumbs([
-        { label: 'Databases', href: '/storage' },
-        { label: 'Service Details', href: `/storage/${id}` },
+        { label: t('detail.databases'), href: '/storage' },
+        { label: t('detail.fallbackName'), href: `/storage/${id}` },
       ])
     }
-  }, [setBreadcrumbs, id, service])
+  }, [setBreadcrumbs, id, service, t])
 
-  usePageTitle(service?.service?.name || 'Service Details')
+  usePageTitle(service?.service?.name || t('detail.fallbackName'))
 
   // Notify when cluster creation completes or fails
   useEffect(() => {
@@ -401,7 +403,7 @@ export function ServiceDetail() {
   const startService = useMutation({
     ...startServiceMutation(),
     meta: {
-      errorTitle: 'Failed to start service',
+      errorTitle: t('detail.startFailed'),
     },
     onSuccess: () => {
       refetch()
@@ -412,10 +414,10 @@ export function ServiceDetail() {
   const stopService = useMutation({
     ...stopServiceMutation(),
     meta: {
-      errorTitle: 'Failed to stop service',
+      errorTitle: t('detail.stopFailed'),
     },
     onSuccess: () => {
-      toast.success('Service stopped successfully')
+      toast.success(t('detail.stopped'))
       refetch()
     },
   })
@@ -534,16 +536,16 @@ export function ServiceDetail() {
   const deleteService = useMutation({
     ...deleteServiceMutation(),
     meta: {
-      errorTitle: 'Failed to delete service',
+      errorTitle: t('detail.deleteFailed'),
     },
     onSuccess: () => {
-      toast.success('Service deleted successfully')
+      toast.success(t('detail.deleted'))
       navigate('/storage')
     },
     onError: (error: any) => {
-      toast.error('Failed to delete service', {
+      toast.error(t('detail.deleteFailed'), {
         description:
-          error.detail || error.message || 'An unexpected error occurred',
+          error.detail || error.message || t('detail.unexpectedError'),
       })
       setIsDeleteDialogOpen(false)
     },
@@ -614,8 +616,8 @@ export function ServiceDetail() {
       <PageState
         variant="failed"
         icon={AlertCircle}
-        title="Couldn't load service"
-        description="This service may not exist, or you may not have permission to view it."
+        title={t('detail.loadFailedTitle')}
+        description={t('detail.loadFailedDescription')}
         action={<Button onClick={() => void refetch()}>Retry</Button>}
       />
     )
@@ -705,14 +707,14 @@ export function ServiceDetail() {
               <PopoverContent className="w-[320px] p-0" align="end">
                 <div className="border-b p-3">
                   <p className="text-xs font-medium text-muted-foreground">
-                    Linked projects
+                    {t('detail.linkedProjects')}
                   </p>
                   <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    Linking creates a dedicated{' '}
+                    {t('detail.linkCreates')}{' '}
                     <code className="rounded bg-muted px-1 py-0.5 font-mono">
                       {'<project>_<env>'}
                     </code>{' '}
-                    database per environment. No extra services are spun up.
+                    {t('detail.linkCreatesTail')}
                   </p>
                   {linkedProjectsLoading ? (
                     <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -739,14 +741,14 @@ export function ServiceDetail() {
                     </ul>
                   ) : (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      No projects yet.
+                      {t('detail.noProjects')}
                     </p>
                   )}
                 </div>
                 <Command>
-                  <CommandInput placeholder="Link a project..." />
+                  <CommandInput placeholder={t('detail.linkPlaceholder')} />
                   <CommandList>
-                    <CommandEmpty>No projects found.</CommandEmpty>
+                    <CommandEmpty>{t('detail.noProjectsFound')}</CommandEmpty>
                     <CommandGroup>
                       {allProjectsData?.projects
                         ?.filter(
@@ -1195,7 +1197,7 @@ export function ServiceDetail() {
                     </Badge>
                   </CardTitle>
                   <CardDescription>
-                    Backups of this service stored across your S3 sources
+                    {t('detail.backupsDescription')}
                   </CardDescription>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -1238,8 +1240,7 @@ export function ServiceDetail() {
                 </div>
               ) : serviceBackups.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-8">
-                  No backups found for this service yet. Trigger one or
-                  configure a schedule from an S3 source.
+                  {t('detail.noBackups')}
                 </div>
               ) : (
                 <ul role="list" className="divide-y divide-border">
@@ -1464,8 +1465,7 @@ export function ServiceDetail() {
                   Major Version Upgrades
                 </CardTitle>
                 <CardDescription>
-                  History of PostgreSQL major-version upgrades for this service.
-                  Click a row to see phase progress and logs.
+                  {t('detail.upgradesDescription')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -1546,7 +1546,9 @@ export function ServiceDetail() {
             <Card>
               <CardHeader>
                 <CardTitle>Configuration</CardTitle>
-                <CardDescription>Current service parameters</CardDescription>
+                <CardDescription>
+                  {t('detail.configurationDescription')}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 {service.current_parameters &&
@@ -1725,10 +1727,7 @@ export function ServiceDetail() {
             <Card>
               <CardHeader>
                 <CardTitle>Environment Variables</CardTitle>
-                <CardDescription>
-                  Preview of environment variables available to projects using
-                  this service
-                </CardDescription>
+                <CardDescription>{t('detail.envPreview')}</CardDescription>
               </CardHeader>
               <CardContent>
                 {envVarsLoading ? (
@@ -1755,8 +1754,7 @@ export function ServiceDetail() {
                       maxHeight="20rem"
                     />
                     <p className="text-xs text-muted-foreground text-center mt-3">
-                      These variables are automatically available to projects that
-                      use this service
+                      {t('detail.envAvailable')}
                     </p>
                   </>
                 ) : null}
@@ -1769,14 +1767,13 @@ export function ServiceDetail() {
       <Dialog open={isStopDialogOpen} onOpenChange={setIsStopDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Stop Service</DialogTitle>
+            <DialogTitle>{t('detail.stopTitle')}</DialogTitle>
             <DialogDescription>
               Are you sure you want to stop{' '}
               <span className="font-medium text-foreground">
                 {service.service.name}
               </span>
-              ? All connected projects will lose access to this service until it
-              is started again.
+              {t('detail.stopBody')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1792,7 +1789,7 @@ export function ServiceDetail() {
               busy={stopService.isPending}
               busyLabel="Stopping…"
             >
-              Stop Service
+              {t('detail.stopTitle')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1807,11 +1804,8 @@ export function ServiceDetail() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Service</DialogTitle>
-            <DialogDescription>
-              This action cannot be undone and all data associated with this
-              service will be permanently removed.
-            </DialogDescription>
+            <DialogTitle>{t('detail.deleteTitle')}</DialogTitle>
+            <DialogDescription>{t('detail.deleteBody')}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="confirm-delete-service-name">

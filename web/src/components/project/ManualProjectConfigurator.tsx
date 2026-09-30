@@ -58,7 +58,9 @@ import {
 } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { i18n } from '@/i18n'
 import { toast } from 'sonner'
 import * as z from 'zod/v4'
 import {
@@ -112,7 +114,7 @@ const SOURCE_TYPE_OPTIONS: {
 
 // Form schema for manual projects
 const formSchema = z.object({
-  name: z.string().min(1, 'Project name is required'),
+  name: z.string().min(1, i18n.t('projects:create.nameRequired')),
   sourceType: z.enum(['manual', 'docker_image', 'static_files'] as const),
   // Docker image specific
   imageUrl: z.string().optional(),
@@ -139,6 +141,7 @@ export function ManualProjectConfigurator({
   className,
 }: ManualProjectConfiguratorProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
 
   // State management
@@ -203,12 +206,12 @@ export function ManualProjectConfigurator({
   const projectMutation = useMutation({
     ...createProjectMutation(),
     meta: {
-      errorTitle: 'Failed to create project',
+      errorTitle: t('create.createFailed'),
     },
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['getProjects'] })
       await queryClient.invalidateQueries({ queryKey: ['listProjects'] })
-      toast.success('Project created successfully!')
+      toast.success(t('create.createdBang'))
       navigate(`/projects/${data.slug}?new=true&source=${sourceType}`)
     },
   })
@@ -413,9 +416,9 @@ export function ManualProjectConfigurator({
         name="name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Project Name</FormLabel>
+            <FormLabel>{t('create.nameLabel')}</FormLabel>
             <FormControl>
-              <Input {...field} placeholder="my-awesome-project" />
+              <Input {...field} placeholder={t('create.nameSlugPlaceholder')} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -451,10 +454,7 @@ export function ManualProjectConfigurator({
       {sourceType === 'static_files' && (
         <Alert>
           <FileArchive className="h-4 w-4" />
-          <AlertDescription>
-            After creating the project, you&apos;ll be able to upload your
-            static files (tar.gz or zip) through the project dashboard or API.
-          </AlertDescription>
+          <AlertDescription>{t('create.staticFilesHint')}</AlertDescription>
         </Alert>
       )}
 
@@ -462,12 +462,12 @@ export function ManualProjectConfigurator({
         <Alert>
           <Settings className="h-4 w-4" />
           <AlertDescription>
-            <strong>Flexible Project:</strong> After creation, you can deploy
-            using any method:
+            <strong>{t('create.flexibleTitle')}</strong> After creation, you can
+            deploy using any method:
             <ul className="list-disc list-inside mt-2 text-xs">
               <li>Docker images from any registry</li>
               <li>Static files (tar.gz or zip uploads)</li>
-              <li>Git repository (configure later in project settings)</li>
+              <li>{t('create.gitLater')}</li>
             </ul>
           </AlertDescription>
         </Alert>
@@ -537,8 +537,7 @@ export function ManualProjectConfigurator({
               onClick={() => {
                 if (isTypeAlreadySelected) {
                   toast.error(`A ${type.name} database is already selected`, {
-                    description:
-                      'Only one database of each type can be linked to a project.',
+                    description: t('create.oneDatabasePerType'),
                   })
                   return
                 }
@@ -670,7 +669,7 @@ export function ManualProjectConfigurator({
               ).length > 1
                 ? 's'
                 : ''}{' '}
-              will be linked to this project
+              {t('create.willBeLinked')}
             </AlertDescription>
           </Alert>
         )}
@@ -924,8 +923,10 @@ export function ManualProjectConfigurator({
           {/* Project Configuration */}
           <Card>
             <CardHeader>
-              <CardTitle>Project Configuration</CardTitle>
-              <CardDescription>Configure your project settings</CardDescription>
+              <CardTitle>{t('create.configurationTitle')}</CardTitle>
+              <CardDescription>
+                {t('create.configurationDescription')}
+              </CardDescription>
             </CardHeader>
             <CardContent>{renderProjectConfig()}</CardContent>
           </Card>
@@ -997,12 +998,12 @@ export function ManualProjectConfigurator({
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Project...
+                  {t('create.submitting')}
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Create Project
+                  {t('create.submit')}
                 </>
               )}
             </Button>

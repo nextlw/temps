@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import type { DeploymentJobResponse } from '@/api/client'
 import {
   getDeploymentJobsOptions,
@@ -109,6 +110,7 @@ export function GeneratedDeploymentCard({
   statusLabel: string
   statusClassName?: string
 }) {
+  const { t } = useTranslation('ai')
   const reference = deploymentReference(paramsJson, resultJson, createdAt)
   const canResolve = actionStatus === 'executed' && reference !== null
 
@@ -176,7 +178,9 @@ export function GeneratedDeploymentCard({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h3 className="truncate text-base font-semibold sm:text-sm">
-              {deployment ? `Deployment #${deployment.id}` : 'Deploy project'}
+              {deployment
+                ? `Deployment #${deployment.id}`
+                : t('deployment.deployProject')}
             </h3>
             {isLive && (
               <span className="ai-activity-shimmer bg-gradient-to-r from-muted-foreground via-foreground to-muted-foreground bg-[length:200%_100%] bg-clip-text text-[11px] font-medium text-transparent">
@@ -259,8 +263,7 @@ export function GeneratedDeploymentCard({
 
       {actionStatus === 'executed' && !reference && (
         <p className="border-t px-3 py-2.5 text-xs text-muted-foreground sm:px-4">
-          The trigger completed, but its response did not include a project id,
-          so live deployment progress is unavailable.
+          {t('deployment.noProjectId')}
         </p>
       )}
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -215,6 +216,7 @@ function estimateStorageMbPerDay(
 }
 
 export function MonitoringSettingsPage() {
+  const { t } = useTranslation('storage')
   const { setBreadcrumbs } = useBreadcrumbs()
   const { data: settings, isLoading, error } = useSettings()
   const updateSettings = useUpdateSettings()
@@ -379,7 +381,7 @@ export function MonitoringSettingsPage() {
       <SettingsSection
         title="Metrics Collection"
         icon={BarChart2}
-        description="Collect resource and performance metrics from databases, containers, and nodes for alerting and dashboards. Enable monitoring per service from its detail page — these settings tune how the collected data is sampled and retained."
+        description={t('misc.metricsDescription')}
       >
         <div className="space-y-3">
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -730,12 +732,12 @@ export function MonitoringSettingsPage() {
               </AlertTitle>
               <AlertDescription>
                 {estimatedMbPerDay == null ? (
-                  'The estimate is unavailable because the monitored service count could not be loaded.'
+                  t('misc.estimateUnavailable')
                 ) : (
                   <>
                     Approximately <strong>{estimatedMbPerDay} MB/day</strong> of
-                    raw metric data based on {monitoredServicesCount} monitored{' '}
-                    {monitoredServicesCount === 1 ? 'service' : 'services'},{' '}
+                    raw metric data based on {monitoredServicesCount}{' '}
+                    {t('misc.monitored', { count: monitoredServicesCount })},{' '}
                     {METRICS_PER_SERVICE} metrics each, scraped every{' '}
                     {monitoring?.scrape_interval_secs ?? 30}s.{' '}
                     {effectiveStore === 'click_house'

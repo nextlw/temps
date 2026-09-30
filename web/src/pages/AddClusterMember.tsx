@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   adminListNodesOptions,
   getServiceOptions,
@@ -107,6 +108,7 @@ function stepStatus(
 }
 
 export function AddClusterMember() {
+  const { t } = useTranslation('storage')
   const { id } = useParams<{ id: string }>()
   const serviceIdNum = id ? parseInt(id, 10) : NaN
   const navigate = useNavigate()
@@ -167,12 +169,13 @@ export function AddClusterMember() {
     setBreadcrumbs([
       { label: 'Databases', href: '/storage' },
       {
-        label: serviceQuery.data?.service?.name ?? `Service ${id}`,
+        label:
+          serviceQuery.data?.service?.name ?? t('deep.fallbackWithId', { id }),
         href: `/storage/${id}`,
       },
       { label: 'Add Cluster Member' },
     ])
-  }, [id, serviceQuery.data?.service?.name, setBreadcrumbs])
+  }, [id, serviceQuery.data?.service?.name, setBreadcrumbs, t])
 
   const addMember = useMutation({
     mutationFn: async () => {
@@ -222,7 +225,7 @@ export function AddClusterMember() {
         >
           <Link to={`/storage/${id}`}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to service
+            {t('deep.backLower')}
           </Link>
         </Button>
       </div>
@@ -334,6 +337,7 @@ function ProvisioningTimeline({
   isFailed: boolean
   isDone: boolean
 }) {
+  const { t } = useTranslation('storage')
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 text-sm">
@@ -410,7 +414,7 @@ function ProvisioningTimeline({
       <div className="flex justify-end gap-2 pt-2">
         {isDone || isFailed ? (
           <Button onClick={onDone}>
-            {isDone ? 'Done — back to service' : 'Back to service'}
+            {isDone ? t('deep.doneBack') : t('deep.backLower')}
           </Button>
         ) : (
           <Button variant="outline" asChild>

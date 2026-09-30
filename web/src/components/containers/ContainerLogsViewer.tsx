@@ -3,6 +3,7 @@
 
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -185,6 +186,7 @@ export function ContainerLogsViewer({
   fetchUrl,
   serviceName,
 }: ContainerLogsViewerProps) {
+  const { t } = useTranslation('observability')
   const wsUrl = (() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const path = fetchUrl.replace(/^https?:\/\/[^/]+/, '')
@@ -418,7 +420,7 @@ export function ContainerLogsViewer({
                   }
                   disabled={!serviceName}
                 >
-                  Service
+                  {t('logs.container')}
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>

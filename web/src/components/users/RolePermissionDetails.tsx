@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { getApiKeyPermissionsOptions } from '@/api/client/@tanstack/react-query.gen'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -17,14 +18,12 @@ import { Globe2, ShieldAlert } from 'lucide-react'
 
 const ROLE_SCOPE = {
   user: {
-    title: 'All-project access',
-    description:
-      'Can access every existing project and every project created later. Project access is not limited to selected projects.',
+    title: i18n.t('projects:roles.scopeUserTitle'),
+    description: i18n.t('projects:roles.scopeUserDescription'),
   },
   admin: {
     title: 'Full platform control',
-    description:
-      'Can manage all projects, users, roles, settings, and system resources, including destructive operations.',
+    description: i18n.t('projects:roles.scopeAdminDescription'),
   },
 } as const
 

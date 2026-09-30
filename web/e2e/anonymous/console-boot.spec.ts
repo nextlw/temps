@@ -72,7 +72,7 @@ test.describe('console boot', () => {
     // content is withheld and the user is given a way in.
     await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
     await expect(
-      page.getByRole('heading', { name: 'Projects', exact: true }),
+      page.getByRole('heading', { name: 'Services', exact: true }),
       'protected content must not render for a signed-out visitor'
     ).toHaveCount(0)
 

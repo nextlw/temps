@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 
 /**
@@ -129,6 +130,7 @@ function ExtensionNotAvailable({
   onEnable: () => void
   isEnabling: boolean
 }) {
+  const { t } = useTranslation('storage')
   const isExtensionError = isExtensionNotAvailableError(error)
   const isStandalone = serviceTopology === 'standalone'
 
@@ -171,9 +173,7 @@ function ExtensionNotAvailable({
                 Manual rolling restart required
               </p>
               <p>
-                This is a clustered (HA) service. To avoid data loss, restart
-                each node one at a time using your cluster management tooling.
-                Ensure{' '}
+                {t('deep.clustered')}{' '}
                 <code className="font-mono">
                   shared_preload_libraries=pg_stat_statements
                 </code>{' '}
@@ -768,6 +768,7 @@ function StatCell({
 // ---------------------------------------------------------------------------
 
 export function ServiceQueryPerformance() {
+  const { t } = useTranslation('storage')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
@@ -781,7 +782,7 @@ export function ServiceQueryPerformance() {
     enabled: !!serviceId,
   })
 
-  const serviceName = serviceData?.service?.name ?? 'Service'
+  const serviceName = serviceData?.service?.name ?? t('deep.fallbackName')
 
   useEffect(() => {
     setBreadcrumbs([

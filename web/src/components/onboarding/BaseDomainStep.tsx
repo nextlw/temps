@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,7 @@ export function BaseDomainStep({
   onNext,
   onBack,
 }: BaseDomainStepProps) {
+  const { t } = useTranslation('projects')
   const [error, setError] = useState<string | null>(null)
   const { accessInfo } = usePlatformAccess()
 
@@ -119,7 +121,7 @@ export function BaseDomainStep({
               <p className="font-medium">This domain will be used to create:</p>
               <ul className="space-y-1 ml-4">
                 <li>
-                  • Wildcard domain for all projects: *.{value || 'example.com'}
+                  {t('onboarding.wildcardAll')} *.{value || 'example.com'}
                 </li>
                 <li>
                   • Preview deployments: *.preview.{value || 'example.com'}

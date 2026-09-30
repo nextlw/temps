@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { HighlightedCode } from '@/components/ui/code-block'
 import { AuditLogUserInfo } from '@/api/client'
 import { Badge } from '@/components/ui/badge'
@@ -141,52 +142,71 @@ function describe(
 
     // External services
     case 'EXTERNAL_SERVICE_CREATED':
-      return `Created external service${serviceName ? ` "${serviceName}"` : ''}`
+      return i18n.t('audit:describe.externalServiceCreated', {
+        name: serviceName ? ` "${serviceName}"` : '',
+      })
     case 'EXTERNAL_SERVICE_UPDATED':
-      return `Updated external service${serviceName ? ` "${serviceName}"` : ''}`
+      return i18n.t('audit:describe.externalServiceUpdated', {
+        name: serviceName ? ` "${serviceName}"` : '',
+      })
     case 'EXTERNAL_SERVICE_DELETED':
-      return `Deleted external service${serviceName ? ` "${serviceName}"` : ''}`
+      return i18n.t('audit:describe.externalServiceDeleted', {
+        name: serviceName ? ` "${serviceName}"` : '',
+      })
     case 'EXTERNAL_SERVICE_STATUS_CHANGED':
-      return `Changed status of external service${serviceName ? ` "${serviceName}"` : ''} to ${status ?? 'unknown'}`
+      return i18n.t('audit:describe.externalServiceStatusChanged', {
+        name: serviceName ? ` "${serviceName}"` : '',
+        status: status ?? i18n.t('audit:describe.unknown'),
+      })
     case 'EXTERNAL_SERVICE_PROJECT_LINKED':
       return projectSlug ? (
-        <>Linked external service to project {projectLink(projectSlug)}</>
+        <>
+          {i18n.t('audit:describe.linkedTo')} {projectLink(projectSlug)}
+        </>
       ) : (
-        'Linked external service to a project'
+        i18n.t('audit:describe.linkedToUnknown')
       )
     case 'EXTERNAL_SERVICE_PROJECT_UNLINKED':
       return projectSlug ? (
-        <>Unlinked external service from project {projectLink(projectSlug)}</>
+        <>
+          {i18n.t('audit:describe.unlinkedFrom')} {projectLink(projectSlug)}
+        </>
       ) : (
-        'Unlinked external service from a project'
+        i18n.t('audit:describe.unlinkedFromUnknown')
       )
 
     // Projects
     case 'PROJECT_CREATED':
       return projectSlug ? (
-        <>Created project {projectLink(projectSlug)}</>
+        <>
+          {i18n.t('audit:describe.projectCreated')} {projectLink(projectSlug)}
+        </>
       ) : (
-        'Created a new project'
+        i18n.t('audit:describe.projectCreatedUnknown')
       )
     case 'PROJECT_UPDATED':
       return projectSlug ? (
-        <>Updated project {projectLink(projectSlug)}</>
+        <>
+          {i18n.t('audit:describe.projectUpdated')} {projectLink(projectSlug)}
+        </>
       ) : (
-        'Updated a project'
+        i18n.t('audit:describe.projectUpdatedUnknown')
       )
     case 'PROJECT_DELETED':
-      return `Deleted project ${projectSlug ?? 'unknown'}`
+      return i18n.t('audit:describe.projectDeleted', {
+        slug: projectSlug ?? i18n.t('audit:describe.unknown'),
+      })
     case 'PROJECT_GITHUB_UPDATED':
       return projectSlug ? (
         <>Updated GitHub settings for {projectLink(projectSlug)}</>
       ) : (
-        'Updated project GitHub settings'
+        i18n.t('audit:describe.githubUpdatedUnknown')
       )
     case 'PROJECT_SETTINGS_UPDATED':
       return projectSlug ? (
         <>Updated settings for {projectLink(projectSlug)}</>
       ) : (
-        'Updated project settings'
+        i18n.t('audit:describe.settingsUpdatedUnknown')
       )
     case 'ENVIRONMENT_SETTINGS_UPDATED':
       return projectSlug ? (

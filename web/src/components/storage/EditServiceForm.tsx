@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   updateServiceMutation,
   getServiceTypeParametersOptions,
@@ -46,6 +47,7 @@ export function EditServiceForm({
   onCancel,
   onSuccess,
 }: EditServiceFormProps) {
+  const { t } = useTranslation('storage')
   // Fetch parameters for the service type
   const { data: parametersResponse, isLoading: isLoadingParameters } = useQuery(
     {
@@ -205,10 +207,10 @@ export function EditServiceForm({
   const updateServiceMut = useMutation({
     ...updateServiceMutation(),
     meta: {
-      errorTitle: 'Failed to update service',
+      errorTitle: t('edit.failed'),
     },
     onSuccess: () => {
-      toast.success('Service updated successfully')
+      toast.success(t('edit.updated'))
       onSuccess()
     },
   })

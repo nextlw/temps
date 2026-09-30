@@ -9,6 +9,7 @@
  * copy on this page leans on that, because it's the part operators get
  * wrong: creating teams alone changes nothing.
  */
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createTeamMutation,
@@ -84,6 +85,7 @@ interface CreateTeamDialogProps {
 }
 
 function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -125,10 +127,7 @@ function CreateTeamDialog({ open, onOpenChange }: CreateTeamDialogProps) {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create team</DialogTitle>
-          <DialogDescription>
-            Teams group users. Once created, grant the team access to the
-            projects its members should reach.
-          </DialogDescription>
+          <DialogDescription>{t('teams.createDescription')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
@@ -225,6 +224,7 @@ function TeamsTableSkeleton() {
 }
 
 export function Teams() {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { setBreadcrumbs } = useBreadcrumbs()
@@ -285,8 +285,7 @@ export function Teams() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Teams</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Group users, then grant each team access to the projects it should
-            reach. Projects with no grants stay open to everyone.
+            {t('teams.pageDescription')}
           </p>
         </div>
         <CreateActionButton
@@ -314,7 +313,7 @@ export function Teams() {
             <EmptyState
               icon={Users}
               title="No teams yet"
-              description="Create a team, add members, then grant it access to a project from that project's Access tab."
+              description={t('teams.emptyDescription')}
               action={
                 <Button onClick={() => setCreateOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -393,11 +392,9 @@ export function Teams() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete team?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes the team
-              {teamToDelete ? ` "${teamToDelete.name}"` : ''} along with its
-              memberships and project-access grants. Members lose access to
-              every project they could only reach through this team. This cannot
-              be undone.
+              {t('teams.deleteDescription', {
+                name: teamToDelete ? ` "${teamToDelete.name}"` : '',
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

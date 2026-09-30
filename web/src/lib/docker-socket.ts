@@ -3,6 +3,7 @@
 
 // The generated type, imported directly: this module is pure and must not
 // pull a hook (and therefore React) into a unit test.
+import { i18n } from '@/i18n'
 import type { DockerSocketCapability } from '@/api/client/types.gen'
 
 /** Name the API uses for the control plane's own host in `nodes`. */
@@ -27,8 +28,9 @@ export const HOST_DOCKER_ACCESS_SHORT_LABEL = 'Host root'
  * heard of it. Said in full wherever it is offered — nobody reading this has a
  * support channel to ask what "host Docker access" means.
  */
-export const HOST_DOCKER_ACCESS_EXPLANATION =
-  "Mounts /var/run/docker.sock into this project's containers so it can manage containers on its host — for operator-owned infrastructure services only. A granted project is root-equivalent on every host that grants it."
+export const HOST_DOCKER_ACCESS_EXPLANATION = i18n.t(
+  'projects:docker.explanation'
+)
 
 /**
  * Whether a project holds host Docker access, cannot be told, or plainly does
@@ -96,9 +98,7 @@ export function describeDockerSocket(
     label: HOST_DOCKER_ACCESS_LABEL,
     // The server's `reason` names the exact variable, value and process to
     // restart; only fall back when an older server sends none.
-    detail:
-      capability.reason ||
-      'No host grants this project access to the Docker socket.',
+    detail: capability.reason || i18n.t('projects:docker.noGrant'),
     nodes,
   }
 }

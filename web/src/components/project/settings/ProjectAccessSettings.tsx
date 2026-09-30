@@ -11,6 +11,7 @@
  * two states the project is currently in, because that distinction is the
  * whole feature and is invisible otherwise.
  */
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import {
   grantProjectAccessMutation,
@@ -73,6 +74,7 @@ interface ProjectAccessSettingsProps {
 }
 
 export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [grantOpen, setGrantOpen] = useState(false)
   const [teamId, setTeamId] = useState<string>('')
@@ -146,7 +148,7 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
         <div>
           <h2 className="text-xl font-semibold">Access</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Control which teams can reach this project.
+            {t('settings.access.subtitle')}
           </p>
         </div>
         <Button
@@ -190,8 +192,8 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
           </AlertTitle>
           <AlertDescription>
             {isRestricted
-              ? 'Only members of these teams — and instance administrators — can see or open this project. Revoking the last grant makes it open again.'
-              : 'Any user with the relevant instance permission can see and open this project. Granting a team access is what restricts it.'}
+              ? t('settings.access.restrictedHint')
+              : t('settings.access.openHint')}
           </AlertDescription>
         </Alert>
       )}
@@ -203,9 +205,7 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
             Teams with access
           </CardTitle>
           <CardDescription>
-            A member&apos;s permissions here are the narrower of their role in
-            the team and the role the team holds on this project.{' '}
-            {ROLE_ENFORCEMENT_NOTE}
+            {t('settings.access.teamsDescription')} {ROLE_ENFORCEMENT_NOTE}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -255,7 +255,7 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
                 icon={Users}
                 title="Create a team to restrict access"
                 requirement="No teams exist yet."
-                example="Give your operations team access to this project."
+                example={t('settings.access.example')}
                 settingsHref="/settings/teams"
                 settingsLabel="Go to Teams"
               />
@@ -265,7 +265,7 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
                 size="compact"
                 icon={Globe}
                 title="No team restrictions"
-                description="Grant a team access to restrict this project to its members."
+                description={t('settings.access.emptyDescription')}
                 action={
                   !teamsFailed && (
                     <Button onClick={() => setGrantOpen(true)}>
@@ -277,7 +277,7 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
               />
             ) : (
               <DataTable
-                aria-label="Teams with project access"
+                aria-label={t('settings.access.tableLabel')}
                 rows={grantList}
                 rowKey={(grant) => grant.id}
                 isLoading={
@@ -298,7 +298,7 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
                   },
                   {
                     key: 'role',
-                    header: 'Role on this project',
+                    header: t('settings.access.roleHeader'),
                     render: (grant) => (
                       <>
                         <span className="capitalize">{grant.role}</span>
@@ -336,8 +336,8 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
             <DialogTitle>Grant team access</DialogTitle>
             <DialogDescription>
               {isRestricted
-                ? 'Add another team to this project.'
-                : 'This is the first grant — it will restrict the project to the teams listed here.'}
+                ? t('settings.access.grantAnother')
+                : t('settings.access.grantFirst')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -357,12 +357,14 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
               </Select>
               {availableTeams.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  Every team already has access to this project.
+                  {t('settings.access.allHaveAccess')}
                 </p>
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="access-role">Role on this project</Label>
+              <Label htmlFor="access-role">
+                {t('settings.access.roleHeader')}
+              </Label>
               <RoleSelect id="access-role" value={role} onChange={setRole} />
               <p className="text-xs text-muted-foreground">
                 {ROLE_DESCRIPTIONS[role]}
@@ -405,14 +407,12 @@ export function ProjectAccessSettings({ project }: ProjectAccessSettingsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Revoke access?</AlertDialogTitle>
             <AlertDialogDescription>
-              Members of{' '}
-              {grantToRevoke
-                ? `"${teamName(grantToRevoke.team_id)}"`
-                : 'this team'}{' '}
-              lose access to this project immediately, unless another team also
-              grants it to them.
-              {grantList.length === 1 &&
-                ' This is the last grant — revoking it makes the project open to everyone again.'}
+              {t('settings.access.revokeDescription', {
+                team: grantToRevoke
+                  ? `"${teamName(grantToRevoke.team_id)}"`
+                  : t('settings.access.revokeTeamFallback'),
+              })}
+              {grantList.length === 1 && t('settings.access.revokeLast')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

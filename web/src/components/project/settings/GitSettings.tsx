@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   ProjectResponse,
   RepositoryResponse,
@@ -159,6 +160,7 @@ function GitSettingsInline({
   view,
   embedded,
 }: GitSettingsInlineProps) {
+  const { t } = useTranslation('projects')
   const { resolvedTheme } = useTheme()
   const composeEditorTheme = resolvedTheme === 'dark' ? 'vs-dark' : 'light'
   const updateGitSettings = useMutation({
@@ -167,7 +169,7 @@ function GitSettingsInline({
   })
   const updateProjectSettings = useMutation({
     ...updateProjectSettingsMutation(),
-    meta: { errorTitle: 'Failed to update project settings' },
+    meta: { errorTitle: t('settings.git.updateFailed') },
   })
   const updateAutomaticDeploy = useMutation({
     ...updateAutomaticDeployMutation(),
@@ -626,7 +628,7 @@ function GitSettingsInline({
                 No repository connected
               </h3>
               <p className="text-sm text-muted-foreground">
-                Connect a Git repository to enable deployments for this project.
+                {t('settings.git.noRepositoryHint')}
               </p>
             </div>
             <Button onClick={goToChangeRepo}>
@@ -804,9 +806,7 @@ function GitSettingsInline({
               No Git repository connected
             </CardTitle>
             <CardDescription>
-              This project currently deploys source archives uploaded through
-              Drop. Connect a repository to enable deployments from commits and
-              branches.
+              {t('settings.git.uploadedSourceHint')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -1439,7 +1439,7 @@ function GitSettingsInline({
                             Effective Compose preview
                           </div>
                           <div className="truncate text-sm/5 text-muted-foreground dark:text-zinc-400">
-                            Repository + enabled services + override
+                            {t('compose.previewSubtitle')}
                           </div>
                         </div>
                         {composeSecurityQuery.isError ? null : composePreviewQuery.isFetching ? (
@@ -1455,8 +1455,7 @@ function GitSettingsInline({
                       {composeSecurityQuery.isError ? (
                         <div className="flex h-[360px] flex-col items-center justify-center gap-3 p-6 text-center">
                           <p className="text-sm text-destructive">
-                            Could not load this project's Compose security
-                            policy.
+                            {t('settings.git.composeSecurityLoadFailed')}
                           </p>
                           <Button
                             size="sm"
@@ -1502,9 +1501,7 @@ function GitSettingsInline({
                             ) && (
                               <div className="mt-4 space-y-2">
                                 <p className="text-sm text-muted-foreground">
-                                  If you trust this stack, an instance
-                                  administrator can disable this check for this
-                                  project.
+                                  {t('settings.git.composeSecurityAdminHint')}
                                 </p>
                                 <Button
                                   size="sm"
@@ -1583,12 +1580,12 @@ function GitSettingsInline({
                   </div>
 
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    This preview applies disabled services and your override.
-                    Temps-managed security, network, labels, and runtime
-                    environment layers are added during deployment and cannot be
-                    edited here. Deployment validates referenced files and the
-                    full Compose security policy. Environment and build-argument
-                    values are always replaced with{' '}
+                    {t('compose.previewApplies')} Temps-managed security,
+                    network, labels, and runtime environment layers are added
+                    during deployment and cannot be edited here. Deployment
+                    validates referenced files and the full Compose security
+                    policy. Environment and build-argument values are always
+                    replaced with{' '}
                     <span className="font-mono text-foreground">
                       &lt;redacted&gt;
                     </span>
@@ -1787,6 +1784,7 @@ function PublicPortsInline({
   project: ProjectResponse
   saveGitField: (overrides: any) => Promise<void>
 }) {
+  const { t } = useTranslation('projects')
   type PublicRoute = {
     service: string
     port: number
@@ -1849,9 +1847,8 @@ function PublicPortsInline({
             <Label className="text-sm font-medium">Public routes</Label>
           </div>
           <p className="text-pretty text-base/7 text-muted-foreground sm:text-sm/6">
-            Choose the Compose service and port mapping for each public URL.
-            Temps uses the published host port when running on the host and the
-            container port when running in Docker.
+            {t('compose.routesIntro')} Temps uses the published host port when
+            running on the host and the container port when running in Docker.
           </p>
         </div>
         <div className="flex gap-2">
@@ -1883,7 +1880,7 @@ function PublicPortsInline({
         <div className="rounded-md border border-dashed px-4 py-5 text-center">
           <p className="text-base font-medium sm:text-sm">No public routes</p>
           <p className="text-base/7 text-muted-foreground sm:text-sm/6">
-            Services remain private until you expose a container port.
+            {t('compose.routesEmpty')}
           </p>
         </div>
       ) : (
@@ -1911,7 +1908,7 @@ function PublicPortsInline({
                         htmlFor={`compose-service-${i}`}
                         className="text-sm text-muted-foreground"
                       >
-                        Service
+                        {t('compose.routeContainer')}
                       </Label>
                       {i === 0 && (
                         <Badge
@@ -1999,7 +1996,11 @@ function PublicPortsInline({
                       <Input
                         id={`compose-port-${i}`}
                         name={`compose-port-${i}`}
-                        aria-label={`Service port for ${row.service || `route ${i + 1}`}`}
+                        aria-label={t('compose.routePortLabel', {
+                          name:
+                            row.service ||
+                            t('compose.routeFallbackName', { index: i + 1 }),
+                        })}
                         type="number"
                         min={1}
                         max={65535}
@@ -2046,8 +2047,7 @@ function PublicPortsInline({
                   </p>
                 ) : (
                   <p className="mt-2 text-base/7 text-muted-foreground sm:text-sm/6">
-                    No declared port found for this service. You can still enter
-                    a known container port manually.
+                    {t('compose.noDeclaredPort')}
                   </p>
                 )}
                 <div className="mt-3 max-w-md space-y-1.5">
@@ -2079,8 +2079,8 @@ function PublicPortsInline({
                     {row.healthCheckPath
                       ? 'Custom override. Clear it to use the Compose healthcheck.'
                       : detectedHealthPath(row.service)
-                        ? `Detected from this service’s Compose healthcheck.`
-                        : 'Defaults to / when the Compose service has no HTTP healthcheck.'}
+                        ? t('compose.healthDetected')
+                        : t('compose.healthDefault')}
                     {i === 0 &&
                       ' Save and redeploy to update the automatic uptime monitor. To change its current path immediately, open Monitors.'}
                   </p>
@@ -2163,6 +2163,7 @@ function ExcludedServicesInline({
   isPublicRepo: boolean
   isUploadedSource: boolean
 }) {
+  const { t } = useTranslation('projects')
   const cfg: any = (project.preset_config as any) || {}
   const composePath = cfg.composePath || 'docker-compose.yml'
   const composeRepositoryPath = repositoryFilePath(
@@ -2228,7 +2229,7 @@ function ExcludedServicesInline({
       : await refetchConnected()
     const raw = result.data?.services
     if (!raw) {
-      toast.error(`Couldn't read services from ${composeRepositoryPath}`)
+      toast.error(t('compose.readFailed', { path: composeRepositoryPath }))
       return
     }
     const refreshed = raw.map((s) => ({
@@ -2301,16 +2302,11 @@ function ExcludedServicesInline({
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <Label className="text-sm font-medium">Compose services</Label>
+          <Label className="text-sm font-medium">
+            {t('compose.listLabel')}
+          </Label>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Uncheck a service to skip deploying it entirely — e.g. a raw
-            database container, which won’t have Temps backup/restore. Every
-            service runs with all Linux container permissions dropped except a
-            minimal set (CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID) most
-            official images need to fix ownership on their data volume at
-            startup — that&apos;s granted automatically, nothing to configure.
-            If a service still fails with “Operation not permitted” errors, it
-            may need an exception in Advanced security settings below.
+            {t('compose.listIntro')}
           </p>
         </div>
         <Button
@@ -2320,11 +2316,7 @@ function ExcludedServicesInline({
           className="h-7 shrink-0 text-xs"
           disabled={isUploadedSource || isSyncing || saving}
           onClick={sync}
-          title={
-            isUploadedSource
-              ? 'Upload a new source archive to refresh Compose services'
-              : undefined
-          }
+          title={isUploadedSource ? t('compose.refreshUploaded') : undefined}
         >
           <RefreshCw className={cn('h-3 w-3', isSyncing && 'animate-spin')} />
           {isUploadedSource
@@ -2335,7 +2327,7 @@ function ExcludedServicesInline({
 
       {services.length === 0 ? (
         <p className="text-xs text-muted-foreground italic py-2">
-          No services detected yet —{' '}
+          {t('compose.noneDetected')}{' '}
           {`captured automatically after your next deploy, or sync ${composePath} now.`}
         </p>
       ) : (
@@ -2403,6 +2395,7 @@ function ComposeServiceCombobox({
   services: ComposeServicePorts[]
   onValueChange: (value: string) => void
 }) {
+  const { t } = useTranslation('projects')
   const [open, setOpen] = useState(false)
   const selected = services.find((service) => service.name === value)
 
@@ -2415,7 +2408,7 @@ function ComposeServiceCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          aria-label="Select Compose service"
+          aria-label={t('compose.selectLabel')}
           className="h-11 w-full justify-between gap-3 px-3 font-normal sm:h-9"
         >
           {selected ? (
@@ -2429,7 +2422,7 @@ function ComposeServiceCombobox({
             </div>
           ) : (
             <div className="text-base text-muted-foreground sm:text-sm">
-              Select a Compose service
+              {t('compose.selectPlaceholder')}
             </div>
           )}
           <ChevronsUpDown className="size-4 shrink-0 stroke-muted-foreground" />
@@ -2440,10 +2433,10 @@ function ComposeServiceCombobox({
         className="w-[var(--radix-popover-trigger-width)] p-0"
       >
         <Command>
-          <CommandInput placeholder="Search Compose services…" />
+          <CommandInput placeholder={t('compose.searchPlaceholder')} />
           <CommandList>
-            <CommandEmpty>No Compose service found.</CommandEmpty>
-            <CommandGroup heading="Services in the effective Compose file">
+            <CommandEmpty>{t('compose.empty')}</CommandEmpty>
+            <CommandGroup heading={t('compose.groupHeading')}>
               {services.map((service) => (
                 <CommandItem
                   key={service.name}

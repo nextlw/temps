@@ -14,6 +14,7 @@
  * than silently changing what the numbers mean.
  */
 
+import { useTranslation } from 'react-i18next'
 import { useMemo, useState } from 'react'
 import {
   Bar,
@@ -100,6 +101,7 @@ export function LogHistogram({
   capabilityLoading: boolean
   onRangeSelect: (from: string, to: string) => void
 }) {
+  const { t } = useTranslation('observability')
   const [uiGroupBy, setUiGroupBy] = useState<string>(NONE_GROUP)
   const groupBy: HistogramGroupBy =
     uiGroupBy === NONE_GROUP ? '' : (uiGroupBy as HistogramGroupBy)
@@ -173,7 +175,7 @@ export function LogHistogram({
             <SelectContent>
               <SelectItem value={NONE_GROUP}>None</SelectItem>
               <SelectItem value="level">Level</SelectItem>
-              <SelectItem value="service">Service</SelectItem>
+              <SelectItem value="service">{t('logs.container')}</SelectItem>
               {(attributeKeys ?? []).map((key) => (
                 <SelectItem key={key.value} value={`attr:${key.value}`}>
                   {key.value}
@@ -199,8 +201,7 @@ export function LogHistogram({
                 configured: false,
                 reason:
                   'Attribute analytics are not configured on this instance.',
-                example:
-                  'Group ERROR lines by http_route for the last hour, chart requests slower than 500 ms per service, or facet on any field your app logs.',
+                example: t('logs.histogramExample'),
                 setup_path: '/settings/metrics-monitoring',
                 live_chunks: 0,
                 indexed_chunks: 0,

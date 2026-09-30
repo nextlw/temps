@@ -28,14 +28,18 @@ export interface Terms {
   project: EntityTerm
   /** Code entity `project_group` (the grouping above `project`). */
   projectGroup: EntityTerm
-  /** External services (`/external-services`): managed databases/caches. */
+  /** External service (`/external-services`): a managed database/cache. */
+  externalService: EntityTerm
+  /** Docker Compose `service_name` entry of a project. */
+  composeService: EntityTerm
+  /** OpenTelemetry `service.name` attribute. */
+  otelService: EntityTerm
+  /** External services as a section: managed databases/caches. */
   externalServices: string
   /** Built-in KV/Blob resources under `/projects/:slug/services/*`. */
   platformResources: string
-  /** Docker Compose `service_name` entries of a project. */
+  /** Docker Compose `service_name` entries of a project, as a section. */
   containers: string
-  /** OpenTelemetry `service.name` attribute. */
-  otelService: string
 }
 
 export function useTerms(): Terms {
@@ -43,7 +47,14 @@ export function useTerms(): Terms {
   // `t` changes identity when the language changes, so this recomputes then
   // and otherwise hands consumers a stable object.
   return useMemo(() => {
-    const entity = (key: 'project' | 'projectGroup'): EntityTerm => ({
+    const entity = (
+      key:
+        | 'project'
+        | 'projectGroup'
+        | 'externalService'
+        | 'composeService'
+        | 'otelService'
+    ): EntityTerm => ({
       singular: t(`${key}.singular`),
       plural: t(`${key}.plural`),
       singularLower: t(`${key}.singularLower`),
@@ -52,10 +63,12 @@ export function useTerms(): Terms {
     return {
       project: entity('project'),
       projectGroup: entity('projectGroup'),
+      externalService: entity('externalService'),
+      composeService: entity('composeService'),
+      otelService: entity('otelService'),
       externalServices: t('externalServices'),
       platformResources: t('platformResources'),
       containers: t('containers'),
-      otelService: t('otelService'),
     }
   }, [t])
 }

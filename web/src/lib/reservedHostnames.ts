@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
+
 /**
  * Hostnames the platform serves itself and that must never be routed at a
  * project (issue #478).
@@ -45,7 +47,7 @@ export function reservedHostnameReason(
   if (!host || host.includes('*')) return null
 
   if (consoleHostname(settings) === host) {
-    return 'This is the Temps console domain. Routing it to a project would make the console unreachable.'
+    return i18n.t('projects:hostnames.console')
   }
 
   const preview = settings?.preview_domain
@@ -53,7 +55,7 @@ export function reservedHostnameReason(
     .replace(/\.$/, '')
     .toLowerCase()
   if (preview && preview === host) {
-    return 'This is the preview domain Temps generates deployment URLs from and cannot be assigned to a project.'
+    return i18n.t('projects:hostnames.preview')
   }
 
   return null

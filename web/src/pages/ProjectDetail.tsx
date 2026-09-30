@@ -101,6 +101,7 @@ export function ProjectDetail() {
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
+  const { t: tp } = useTranslation('projects')
   const variableRoute = useMatch('/projects/:slug/environment-variables/*')
   const variableSubpath = variableRoute?.params['*'] ?? ''
   const [breadcrumbVariableId, breadcrumbSection] = variableSubpath.split('/')
@@ -284,7 +285,7 @@ export function ProjectDetail() {
         savedRuntime.image_ref ||
         lastDeployment?.metadata?.externalImageRef
       if (!imageRef) {
-        toast.error('No image reference found for this project')
+        toast.error(tp('deployments.noImageRef'))
         return
       }
       await deployImage.mutateAsync({
@@ -359,11 +360,11 @@ export function ProjectDetail() {
     return (
       <div className="p-4 sm:p-6">
         <ErrorAlert
-          title="Failed to load project"
+          title={tp('detail.loadFailed')}
           description={
             error instanceof Error
               ? error.message
-              : 'An unexpected error occurred'
+              : tp('detail.unexpectedError')
           }
           retry={() => refetch()}
         />
@@ -484,7 +485,7 @@ export function ProjectDetail() {
               <ShieldAlert className="h-4 w-4 text-primary" />
               <AlertDescription className="flex items-center justify-between">
                 <span className="text-foreground">
-                  Attack Mode is enabled for this project
+                  {tp('detail.attackMode')}
                 </span>
                 <Button
                   variant="ghost"

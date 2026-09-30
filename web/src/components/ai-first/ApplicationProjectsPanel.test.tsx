@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { describe, expect, test } from 'bun:test'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToStaticMarkup } from '@/i18n/testing'
 import { MemoryRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -33,8 +33,8 @@ describe('ApplicationProjectsPanel', () => {
     expect(html).toContain('Production')
     expect(html).toContain('ready')
     expect(html).toContain('/projects/web')
-    expect(html).toContain('An application must keep at least one project')
-    expect(html).toContain('Project topology is injected fresh')
+    expect(html).toContain('An application must keep at least one service')
+    expect(html).toContain('Service topology is injected fresh')
   })
 
   test('shows linked databases and creates new ones atomically for the primary project', () => {
@@ -87,9 +87,9 @@ describe('ApplicationProjectsPanel', () => {
       </QueryClientProvider>
     )
 
-    expect(html).toContain('Add a project first')
+    expect(html).toContain('Add a service first')
     expect(html).toContain(
-      'Databases are linked through an application project'
+      'Databases are linked through an application service'
     )
     expect(html).not.toContain('Choose a database')
   })

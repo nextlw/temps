@@ -65,5 +65,23 @@
     "toPlatformTools": "Back to platform tools",
     "deployments": "Deployments",
     "toDeployments": "Back to deployments"
+  },
+  "switcher": {
+    "switch": "Switch $t(terms:project.singularLower)",
+    "find": "Find $t(terms:project.singular)…",
+    "empty": "No $t(terms:project.pluralLower) found.",
+    "create": "Create $t(terms:project.singular)"
+  },
+  "tools": {
+    "projects": "$t(terms:project.plural)",
+    "domainsDescription": "Attach domains to $t(terms:project.pluralLower) and compose containers.",
+    "dataDescription": "Manage databases, backups, email, and domains.",
+    "databasesDescription": "Create and operate managed databases.",
+    "analyticsDescription": "Compare traffic across $t(terms:project.pluralLower).",
+    "tracesDescription": "Follow requests across $t(terms:project.pluralLower) and $t(terms:otelService.pluralLower).",
+    "errorsDescription": "Review application issues across $t(terms:project.pluralLower).",
+    "createProject": "Create a $t(terms:project.singularLower)",
+    "addDatabaseDescription": "Provision a $t(terms:externalService.singularLower).",
+    "paletteHint": "and search across $t(terms:project.pluralLower), $t(terms:externalService.pluralLower), settings, and tools."
   }
 }

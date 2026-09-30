@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { traceTimeBoundsFromSearch } from '@/lib/traces-time-window'
 
 import { LogSeverity, ProjectResponse } from '@/api/client'
@@ -555,6 +556,7 @@ function CrossProjectBar({
   showUnified: boolean
   onSetView: (v: 'project' | 'unified') => void
 }) {
+  const { t } = useTranslation('observability')
   const [searchParams] = useSearchParams()
   const bounds = new URLSearchParams()
   for (const key of ['start_time', 'end_time']) {
@@ -586,7 +588,7 @@ function CrossProjectBar({
               : 'hover:bg-blue-100 dark:hover:bg-blue-900/50'
           )}
         >
-          This project
+          {t('traces.thisProject')}
         </button>
         <button
           type="button"
@@ -608,6 +610,7 @@ function CrossProjectBar({
 }
 
 export default function TraceDetail({ project }: TraceDetailProps) {
+  const { t } = useTranslation('observability')
   const { traceId } = useParams()
   const [searchParams, setSearchParams] = useSearchParams()
   const timeBounds = traceTimeBoundsFromSearch(searchParams)
@@ -731,7 +734,7 @@ export default function TraceDetail({ project }: TraceDetailProps) {
             projectId={span.project_id}
             name={
               projectById.get(span.project_id)?.project_name ??
-              `Project ${span.project_id}`
+              t('traces.projectFallback', { id: span.project_id })
             }
           />
         )

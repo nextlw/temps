@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getServiceRuntimeOptions,
   getServiceStatsOptions,
@@ -42,6 +43,7 @@ import { TimeAgo } from '@/components/utils/TimeAgo'
 import { PageContainer, PageHeader } from '@/components/layout/PageContainer'
 
 export function Storage() {
+  const { t } = useTranslation('storage')
   const { setBreadcrumbs } = useBreadcrumbs()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -127,7 +129,7 @@ export function Storage() {
       return (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-sm text-muted-foreground mb-4">
-            Failed to load services
+            {t('platform.loadFailed')}
           </p>
           <Button variant="outline" onClick={() => refetch()} className="gap-2">
             <RefreshCcw className="h-4 w-4" />
@@ -175,7 +177,7 @@ export function Storage() {
                 },
                 {
                   value: 'platform',
-                  label: 'Platform services',
+                  label: t('platform.title'),
                   icon: Database,
                 },
               ].map(({ value, label, icon: Icon }) => (
@@ -199,7 +201,7 @@ export function Storage() {
           <div className="min-w-0 space-y-6">
             <PageHeader
               title={
-                activeTab === 'platform' ? 'Platform services' : 'Databases'
+                activeTab === 'platform' ? t('platform.title') : 'Databases'
               }
               actions={
                 activeTab === 'external' && services?.length ? (

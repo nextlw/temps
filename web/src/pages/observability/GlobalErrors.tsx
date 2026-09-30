@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { number } from '@/lib/global-observability'
 import { useGlobalView } from '@/hooks/useGlobalView'
 import { Link } from 'react-router'
@@ -25,6 +26,7 @@ import { TimeAgo } from '@/components/utils/TimeAgo'
 import { OBSERVABILITY_PAGE_SIZE } from '@/lib/global-observability'
 
 export default function GlobalErrors() {
+  const { t } = useTranslation('observability')
   const view = useGlobalView()
   const status = ['unresolved', 'resolved', 'ignored'].includes(
     view.params.get('status') ?? ''
@@ -48,7 +50,7 @@ export default function GlobalErrors() {
   return (
     <GlobalPage
       title="Errors"
-      description="Review application issues across your projects. Event and user counts cover the selected time range."
+      description={t('errors.description')}
       view={view}
       fetching={query.isFetching}
       refresh={() => void query.refetch()}
@@ -81,7 +83,9 @@ export default function GlobalErrors() {
             <TableHeader>
               <TableRow>
                 <TableHead>Issue</TableHead>
-                <TableHead className="hidden md:table-cell">Project</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  {t('errors.projectColumn')}
+                </TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Events</TableHead>
                 <TableHead className="hidden md:table-cell text-right">

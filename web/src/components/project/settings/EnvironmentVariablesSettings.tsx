@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   EnvironmentVariableResponse,
   ProjectResponse,
@@ -644,6 +645,7 @@ function IntegrationEnvVarRow({
   showAllValues,
   environmentId,
 }: IntegrationEnvVarRowProps) {
+  const { t: ts } = useTranslation('storage')
   const [isVisible, setIsVisible] = useState(false)
   const [revealedValue, setRevealedValue] = useState<
     ScopedCredentialValue | undefined
@@ -792,7 +794,7 @@ function IntegrationEnvVarRow({
           className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
           to={`/storage/${service.service_id}`}
         >
-          Manage service
+          {ts('misc.manage')}
         </Link>
       </td>
     </tr>
@@ -822,6 +824,7 @@ function AddEnvironmentVariableDialog({
   onSubmit,
   allEnvironments,
 }: AddEnvironmentVariableDialogProps) {
+  const { t } = useTranslation('projects')
   const [key, setKey] = useState('')
   const [value, setValue] = useState('')
   const [isMultiline, setIsMultiline] = useState(false)
@@ -880,7 +883,7 @@ function AddEnvironmentVariableDialog({
         <DialogHeader>
           <DialogTitle>Add Environment Variable</DialogTitle>
           <DialogDescription>
-            Add a new environment variable to your project.
+            {t('settings.variables.addDescription')}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -1177,6 +1180,7 @@ function DiscoveredEnvironmentVariableRow({
 export function EnvironmentVariablesSettings({
   project,
 }: EnvironmentVariablesSettingsProps) {
+  const { t } = useTranslation('projects')
   const checksQuery = useHttpChecks(project.id)
   const navigate = useNavigate()
   const checksByVariable = useMemo(() => {
@@ -1666,8 +1670,7 @@ export function EnvironmentVariablesSettings({
                 No environment variables
               </EmptyPlaceholder.Title>
               <EmptyPlaceholder.Description>
-                Add environment variables to configure your project across
-                different environments.
+                {t('settings.variables.emptyDescription')}
               </EmptyPlaceholder.Description>
               <div className="flex gap-2">
                 <Button

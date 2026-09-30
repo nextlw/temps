@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import type { ProjectResponse } from '@/api/client'
 import { ErrorAlert } from '@/components/utils/ErrorAlert'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ import {
 import { Link } from 'react-router'
 
 export function ProjectSetup({ project }: { project: ProjectResponse }) {
+  const { t } = useTranslation('projects')
   const setup = useProjectSetup(project)
   usePageTitle(`${project.name} setup`)
 
@@ -30,8 +32,8 @@ export function ProjectSetup({ project }: { project: ProjectResponse }) {
     return (
       <div className="w-full py-4">
         <ErrorAlert
-          title="Failed to load project setup"
-          description="Temps could not check the current setup state for this project."
+          title={t('setup.loadFailed')}
+          description={t('setup.loadFailedDescription')}
           retry={() => setup.refetch()}
         />
       </div>
@@ -47,7 +49,7 @@ export function ProjectSetup({ project }: { project: ProjectResponse }) {
             Production readiness
           </div>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-            Project setup
+            {t('setup.title')}
           </h1>
           <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-muted-foreground">
             Connect the pieces that make {project.name} observable, reachable,
@@ -84,11 +86,10 @@ export function ProjectSetup({ project }: { project: ProjectResponse }) {
                       Setup complete
                     </p>
                     <h2 className="mt-0.5 text-lg font-semibold tracking-tight">
-                      This project is production-ready
+                      {t('setup.readyTitle')}
                     </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      Every recommended project integration is connected and
-                      reporting.
+                      {t('setup.readyDescription')}
                     </p>
                   </div>
                 </div>
@@ -145,7 +146,7 @@ export function ProjectSetup({ project }: { project: ProjectResponse }) {
 
       <section className="space-y-3">
         <div>
-          <h2 className="text-sm font-semibold">All project setup items</h2>
+          <h2 className="text-sm font-semibold">{t('setup.allItems')}</h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
             Completed items remain available so you can revisit their
             configuration at any time.

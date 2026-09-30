@@ -1,0 +1,34 @@
+{
+  "nav": {
+    "projects": "$t(terms:project.plural)",
+    "createProject": "Create New $t(terms:project.singular)",
+    "dropProjectFiles": "Drop $t(terms:project.singular) Files",
+    "importProject": "Import $t(terms:project.singular)",
+    "projectOverview": "$t(terms:project.singular) Overview",
+    "projectSettings": "$t(terms:project.singular) Settings",
+    "projectSkills": "$t(terms:project.singular) Skills",
+    "projectMcpServers": "$t(terms:project.singular) MCP Servers",
+    "platformResourcesKv": "$t(terms:platformResources) - KV Store",
+    "platformResourcesBlob": "$t(terms:platformResources) - Blob Storage"
+  },
+  "categories": {
+    "project": "$t(terms:project.singular)",
+    "currentProject": "Current $t(terms:project.singularLower) · {{slug}}",
+    "projectWithSlug": "$t(terms:project.singular) · {{slug}}",
+    "externalService": "$t(terms:externalService.singular)"
+  },
+  "descriptions": {
+    "openProjectPage": "Open {{page}} for $t(terms:project.singularLower) {{name}} ({{slug}})",
+    "openProductionEnvironment": "Open the production environment for $t(terms:project.singularLower) {{name}} ({{slug}})",
+    "openExternalService": "Open the {{type}} $t(terms:externalService.singularLower) named {{name}}"
+  },
+  "groups": {
+    "projects": "$t(terms:project.plural)"
+  },
+  "searchPlaceholder": "Search $t(terms:project.pluralLower), $t(terms:externalService.pluralLower), settings, and tools…",
+  "suggestions": {
+    "openPostgres": "Open the PostgreSQL database {{name}}",
+    "allDatabases": "Show me all databases",
+    "allProjects": "Show me all $t(terms:project.pluralLower)"
+  }
+}

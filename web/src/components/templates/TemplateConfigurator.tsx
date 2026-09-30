@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { i18n } from '@/i18n'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -148,7 +150,7 @@ function ProviderIcon({
 
 // Form schema
 const formSchema = z.object({
-  projectName: z.string().min(1, 'Project name is required'),
+  projectName: z.string().min(1, i18n.t('projects:create.nameRequired')),
   repositoryName: z.string().min(1, 'Repository name is required'),
   repositoryOwner: z.string().optional(),
   // Optional: when omitted the project deploys directly from the template's
@@ -256,7 +258,9 @@ export function TemplateConfigurator({
   onSuccess,
   className,
 }: TemplateConfiguratorProps) {
+  const { t: ts } = useTranslation('storage')
   const navigate = useNavigate()
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
 
   // State
@@ -553,10 +557,10 @@ export function TemplateConfigurator({
       if (data.deployment_queued === false) {
         toast.warning(
           data.deployment_error ??
-            `Project "${data.project_name}" was created, but deployment must be retried.`
+            t('create.templateRetry', { name: data.project_name })
         )
       } else {
-        toast.success(`Project "${data.project_name}" created successfully!`)
+        toast.success(t('create.templateCreated', { name: data.project_name }))
       }
       onSuccess?.()
       navigate(`/projects/${data.project_slug}?new=true`)
@@ -577,7 +581,7 @@ export function TemplateConfigurator({
       // message via `detail` / `title` rather than `error.message` (which is
       // `undefined` and previously rendered as "Failed to create project: undefined").
       const message = getErrorMessage(error, 'Unknown error')
-      toast.error(`Failed to create project: ${message}`)
+      toast.error(t('create.createFailedWithMessage', { message }))
       console.error('Template project creation failed:', error)
     },
   })
@@ -609,7 +613,7 @@ export function TemplateConfigurator({
       return
     }
     if (isServicesError) {
-      toast.error('Reload the database list before creating this project.')
+      toast.error(t('create.reloadDatabases'))
       return
     }
     if (providedEnvironmentVariables === null) {
@@ -636,7 +640,11 @@ export function TemplateConfigurator({
     ).filter((requirement) => !requirement.isSatisfied)
     if (missingServiceRequirements.length > 0) {
       toast.error(
-        `Select ${missingServiceRequirements.map((requirement) => requirement.label).join(', ')} before creating this project.`
+        t('create.selectRequirements', {
+          requirements: missingServiceRequirements
+            .map((requirement) => requirement.label)
+            .join(', '),
+        })
       )
       return
     }
@@ -819,17 +827,17 @@ export function TemplateConfigurator({
         <form
           onSubmit={form.handleSubmit(handleSubmit, (errors) => {
             if (errors.runtime) setRuntimeOpen(true)
-            toast.error(
-              'Review the highlighted fields before creating your project.'
-            )
+            toast.error(t('create.reviewFields'))
           })}
           className="space-y-6"
         >
           {/* Project Configuration */}
           <Card>
             <CardHeader>
-              <CardTitle>Project Configuration</CardTitle>
-              <CardDescription>Configure your new project</CardDescription>
+              <CardTitle>{t('create.configurationTitle')}</CardTitle>
+              <CardDescription>
+                {t('create.configurationDescriptionNew')}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FormField
@@ -837,9 +845,12 @@ export function TemplateConfigurator({
                 name="projectName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Project Name</FormLabel>
+                    <FormLabel>{t('create.nameLabel')}</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="My Awesome Project" />
+                      <Input
+                        {...field}
+                        placeholder={t('create.nameTitlePlaceholder')}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1637,8 +1648,7 @@ export function TemplateConfigurator({
                           </div>
                         ) : (
                           <p className="mt-3 text-xs text-destructive">
-                            No built-in creator is available for this service
-                            type. Add a compatible service before continuing.
+                            {ts('misc.noCreator')}
                           </p>
                         )}
                       </div>
@@ -2031,12 +2041,12 @@ export function TemplateConfigurator({
               {createFromTemplateMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Project...
+                  {t('create.submitting')}
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Create Project from Template
+                  {t('create.submitFromTemplate')}
                 </>
               )}
             </Button>

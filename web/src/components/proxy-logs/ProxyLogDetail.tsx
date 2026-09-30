@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getProxyLogByIdOptions,
   getProxyLogByRequestIdOptions,
@@ -135,6 +136,7 @@ export function ProxyLogDetail({
   timestamp,
   projectId,
 }: ProxyLogDetailProps) {
+  const { t } = useTranslation('observability')
   const isLegacyNumericId = /^\d+$/.test(logId)
 
   const byId = useQuery({
@@ -304,7 +306,9 @@ export function ProxyLogDetail({
           <CardContent className="space-y-4">
             {log.project_id && (
               <div>
-                <p className="text-sm font-medium">Project ID</p>
+                <p className="text-sm font-medium">
+                  {t('proxyLogs.projectId')}
+                </p>
                 <p className="text-sm text-muted-foreground">
                   {log.project_id}
                 </p>

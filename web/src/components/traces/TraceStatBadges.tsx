@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
   Box,
@@ -57,6 +58,7 @@ export function TraceStatBadges({
   truncated = false,
   className,
 }: TraceStatBadgesProps) {
+  const { t } = useTranslation('observability')
   const normalized = (status ?? '').toUpperCase()
   const hasStatus = normalized !== '' && normalized !== 'UNSET'
   const isError = normalized === 'ERROR' || errorCount > 0
@@ -76,14 +78,14 @@ export function TraceStatBadges({
       {projectCount != null && (
         <Badge variant="secondary" className={PILL}>
           <Boxes className={ICON} />
-          {projectCount} {projectCount === 1 ? 'project' : 'projects'}
+          {t('traces.projectCount', { count: projectCount })}
         </Badge>
       )}
 
       {projectCount == null && serviceCount != null && (
         <Badge variant="secondary" className={PILL}>
           <Box className={ICON} />
-          {serviceCount} {serviceCount === 1 ? 'service' : 'services'}
+          {t('traces.serviceCount', { count: serviceCount })}
         </Badge>
       )}
 
@@ -109,10 +111,10 @@ export function TraceStatBadges({
         <Badge
           variant="outline"
           className={cn(PILL, 'text-muted-foreground')}
-          title="Some contributing projects have cross-project sharing turned off; their spans are hidden."
+          title={t('traces.hiddenTitle')}
         >
           <EyeOff className={ICON} />
-          Some projects hidden
+          {t('traces.hidden')}
         </Badge>
       )}
 
@@ -120,7 +122,7 @@ export function TraceStatBadges({
         <Badge
           variant="outline"
           className={cn(PILL, 'text-muted-foreground')}
-          title="This trace exceeded the project/span cap; some spans were dropped."
+          title={t('traces.truncatedTitle')}
         >
           <AlertTriangle className={ICON} />
           Truncated

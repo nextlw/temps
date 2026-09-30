@@ -3,6 +3,7 @@
 
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { DateTimeRange } from '@/components/ui/date-time-range'
 import { resolveTimeRange } from '@/lib/time-range-filter'
 
@@ -362,6 +363,7 @@ export default function HistoryLogViewer({
   project: ProjectResponse
 }) {
   'use no memo'
+  const { t } = useTranslation('observability')
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedEnv, setSelectedEnv] = useState<string | undefined>()
   const [selectedService, setSelectedService] = useState<string | undefined>()
@@ -937,10 +939,10 @@ export default function HistoryLogViewer({
               }
             >
               <SelectTrigger className="w-full sm:w-auto sm:max-w-[300px]">
-                <SelectValue placeholder="All services" />
+                <SelectValue placeholder={t('logs.allContainers')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All services</SelectItem>
+                <SelectItem value="all">{t('logs.allContainers')}</SelectItem>
                 {serviceOptions.map((service) => (
                   <SelectItem key={service} value={service}>
                     {service}
@@ -1140,7 +1142,7 @@ export default function HistoryLogViewer({
                     setColumns((c) => ({ ...c, service: v === true }))
                   }
                 >
-                  Service
+                  {t('logs.container')}
                 </DropdownMenuCheckboxItem>
                 <DropdownMenuCheckboxItem
                   checked={columns.source}

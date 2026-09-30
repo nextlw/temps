@@ -60,19 +60,19 @@ test('sidebar follows the URL through back links and browser history', async ({
   })
 
   await page.goto('/projects/example-app/environment-variables')
-  const projectNav = page.getByRole('list', { name: 'Project navigation' })
+  const projectNav = page.getByRole('list', { name: 'Service navigation' })
   await expect(projectNav).toBeVisible()
-  const back = page.getByRole('link', { name: 'Back to projects', exact: true })
+  const back = page.getByRole('link', { name: 'Back to services', exact: true })
   await expect(back).toHaveAttribute('href', '/projects')
   const breadcrumbs = page.getByRole('navigation', {
     name: 'breadcrumb',
     exact: true,
   })
   await expect(
-    breadcrumbs.getByRole('link', { name: 'Projects', exact: true })
+    breadcrumbs.getByRole('link', { name: 'Services', exact: true })
   ).toHaveAttribute('href', '/projects')
   await expect(
-    breadcrumbs.getByRole('button', { name: 'Switch project' })
+    breadcrumbs.getByRole('button', { name: 'Switch service' })
   ).toHaveText('Example app')
 
   await back.click()

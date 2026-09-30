@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { aiHarnessName } from '@/components/ui/ai-harness-brand'
 import { AiHarnessLogo } from '@/components/ui/ai-harness-logo'
@@ -121,6 +122,7 @@ function AgentEditForm({
   agent: Agent
   backHref: string
 }) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -607,8 +609,7 @@ function AgentEditForm({
         <div>
           <h2 className="text-base font-semibold">Skills</h2>
           <p className="text-muted-foreground mt-1 text-sm">
-            Project- and platform-level skills available to this workflow.
-            Injected as{' '}
+            {t('serviceMentions.agentSkills')}{' '}
             <code className="bg-muted rounded px-1">.claude/skills/</code> files
             in the sandbox.
           </p>

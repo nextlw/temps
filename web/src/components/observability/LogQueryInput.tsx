@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getProjectsOptions } from '@/api/client/@tanstack/react-query.gen'
@@ -50,6 +51,7 @@ export function LogQueryInput({
   filters: GlobalLogFilters
   onChange: (patch: Record<string, string | undefined>) => void
 }) {
+  const { t } = useTranslation('observability')
   const input = useRef<HTMLInputElement>(null)
   const id = useId()
   const [draft, setDraft] = useState(text)
@@ -359,7 +361,7 @@ export function LogQueryInput({
             {!options.length && (
               <p className="px-2 py-3 text-xs text-muted-foreground">
                 {key === 'project' && projects.isFetching
-                  ? 'Loading projects…'
+                  ? t('logs.loadingProjects')
                   : facetKey && facets.isFetching
                     ? 'Loading suggestions…'
                     : colon >= 0
@@ -374,7 +376,7 @@ export function LogQueryInput({
               size="sm"
               onClick={() => void projects.refetch()}
             >
-              Retry project suggestions
+              {t('logs.retryProjects')}
             </Button>
           )}
           {facetKey && facets.isError && (
@@ -388,7 +390,7 @@ export function LogQueryInput({
           )}
           {key === 'project' && (projects.data?.total ?? 0) > 100 && (
             <p className="px-3 pb-2 text-xs text-muted-foreground">
-              Type a project name to narrow suggestions.
+              {t('logs.narrowProjects')}
             </p>
           )}
           {facetKey && (

@@ -13,6 +13,7 @@
  *   - Alert rules section
  */
 
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   TOOLTIP_CONTENT_STYLE,
@@ -1392,6 +1393,7 @@ function MonitoringDashboard({
 // ---------------------------------------------------------------------------
 
 export function ServiceMonitoring() {
+  const { t } = useTranslation('storage')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -1452,7 +1454,7 @@ export function ServiceMonitoring() {
   const isDisabled =
     metricsError != null && isMonitoringUnavailable(metricsError)
 
-  const serviceName = serviceData?.service?.name ?? 'Service'
+  const serviceName = serviceData?.service?.name ?? t('deep.fallbackName')
 
   // Freshness status — cheap O(1) lookup of when metrics were last received.
   const { data: statusData } = useQuery({
@@ -1568,15 +1570,14 @@ export function ServiceMonitoring() {
                   Monitoring not enabled
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Enable monitoring on the service page to start collecting
-                  metrics.
+                  {t('deep.monitoringHint')}
                 </p>
               </div>
               <Button
                 variant="outline"
                 onClick={() => navigate(`/storage/${id}`)}
               >
-                Go to service
+                {t('deep.goTo')}
               </Button>
             </div>
           ) : !latestMetrics || latestMetrics.length === 0 ? (

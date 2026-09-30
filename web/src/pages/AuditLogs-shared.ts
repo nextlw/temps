@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { type SearchableSelectOption } from '@/components/ui/searchable-select'
 
 import { PERMISSION_DENIED_FILTER } from '@/lib/audit-operation-filters'
@@ -77,12 +78,15 @@ export const OPERATION_GROUPS: OperationGroup[] = [
     ],
   },
   {
-    label: 'Projects & Environments',
+    label: i18n.t('audit:groups.projects'),
     operations: [
-      { value: 'PROJECT_CREATED', label: 'Project Created' },
-      { value: 'PROJECT_UPDATED', label: 'Project Updated' },
-      { value: 'PROJECT_DELETED', label: 'Project Deleted' },
-      { value: 'PROJECT_SETTINGS_UPDATED', label: 'Project Settings Updated' },
+      { value: 'PROJECT_CREATED', label: i18n.t('audit:ops.projectCreated') },
+      { value: 'PROJECT_UPDATED', label: i18n.t('audit:ops.projectUpdated') },
+      { value: 'PROJECT_DELETED', label: i18n.t('audit:ops.projectDeleted') },
+      {
+        value: 'PROJECT_SETTINGS_UPDATED',
+        label: i18n.t('audit:ops.projectSettingsUpdated'),
+      },
       {
         value: 'DEPLOYMENT_CONFIG_UPDATED',
         label: 'Deployment Config Updated',
@@ -186,26 +190,35 @@ export const OPERATION_GROUPS: OperationGroup[] = [
     ],
   },
   {
-    label: 'External Services',
+    label: i18n.t('audit:groups.externalServices'),
     operations: [
-      { value: 'EXTERNAL_SERVICE_CREATED', label: 'External Service Created' },
-      { value: 'EXTERNAL_SERVICE_UPDATED', label: 'External Service Updated' },
-      { value: 'EXTERNAL_SERVICE_DELETED', label: 'External Service Deleted' },
+      {
+        value: 'EXTERNAL_SERVICE_CREATED',
+        label: i18n.t('audit:ops.externalServiceCreated'),
+      },
+      {
+        value: 'EXTERNAL_SERVICE_UPDATED',
+        label: i18n.t('audit:ops.externalServiceUpdated'),
+      },
+      {
+        value: 'EXTERNAL_SERVICE_DELETED',
+        label: i18n.t('audit:ops.externalServiceDeleted'),
+      },
       {
         value: 'EXTERNAL_SERVICE_STATUS_CHANGED',
-        label: 'External Service Status Changed',
+        label: i18n.t('audit:ops.externalServiceStatusChanged'),
       },
       {
         value: 'EXTERNAL_SERVICE_PROJECT_LINKED',
-        label: 'External Service Linked to Project',
+        label: i18n.t('audit:ops.externalServiceLinked'),
       },
       {
         value: 'EXTERNAL_SERVICE_PROJECT_UNLINKED',
-        label: 'External Service Unlinked from Project',
+        label: i18n.t('audit:ops.externalServiceUnlinked'),
       },
       {
         value: 'EXTERNAL_SERVICE_BACKUP_RUN',
-        label: 'External Service Backup Run',
+        label: i18n.t('audit:ops.externalServiceBackupRun'),
       },
     ],
   },
@@ -293,12 +306,15 @@ export const OPERATION_GROUPS: OperationGroup[] = [
   {
     label: 'Storage (Blob / KV)',
     operations: [
-      { value: 'BLOB_SERVICE_ENABLED', label: 'Blob Service Enabled' },
-      { value: 'BLOB_SERVICE_UPDATED', label: 'Blob Service Updated' },
-      { value: 'BLOB_SERVICE_DISABLED', label: 'Blob Service Disabled' },
-      { value: 'KV_SERVICE_ENABLED', label: 'KV Service Enabled' },
-      { value: 'KV_SERVICE_UPDATED', label: 'KV Service Updated' },
-      { value: 'KV_SERVICE_DISABLED', label: 'KV Service Disabled' },
+      { value: 'BLOB_SERVICE_ENABLED', label: i18n.t('audit:ops.blobEnabled') },
+      { value: 'BLOB_SERVICE_UPDATED', label: i18n.t('audit:ops.blobUpdated') },
+      {
+        value: 'BLOB_SERVICE_DISABLED',
+        label: i18n.t('audit:ops.blobDisabled'),
+      },
+      { value: 'KV_SERVICE_ENABLED', label: i18n.t('audit:ops.kvEnabled') },
+      { value: 'KV_SERVICE_UPDATED', label: i18n.t('audit:ops.kvUpdated') },
+      { value: 'KV_SERVICE_DISABLED', label: i18n.t('audit:ops.kvDisabled') },
     ],
   },
   {

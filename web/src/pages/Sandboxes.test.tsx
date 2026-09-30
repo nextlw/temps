@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { describe, expect, test } from 'bun:test'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToStaticMarkup } from '@/i18n/testing'
 import { MemoryRouter } from 'react-router'
 import type {
   ApplicationResponse,
@@ -150,7 +150,7 @@ describe('workspace and operator views', () => {
       </MemoryRouter>
     )
     expect(html).toContain('/ai-harnesses/claude-code.svg')
-    expect(html).toContain('aria-label="0 projects"')
+    expect(html).toContain('aria-label="0 services"')
     expect(html).toContain('aria-label="Threads running"')
     expect(html).toContain('aria-label="1 finished thread"')
     expect(html).toContain('aria-label="1 failed thread"')

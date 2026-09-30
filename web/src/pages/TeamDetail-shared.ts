@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import type { TeamRole } from '@/api/client/types.gen'
 
 /**
@@ -20,10 +21,8 @@ import type { TeamRole } from '@/api/client/types.gen'
  * role is chosen.
  */
 export const ROLE_DESCRIPTIONS: Record<TeamRole, string> = {
-  owner:
-    'Deploy, manage env vars, settings and domains, and delete the project',
-  admin:
-    'Deploy, manage env vars, settings and domains. Cannot delete the project',
+  owner: i18n.t('projects:teams.roleOwner'),
+  admin: i18n.t('projects:teams.roleAdmin'),
   deployer: 'Deploy and manage env vars. Cannot change settings or domains',
   viewer: 'Cannot deploy, or change env vars, settings or domains',
 }
@@ -32,10 +31,7 @@ export const ROLE_DESCRIPTIONS: Record<TeamRole, string> = {
  * Shown next to every role picker. The honest scope of what a role gates,
  * so nobody grants `viewer` expecting a read-only contractor account.
  */
-export const ROLE_ENFORCEMENT_NOTE =
-  'Roles currently restrict deployments, environment variables, project ' +
-  'settings, domains and project deletion. Other actions still follow the ' +
-  "member's instance-wide role."
+export const ROLE_ENFORCEMENT_NOTE = i18n.t('projects:teams.enforcementNote')
 
 export interface AddMemberDialogProps {
   teamId: number

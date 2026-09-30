@@ -3,6 +3,7 @@
 
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import { ContainerInfoResponse, ProjectResponse } from '@/api/client'
 import {
   getEnvironmentsOptions,
@@ -349,6 +350,7 @@ function containerSourceLabel(c: ContainerInfoResponse): string {
 
 export default function LogViewer({ project }: { project: ProjectResponse }) {
   'use no memo'
+  const { t } = useTranslation('observability')
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [connectionStatus, setConnectionStatus] = useState<
     'connecting' | 'connected' | 'error' | 'permanent_error'
@@ -1650,7 +1652,7 @@ export default function LogViewer({ project }: { project: ProjectResponse }) {
                   }
                   disabled={!isAllContainers && !selectedContainerServiceName}
                 >
-                  {isAllContainers ? 'Source' : 'Service'}
+                  {isAllContainers ? 'Source' : t('logs.container')}
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>

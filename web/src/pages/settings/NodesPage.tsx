@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { CopyButton } from '@/components/ui/copy-button'
 import {
@@ -884,6 +885,7 @@ function NodeDetail({
   nodeId: number
   onBack: () => void
 }) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   // Draining, removing or reactivating a node changes what this installation
   // can schedule, so the capability every page's banner reads is stale the
@@ -1319,7 +1321,7 @@ function NodeDetail({
                     <TableHead>Container</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="hidden md:table-cell">
-                      Project
+                      {t('nodes.projectColumn')}
                     </TableHead>
                     <TableHead className="hidden md:table-cell">
                       Environment

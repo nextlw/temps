@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -103,6 +104,7 @@ function getResourcePresetLabel(cpu: number, memory: number): string {
 }
 
 export function AgentSandboxSandboxPage() {
+  const { t } = useTranslation('projects')
   usePageTitle('Sandbox Configuration')
   const { data: settings, isLoading } = useSettings()
   const updateSettings = useUpdateSettings()
@@ -668,8 +670,7 @@ export function AgentSandboxSandboxPage() {
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                GitHub repo path. The repo must be accessible via the
-                project&apos;s git provider connection. Leave empty to disable.
+                {t('serviceMentions.sandboxRepo')}
               </p>
             </div>
             <div className="space-y-2">

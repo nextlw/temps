@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { EnvironmentResponse, ProjectResponse } from '@/api/client'
 import {
   cancelDeploymentMutation,
@@ -68,6 +69,7 @@ import { EmptyPlaceholder } from '@/components/ui/empty-placeholder'
 const ITEMS_PER_PAGE = 10
 
 export function ProjectDeployments({ project }: { project: ProjectResponse }) {
+  const { t } = useTranslation('projects')
   const [isRedeployModalOpen, setIsRedeployModalOpen] = useState(false)
   const [selectedDeployment, setSelectedDeployment] = useState<number | null>(
     null
@@ -371,7 +373,7 @@ export function ProjectDeployments({ project }: { project: ProjectResponse }) {
           : serviceTemplateDeployOverrides(project)
         const ref = editedImageRef?.trim() || resolveImageRef()
         if (!ref) {
-          toast.error('No image reference found for this project')
+          toast.error(t('deployments.noImageRef'))
           return
         }
         await redeployImage.mutateAsync({

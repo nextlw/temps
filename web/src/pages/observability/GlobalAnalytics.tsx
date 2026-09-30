@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { OBSERVABILITY_PAGE_SIZE } from '@/lib/global-observability'
@@ -118,6 +119,7 @@ function Breakdown({
   )
 }
 export default function GlobalAnalytics() {
+  const { t } = useTranslation('observability')
   const view = useGlobalView()
   const queryClient = useQueryClient()
   const [metric, setMetric] = useState<AnalyticsMetric>('visitors')
@@ -178,7 +180,7 @@ export default function GlobalAnalytics() {
   return (
     <GlobalPage
       title="Analytics"
-      description="Traffic, audience, and engagement across your projects."
+      description={t('analytics.description')}
       view={view}
       fetching={summary.isFetching || traffic.isFetching || pages.isFetching}
       refresh={() => {
@@ -232,10 +234,10 @@ export default function GlobalAnalytics() {
                 size="compact"
                 icon={BarChart3}
                 title="No analytics data yet"
-                description="Open a project to finish analytics setup and start collecting page views, sessions, and visitors."
+                description={t('analytics.emptyDescription')}
                 action={
                   <Button asChild size="sm">
-                    <Link to="/projects">Open projects</Link>
+                    <Link to="/projects">{t('analytics.openProjects')}</Link>
                   </Button>
                 }
               />

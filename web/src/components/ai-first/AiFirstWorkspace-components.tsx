@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   Archive,
   ArchiveRestore,
@@ -225,6 +226,7 @@ function threadRuntimeLabel(
 }
 
 export function AiFirstWorkspace() {
+  const { t } = useTranslation('ai')
   const platformFeatures = usePlatformFeatures()
   if (platformFeatures.data === undefined) {
     return (
@@ -241,10 +243,7 @@ export function AiFirstWorkspace() {
             AI workspaces need persistent storage
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            This stateless control plane cannot retain workspace files,
-            attachments, or local imports across replacement. Use AI chat from a
-            project page for diagnostics, or run a full-profile instance for
-            persistent workspaces.
+            {t('workspace.statelessHint')}
           </p>
         </div>
       </div>
@@ -254,6 +253,7 @@ export function AiFirstWorkspace() {
 }
 
 function PersistentAiFirstWorkspace() {
+  const { t } = useTranslation('ai')
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: workspaceFileLimits } = useQuery(
@@ -1153,7 +1153,7 @@ function PersistentAiFirstWorkspace() {
         if (workspace.desired_state !== 'running') {
           setWorkspaceError(
             workspace.desired_state === 'quarantined'
-              ? 'This persistent workspace is quarantined because project access changed. Restore access, then resume it from Workspace settings.'
+              ? t('workspace.quarantined')
               : 'This persistent workspace is paused. Resume it from Workspace settings to inspect its files.'
           )
           return
@@ -1196,7 +1196,7 @@ function PersistentAiFirstWorkspace() {
         }
       }
     },
-    [activeApplicationId]
+    [activeApplicationId, t]
   )
 
   const refreshWorkspace = useCallback(
@@ -2173,7 +2173,7 @@ function PersistentAiFirstWorkspace() {
                   {activeGlobalConversation.title ?? 'Temps workspace'}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  All accessible projects ·{' '}
+                  {t('workspace.allAccessible')}{' '}
                   {threadRuntimeLabel(activeGlobalConversation, harnesses)} ·
                   user-owned · current-role authorization
                 </p>
@@ -2185,7 +2185,7 @@ function PersistentAiFirstWorkspace() {
                   userScoped
                   contextType="global"
                   contextId={activeGlobalConversation.context_id}
-                  emptyHint="Ask about any project or platform resource you can access. Temps will gather evidence before proposing changes."
+                  emptyHint={t('workspace.globalEmptyHint')}
                   placeholder="Ask Temps to inspect or operate your workspace…"
                   onLiveEvent={handleChatLiveEvent}
                   onConversationStatusInvalidated={refreshVisibleConversations}
@@ -2224,7 +2224,9 @@ function PersistentAiFirstWorkspace() {
                   {activeConversation.title ?? activeApplication.name}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {activeApplication.projects.length} linked projects ·{' '}
+                  {t('workspace.linkedCount', {
+                    count: activeApplication.projects.length,
+                  })}{' '}
                   {threadRuntimeLabel(activeConversation, harnesses)} ·
                   user-owned · current-role authorization
                 </p>
@@ -2816,6 +2818,7 @@ export function WorkspaceFilesPanel({
 }
 
 function GlobalChatBoundary() {
+  const { t } = useTranslation('ai')
   return (
     <div className="space-y-3">
       <section className="rounded-lg border border-border bg-background p-4">
@@ -2823,9 +2826,7 @@ function GlobalChatBoundary() {
           <Sparkles className="size-4 stroke-success" /> User workspace
         </div>
         <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-          This chat is yours and is not anchored to a project. Selectors are
-          explicit, and every platform call re-checks your current role and
-          project memberships.
+          {t('workspace.notAnchored')}
         </p>
       </section>
       <section className="rounded-lg border border-success/30 bg-success/5 p-4">
@@ -2853,6 +2854,7 @@ function GlobalChatStartScreen({
   harnesses: HarnessOption[]
   harnessesLoading: boolean
 }) {
+  const { t } = useTranslation('ai')
   const [harnessId, setHarnessId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -2887,9 +2889,7 @@ function GlobalChatStartScreen({
               Ask Temps across your platform.
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-              This thread belongs to you, not a project. The harness runs in a
-              persistent managed sandbox and every platform operation inherits
-              your current role and project access.
+              {t('workspace.ownedByYou')}
             </p>
           </div>
           <Button onClick={onCancel} size="sm" type="button" variant="ghost">
@@ -2967,6 +2967,7 @@ function ApplicationBoundary({
 }: {
   application: ApplicationResponse
 }) {
+  const { t } = useTranslation('ai')
   return (
     <div className="space-y-3">
       <section className="rounded-lg border border-border bg-background p-4">
@@ -2983,8 +2984,7 @@ function ApplicationBoundary({
           ))}
           {application.projects.length === 0 && (
             <p className="text-[11px] leading-5 text-muted-foreground">
-              No projects yet. Ask the thread to create the application topology
-              when you are ready.
+              {t('workspace.noProjectsYet')}
             </p>
           )}
         </div>
@@ -3096,6 +3096,7 @@ export function ApplicationStartScreen({
   harnessesLoading: boolean
   importLimits?: WorkspaceImportLimits
 }) {
+  const { t } = useTranslation('ai')
   const catalog = useQuery(aiProviderCatalogQueryOptions)
   const [verificationPending, setVerificationPending] = useState(false)
   const [setupParams, setSetupParams] = useSearchParams()
@@ -3322,7 +3323,7 @@ export function ApplicationStartScreen({
       application.projects.find((candidate) => candidate.is_primary) ??
       application.projects[0]
     if (!project) {
-      throw new Error('The workspace was created without a starter project.')
+      throw new Error(t('workspace.noStarter'))
     }
 
     setSavingStep('Starting persistent sandbox…')
@@ -3630,16 +3631,14 @@ export function ApplicationStartScreen({
                                 placeholder="Untitled workspace"
                               />
                               <p className="text-xs text-muted-foreground">
-                                Temps creates a deployable Autopack project and
-                                keeps its files on this machine between threads.
+                                {t('workspace.autopackHint')}
                               </p>
                             </div>
                             <div className="space-y-3">
                               <div>
                                 <Label>Start from</Label>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                  Import code now, or let the assistant build
-                                  the project from scratch.
+                                  {t('workspace.startFromHint')}
                                 </p>
                               </div>
                               <div className="grid gap-2 sm:grid-cols-3">
@@ -3647,7 +3646,7 @@ export function ApplicationStartScreen({
                                   [
                                     {
                                       id: 'blank',
-                                      label: 'Blank project',
+                                      label: t('workspace.blankProject'),
                                       detail: 'Build with AI',
                                       icon: Sparkles,
                                     },

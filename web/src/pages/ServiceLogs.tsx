@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { DateTimeRange } from '@/components/ui/date-time-range'
 import { resolveTimeRange } from '@/lib/time-range-filter'
 
@@ -96,6 +97,8 @@ function formatTs(ts: string): string {
  * position across each prepend so the viewport never jumps.
  */
 export function ServiceLogs() {
+  const { t } = useTranslation('storage')
+  const { t: tp } = useTranslation('projects')
   const { id } = useParams<{ id: string }>()
   const serviceId = id ? parseInt(id, 10) : NaN
 
@@ -424,16 +427,15 @@ export function ServiceLogs() {
           <div className="rounded-md border border-dashed p-8 text-center">
             <Link2 className="mx-auto h-6 w-6 text-muted-foreground" />
             <p className="mt-3 text-sm font-medium">
-              Link this service to a project to view logs
+              {t('logs.needsProjectTitle')}
             </p>
             <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-              Service logs inherit project access controls. Link at least one
-              project before searching or retaining this service&apos;s logs.
+              {t('logs.needsProjectBody')}
             </p>
             <Button asChild variant="outline" size="sm" className="mt-4">
               <Link to={`/storage/${id}`} state={{ openLinkedProjects: true }}>
                 <Link2 className="mr-2 h-4 w-4" />
-                Link a project
+                {tp('serviceMentions.linkProject')}
               </Link>
             </Button>
           </div>
@@ -459,8 +461,7 @@ export function ServiceLogs() {
           </div>
         ) : lines.length === 0 ? (
           <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-            No logs found for {rangeLabel.toLowerCase()}. Logs appear here once
-            the service container emits output.
+            {t('logs.empty', { range: rangeLabel.toLowerCase() })}
           </div>
         ) : (
           <div className="rounded-md border bg-muted/30">

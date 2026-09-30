@@ -30,16 +30,17 @@ export function ImportProject() {
   const repositoryId = repositoryIdParam ? parseInt(repositoryIdParam, 10) : NaN
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
+  const { t: tp } = useTranslation('projects')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   useEffect(() => {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
-      { label: 'New Project', href: '/projects/new' },
-      { label: 'Import Project' },
+      { label: tp('create.newProject'), href: '/projects/new' },
+      { label: tp('create.importProject') },
     ])
-  }, [setBreadcrumbs, t])
+  }, [setBreadcrumbs, t, tp])
 
   // Fetch repository by ID. The backend derives owner/name/full_name and the
   // git provider connection from the row itself, so the frontend doesn't need
@@ -81,13 +82,13 @@ export function ImportProject() {
   const createProjectMutationM = useMutation({
     ...createProjectMutation(),
     meta: {
-      errorTitle: 'Failed to import project',
+      errorTitle: tp('create.importFailed'),
     },
     onSuccess: async (data) => {
       // Invalidate projects queries to refresh the command palette
       await queryClient.invalidateQueries({ queryKey: ['getProjects'] })
       await queryClient.invalidateQueries({ queryKey: ['listProjects'] })
-      toast.success('Project imported successfully')
+      toast.success(tp('create.imported'))
       navigate(`/projects/${data.slug}?new=true`)
     },
   })
@@ -124,7 +125,7 @@ export function ImportProject() {
             <div
               className={`w-2 h-2 rounded-full ${selectedRepository ? 'bg-primary' : 'bg-muted'}`}
             ></div>
-            <span>Configure Project</span>
+            <span>{tp('create.configureProject')}</span>
             <div className="w-2 h-2 bg-muted rounded-full ml-4"></div>
             <span>Deploy</span>
           </div>
@@ -151,9 +152,11 @@ export function ImportProject() {
           ) : isRepositoryPending || !selectedRepository || !branchesData ? (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold">Configure Project</h2>
+                <h2 className="text-2xl font-bold">
+                  {tp('create.configureProject')}
+                </h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Loading project configuration...
+                  {tp('create.loadingConfiguration')}
                 </p>
               </div>
               <Card>

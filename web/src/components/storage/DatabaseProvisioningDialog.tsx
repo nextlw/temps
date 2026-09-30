@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -40,16 +41,14 @@ const options: Array<{
   },
   {
     mode: 'project',
-    title: 'Database per project',
-    description:
-      'Every environment in this project connects to the same database.',
+    title: i18n.t('storage:provisioning.perProjectTitle'),
+    description: i18n.t('storage:provisioning.perProjectDescription'),
     icon: Network,
   },
   {
     mode: 'custom',
     title: 'Custom database',
-    description:
-      'Use an exact database name, including one shared by multiple projects.',
+    description: i18n.t('storage:provisioning.customDescription'),
     icon: Database,
   },
 ]

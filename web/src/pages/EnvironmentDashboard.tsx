@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getEnvironmentOptions,
   listContainersOptions,
@@ -40,6 +41,7 @@ export function EnvironmentDashboard({
   onCreateEnvironment,
   onDelete,
 }: EnvironmentDashboardProps) {
+  const { t } = useTranslation('projects')
   const [searchParams, setSearchParams] = useSearchParams()
   const activeView = resolveEnvironmentView(searchParams.get('view'))
 
@@ -126,7 +128,7 @@ export function EnvironmentDashboard({
                 Static site
               </p>
               <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-                This project does not have running containers to manage.
+                {t('environment.staticSite')}
               </p>
             </div>
           ) : activeView === 'metrics' ? (

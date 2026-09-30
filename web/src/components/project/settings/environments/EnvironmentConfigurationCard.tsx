@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { SettingsSection } from '@/components/ui/settings-section'
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -127,6 +128,7 @@ export function EnvironmentConfigurationCard({
   environment,
   onUpdate,
 }: EnvironmentConfigurationCardProps) {
+  const { t } = useTranslation('projects')
   const nodesQuery = useQuery({
     ...adminListNodesOptions(),
   })
@@ -548,9 +550,8 @@ export function EnvironmentConfigurationCard({
                     placeholder="Use default"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    Maximum memory allocation. Leave empty to inherit the
-                    project/default limit, or set <code>0</code> (
-                    <strong>Uncapped</strong>) to run with no memory limit.
+                    {t('settings.environmentConfig.memoryHint')} <code>0</code>{' '}
+                    (<strong>Uncapped</strong>) to run with no memory limit.
                   </p>
                 </div>
               </div>
@@ -665,11 +666,7 @@ export function EnvironmentConfigurationCard({
         {/* Request Timeouts */}
         <SettingsSection title="Request timeouts" icon={Clock}>
           <p className="text-xs text-muted-foreground mb-4">
-            Override the global request timeout defaults for this environment.
-            Leave blank to inherit the project/global default (no timeout,
-            unless an operator configured one). Enter 0 to explicitly force no
-            timeout for this environment. Nonzero values are always clamped
-            server-side to the operator&apos;s global hard ceiling.
+            {t('settings.environmentConfig.timeoutsHint')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -729,10 +726,10 @@ export function EnvironmentConfigurationCard({
             Cap on concurrent in-flight requests to this environment&apos;s
             upstream. Protects the proxy&apos;s own connection budget from a
             stalled or malicious app — mainly relevant when this environment
-            shares a node with other tenants. Leave blank to inherit the
-            project/global default (unlimited, unless an operator configured
-            one). Enter 0 to explicitly force unlimited for this environment.
-            Requests over the limit get an immediate 503 instead of queuing.
+            shares a node with other tenants.{' '}
+            {t('settings.environmentConfig.concurrencyInherit')} Enter 0 to
+            explicitly force unlimited for this environment. Requests over the
+            limit get an immediate 503 instead of queuing.
           </p>
           <div className="max-w-xs">
             <Label>Max concurrent connections</Label>
@@ -948,9 +945,11 @@ export function EnvironmentConfigurationCard({
               <div className="flex-1 min-w-0">
                 <Label className="text-sm font-medium">Attack Mode</Label>
                 <p className="text-xs text-muted-foreground">
-                  Require a CAPTCHA challenge for visitors. Inherit uses the
-                  project default (currently{' '}
-                  {project.attack_mode ? 'on' : 'off'}).
+                  {t('settings.environmentConfig.attackModeInherit', {
+                    state: project.attack_mode
+                      ? t('settings.environmentConfig.on')
+                      : t('settings.environmentConfig.off'),
+                  })}
                 </p>
               </div>
               <Select

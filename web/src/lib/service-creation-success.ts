@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
+
 export type ServiceCreationSuccessMessage<T> =
   string | ((createdService: T) => string)
 
@@ -11,7 +13,7 @@ interface CompleteServiceCreationOptions<T> {
   successMessage?: ServiceCreationSuccessMessage<T>
 }
 
-const DEFAULT_SUCCESS_MESSAGE = 'Service created successfully'
+const DEFAULT_SUCCESS_MESSAGE = i18n.t('storage:create.created')
 
 /**
  * Completes service creation through one notification path.
