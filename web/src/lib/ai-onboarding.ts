@@ -3,6 +3,13 @@
 
 export const AI_HARNESS_KEY_NAME = 'Temps AI harness'
 export const TEMPS_CLI_VERSION = '0.1.36'
+/**
+ * Repository the agent skill is installed from. This console ships from the
+ * nextlw/temps fork, whose `skills/temps` tracks the fork's CLI and API;
+ * upstream (gotempsh/temps) would teach the agent features this build lacks.
+ * Mirrors `RELEASES_REPOSITORY` in crates/temps-core/src/update_status.rs.
+ */
+export const TEMPS_SKILLS_REPOSITORY = 'nextlw/temps'
 
 export type AiHarnessStatus = 'missing' | 'waiting' | 'connected'
 
@@ -75,7 +82,7 @@ export function buildAiHarnessCommands(origin: string): AiHarnessCommands {
   const cli = `bunx @temps-sdk/cli@${TEMPS_CLI_VERSION}`
 
   return {
-    installSkill: 'bunx skills add gotempsh/temps --skill temps',
+    installSkill: `bunx skills add ${TEMPS_SKILLS_REPOSITORY} --skill temps`,
     connectCli: [
       'read -rsp "Temps API key: " TEMPS_API_KEY && echo',
       `${cli} login ${instanceOrigin} --api-key "$TEMPS_API_KEY" --context ${context}`,
