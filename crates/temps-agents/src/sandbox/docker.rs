@@ -1354,15 +1354,22 @@ impl SandboxChannel {
 
 /// Prefix every published sandbox image carries on GHCR. Centralised so
 /// runtime extraction (`runtime_from_image_name`) stays in lock-step with
-/// image construction (`image_name_for_runtime_in_channel`).
-const SANDBOX_IMAGE_REGISTRY_PREFIX: &str = "ghcr.io/gotempsh/temps-sandbox-";
+/// image construction (`image_name_for_runtime_in_channel`). The owner is the
+/// namespace this build embeds its images from, so a fork resolves and
+/// recognises its own `ghcr.io/<fork>/temps-sandbox-*` images.
+fn sandbox_image_registry_prefix() -> String {
+    format!(
+        "ghcr.io/{}/temps-sandbox-",
+        temps_core::release_images::IMAGE_NAMESPACE
+    )
+}
 
 /// Fully-qualified image name for a runtime preset. The runtime references
 /// images by this exact string end-to-end — pull, inspect, container
 /// create, recovery — so what you see in `docker ps` matches what was
 /// actually pulled (channel suffix included). No local rename step.
 ///
-/// Format: `ghcr.io/gotempsh/temps-sandbox-{runtime}:{version}{channel}`,
+/// Format: `ghcr.io/<namespace>/temps-sandbox-{runtime}:{version}{channel}`,
 /// e.g. `ghcr.io/gotempsh/temps-sandbox-node:0.1.0-beta`.
 ///
 /// Pinned to `SANDBOX_IMAGE_VERSION` so a host that already cached the
@@ -1370,7 +1377,8 @@ const SANDBOX_IMAGE_REGISTRY_PREFIX: &str = "ghcr.io/gotempsh/temps-sandbox-";
 fn image_name_for_runtime_in_channel(runtime: &str, channel: SandboxChannel) -> String {
     let suffix = channel.tag_suffix();
     let runtime = if runtime.is_empty() { "node" } else { runtime };
-    format!("{SANDBOX_IMAGE_REGISTRY_PREFIX}{runtime}:{SANDBOX_IMAGE_VERSION}{suffix}")
+    let prefix = sandbox_image_registry_prefix();
+    format!("{prefix}{runtime}:{SANDBOX_IMAGE_VERSION}{suffix}")
 }
 
 /// Convenience wrapper that reads the channel from the environment.
@@ -1396,7 +1404,7 @@ pub fn image_name_for_runtime(runtime: &str) -> String {
 /// the recovery path to figure out which Dockerfile to regenerate when
 /// rebuilding a missing image.
 fn runtime_from_image_name(image: &str) -> Option<&str> {
-    let rest = image.strip_prefix(SANDBOX_IMAGE_REGISTRY_PREFIX)?;
+    let rest = image.strip_prefix(sandbox_image_registry_prefix().as_str())?;
     Some(rest.split([':', '@']).next().unwrap_or(rest))
 }
 
@@ -6112,6 +6120,10 @@ mod tests {
     use super::*;
     use std::sync::OnceLock;
     use std::time::Duration;
+    // Same width as the "gotempsh" it replaces in the expected image names, so
+    // the fixtures follow the build's namespace (the fork's CI resolves it to
+    // nextlw through GITHUB_REPOSITORY_OWNER).
+    use temps_core::release_images::IMAGE_NAMESPACE as IMG_NS;
     use tokio::sync::Mutex;
 
     /// Serializes Docker integration tests that mutate the shared sandbox
@@ -6868,15 +6880,15 @@ mod tests {
         // depend on whatever TEMPS_SANDBOX_CHANNEL happens to be set to in
         // the test runner's environment.
         for (runtime, expected) in [
-            ("node", format!("ghcr.io/gotempsh/temps-sandbox-node:{v}")),
+            ("node", format!("ghcr.io/{IMG_NS}/temps-sandbox-node:{v}")),
             (
                 "python",
-                format!("ghcr.io/gotempsh/temps-sandbox-python:{v}"),
+                format!("ghcr.io/{IMG_NS}/temps-sandbox-python:{v}"),
             ),
-            ("rust", format!("ghcr.io/gotempsh/temps-sandbox-rust:{v}")),
-            ("bun", format!("ghcr.io/gotempsh/temps-sandbox-bun:{v}")),
-            ("go", format!("ghcr.io/gotempsh/temps-sandbox-go:{v}")),
-            ("full", format!("ghcr.io/gotempsh/temps-sandbox-full:{v}")),
+            ("rust", format!("ghcr.io/{IMG_NS}/temps-sandbox-rust:{v}")),
+            ("bun", format!("ghcr.io/{IMG_NS}/temps-sandbox-bun:{v}")),
+            ("go", format!("ghcr.io/{IMG_NS}/temps-sandbox-go:{v}")),
+            ("full", format!("ghcr.io/{IMG_NS}/temps-sandbox-full:{v}")),
         ] {
             assert_eq!(
                 image_name_for_runtime_in_channel(runtime, SandboxChannel::Stable),
@@ -6906,7 +6918,7 @@ mod tests {
         // explicitly to avoid env-dependence.
         assert_eq!(
             image_name_for_runtime_in_channel("custom", SandboxChannel::Stable),
-            format!("ghcr.io/gotempsh/temps-sandbox-custom:{SANDBOX_IMAGE_VERSION}")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-custom:{SANDBOX_IMAGE_VERSION}")
         );
     }
 
@@ -7008,7 +7020,7 @@ mod tests {
         for runtime in &["node", "", "python", "bun", "rust", "go", "full"] {
             let img = image_name_for_runtime(runtime);
             assert!(
-                img.starts_with("ghcr.io/gotempsh/temps-sandbox-"),
+                img.starts_with(&sandbox_image_registry_prefix()),
                 "image must be GHCR-qualified: {img}"
             );
             assert!(img.contains(':'), "image must carry a tag: {img}");
@@ -7313,7 +7325,7 @@ mod tests {
 
         let (_, image_name) = provider.image_status().await.unwrap();
         assert!(
-            image_name.starts_with("ghcr.io/gotempsh/temps-sandbox-"),
+            image_name.starts_with(&sandbox_image_registry_prefix()),
             "got: {image_name}"
         );
     }
@@ -7345,9 +7357,10 @@ mod tests {
         // image_status returns whatever channel the env points at; both
         // stable and beta are valid targets here, so we check the
         // structural shape rather than the exact string.
+        let python = format!("ghcr.io/{IMG_NS}/temps-sandbox-python");
         assert!(
-            image_name.starts_with("ghcr.io/gotempsh/temps-sandbox-python:")
-                || image_name.starts_with("ghcr.io/gotempsh/temps-sandbox-python@sha256:"),
+            image_name.starts_with(&format!("{python}:"))
+                || image_name.starts_with(&format!("{python}@sha256:")),
             "got: {image_name}"
         );
     }
@@ -7358,23 +7371,23 @@ mod tests {
         let stable = SandboxChannel::Stable;
         assert_eq!(
             image_name_for_runtime_in_channel("node", stable),
-            format!("ghcr.io/gotempsh/temps-sandbox-node:{v}")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-node:{v}")
         );
         assert_eq!(
             image_name_for_runtime_in_channel("", stable),
-            format!("ghcr.io/gotempsh/temps-sandbox-node:{v}")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-node:{v}")
         );
         assert_eq!(
             image_name_for_runtime_in_channel("python", stable),
-            format!("ghcr.io/gotempsh/temps-sandbox-python:{v}")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-python:{v}")
         );
         assert_eq!(
             image_name_for_runtime_in_channel("bun", stable),
-            format!("ghcr.io/gotempsh/temps-sandbox-bun:{v}")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-bun:{v}")
         );
         assert_eq!(
             image_name_for_runtime_in_channel("full", stable),
-            format!("ghcr.io/gotempsh/temps-sandbox-full:{v}")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-full:{v}")
         );
     }
 
@@ -7384,15 +7397,15 @@ mod tests {
         let beta = SandboxChannel::Beta;
         assert_eq!(
             image_name_for_runtime_in_channel("node", beta),
-            format!("ghcr.io/gotempsh/temps-sandbox-node:{v}-beta")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-node:{v}-beta")
         );
         assert_eq!(
             image_name_for_runtime_in_channel("python", beta),
-            format!("ghcr.io/gotempsh/temps-sandbox-python:{v}-beta")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-python:{v}-beta")
         );
         assert_eq!(
             image_name_for_runtime_in_channel("full", beta),
-            format!("ghcr.io/gotempsh/temps-sandbox-full:{v}-beta")
+            format!("ghcr.io/{IMG_NS}/temps-sandbox-full:{v}-beta")
         );
     }
 
@@ -7410,7 +7423,7 @@ mod tests {
             assert_eq!(runtime_from_image_name(&beta), Some(*runtime));
             assert_eq!(
                 runtime_from_image_name(&format!(
-                    "ghcr.io/gotempsh/temps-sandbox-{runtime}@sha256:{}",
+                    "ghcr.io/{IMG_NS}/temps-sandbox-{runtime}@sha256:{}",
                     "a".repeat(64)
                 )),
                 Some(*runtime)
@@ -7427,7 +7440,7 @@ mod tests {
         // Tag is optional in the parser — recovery still works even if
         // the input lost its tag somehow.
         assert_eq!(
-            runtime_from_image_name(&format!("ghcr.io/gotempsh/temps-sandbox-node:{v}")),
+            runtime_from_image_name(&format!("ghcr.io/{IMG_NS}/temps-sandbox-node:{v}")),
             Some("node")
         );
     }
