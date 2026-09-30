@@ -33,7 +33,7 @@
     "loadFailedDescription": "This $t(terms:externalService.singularLower) may not exist, or you may not have permission to view it.",
     "linkedProjects": "Linked $t(terms:project.pluralLower)",
     "linkCreates": "Linking creates a dedicated",
-    "linkCreatesTail": "database per environment. No extra databases are spun up.",
+    "linkCreatesTail": "database per environment. No extra database servers are spun up.",
     "noProjects": "No $t(terms:project.pluralLower) yet.",
     "linkPlaceholder": "Link a $t(terms:project.singularLower)...",
     "noProjectsFound": "No $t(terms:project.pluralLower) found.",
