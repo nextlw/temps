@@ -71,7 +71,11 @@ export function ImportProject() {
     (p) => p.id === connectionProviderId
   )?.provider_type
 
-  usePageTitle(`Import ${selectedRepository?.full_name || 'Repository'}`)
+  usePageTitle(
+    t('titles.importRepository', {
+      name: selectedRepository?.full_name || t('titles.repositoryFallback'),
+    })
+  )
 
   // Importing a project whose slug this host grants the Docker socket to is
   // a sensitive action (ADR 045); the create can come back 428 asking the

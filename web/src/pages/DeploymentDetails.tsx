@@ -1143,8 +1143,11 @@ export function DeploymentDetails({ project }: DeploymentDetailsProps) {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
-      { label: 'Deployments', href: `/projects/${project.slug}/deployments` },
-      { label: `Deployment ${deploymentId}` },
+      {
+        label: t('crumbs.deployments'),
+        href: `/projects/${project.slug}/deployments`,
+      },
+      { label: t('crumbs.deployment', { id: deploymentId }) },
     ])
   }, [setBreadcrumbs, project.name, project.slug, deploymentId, t])
 
@@ -1186,7 +1189,7 @@ export function DeploymentDetails({ project }: DeploymentDetailsProps) {
     }
   }, [deployment?.status, deployment?.id, deployment, project.id, queryClient])
 
-  usePageTitle(`${project.slug} - Deployment ${deploymentId}`)
+  usePageTitle(t('titles.deployment', { name: project.name, id: deploymentId }))
 
   if (error) {
     return (

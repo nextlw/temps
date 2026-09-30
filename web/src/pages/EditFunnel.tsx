@@ -34,7 +34,7 @@ export function EditFunnel({ project, funnelId }: EditFunnelProps) {
     message: string
   } | null>(null)
 
-  usePageTitle(`Edit Funnel - ${project.slug}`)
+  usePageTitle(t('titles.editFunnel', { name: project.name }))
 
   // Fetch all funnels to get the specific one
   const { data: funnels, isLoading } = useQuery({
@@ -54,8 +54,11 @@ export function EditFunnel({ project, funnelId }: EditFunnelProps) {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
-      { label: 'Analytics', href: `/projects/${project.slug}/analytics` },
-      { label: 'Edit Funnel' },
+      {
+        label: t('crumbs.analytics'),
+        href: `/projects/${project.slug}/analytics`,
+      },
+      { label: t('crumbs.editFunnel') },
     ])
   }, [project, setBreadcrumbs, t])
 

@@ -715,7 +715,7 @@ export default function TracesList({ project }: TracesListProps) {
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
   const { t: to } = useTranslation('observability')
-  usePageTitle(`Traces - ${project.name}`)
+  usePageTitle(t('titles.traces', { name: project.name }))
 
   // State from URL params
   const [timeRange, setTimeRange] = useState<TracesTimeRange>(
@@ -872,7 +872,7 @@ export default function TracesList({ project }: TracesListProps) {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
-      { label: 'Traces' },
+      { label: t('crumbs.traces') },
     ])
   }, [project.name, project.slug, setBreadcrumbs, t])
 

@@ -112,7 +112,7 @@ export function ProjectRevenue({ project }: ProjectRevenueProps) {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}/project` },
-      { label: 'Revenue' },
+      { label: t('crumbs.revenue') },
     ])
   }, [project.name, project.slug, setBreadcrumbs, t])
 

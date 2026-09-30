@@ -82,7 +82,7 @@ export default function LogsList({ project }: LogsListProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
-  usePageTitle(`Logs - ${project.name}`)
+  usePageTitle(t('titles.logs', { name: project.name }))
 
   const [timeRange, setTimeRange] = useState<TimeRange>(
     () => (searchParams.get('range') as TimeRange) || '24h'
@@ -106,7 +106,7 @@ export default function LogsList({ project }: LogsListProps) {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
-      { label: 'Logs' },
+      { label: t('crumbs.logs') },
     ])
   }, [project.name, project.slug, setBreadcrumbs, t])
 

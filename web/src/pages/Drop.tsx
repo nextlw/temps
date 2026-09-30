@@ -132,12 +132,12 @@ export function Drop({ embedded = false }: { embedded?: boolean }) {
   const detectionRunRef = useRef(0)
   const detectionAbortRef = useRef<AbortController | null>(null)
 
-  usePageTitle(embedded ? tp('create.newProject') : 'Drop')
+  usePageTitle(embedded ? tp('create.newProject') : t('titles.drop'))
   useEffect(() => {
     if (embedded) return
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
-      { label: 'Drop' },
+      { label: t('crumbs.drop') },
     ])
   }, [embedded, setBreadcrumbs, t])
   useEffect(

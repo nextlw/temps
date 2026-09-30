@@ -143,10 +143,10 @@ export function ProjectDetail() {
   const variableBreadcrumbLabel =
     breadcrumbVariable?.key ||
     (breadcrumbVariables.isFetching
-      ? 'Loading variable…'
+      ? t('crumbs.variableLoading')
       : breadcrumbVariables.isError
-        ? 'Variable unavailable'
-        : 'Variable not found')
+        ? t('crumbs.variableUnavailable')
+        : t('crumbs.variableNotFound'))
   const isVariableRoute = !!variableRoute
 
   const { data: lastDeployment, isLoading: isLoadingLastDeployment } = useQuery(
@@ -312,7 +312,7 @@ export function ProjectDetail() {
       { label: project?.name || t('projectDetails'), href: projectPath },
       ...(isVariableRoute
         ? [
-            { label: 'Environment variables', href: variablesPath },
+            { label: t('crumbs.environmentVariables'), href: variablesPath },
             ...(breadcrumbVariableId
               ? [
                   {
@@ -320,7 +320,7 @@ export function ProjectDetail() {
                     href: `${variablesPath}/${breadcrumbVariableId}`,
                   },
                   ...(breadcrumbSection === 'checks'
-                    ? [{ label: 'Check configuration' }]
+                    ? [{ label: t('crumbs.checkConfiguration') }]
                     : []),
                 ]
               : []),
@@ -350,7 +350,7 @@ export function ProjectDetail() {
     }
   }, [showConfetti, searchParams, setSearchParams])
 
-  usePageTitle(project?.slug ? `${project.slug}` : '')
+  usePageTitle(project?.name ?? '')
 
   if (error?.message?.includes('404') || (!isLoading && !project)) {
     return <NotFound />

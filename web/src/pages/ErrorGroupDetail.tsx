@@ -159,15 +159,22 @@ export function ErrorGroupDetail({ project }: { project: ProjectResponse }) {
       },
     })
 
-  usePageTitle(errorGroup ? `Error: ${errorGroup.title}` : 'Error Details')
+  usePageTitle(
+    errorGroup
+      ? t('titles.error', { title: errorGroup.title })
+      : t('crumbs.errorDetails')
+  )
 
   useEffect(() => {
     if (errorGroup && projectSlug) {
       setBreadcrumbs([
         { label: t('projects'), href: '/projects' },
         { label: project.name, href: `/projects/${projectSlug}` },
-        { label: 'Error Tracking', href: `/projects/${projectSlug}/errors` },
-        { label: errorGroup.title || 'Error Details' },
+        {
+          label: t('crumbs.errorTracking'),
+          href: `/projects/${projectSlug}/errors`,
+        },
+        { label: errorGroup.title || t('crumbs.errorDetails') },
       ])
     }
   }, [setBreadcrumbs, errorGroup, projectSlug, project.name, t])
