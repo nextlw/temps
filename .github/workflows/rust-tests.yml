@@ -37,7 +37,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
 
-      - name: Verify nightly release wiring
+      - name: Verify release workflow wiring
         run: .github/scripts/test-nightly-release-workflows.sh
 
       - name: Verify release image runtime contract

@@ -239,18 +239,23 @@ pub fn managed_application_workspace_image(runtime: &str) -> Option<&'static str
 }
 
 pub fn is_managed_application_workspace_image(image: &str) -> bool {
+    // Digests from upstream, plus the owner this build embeds its images from:
+    // a fork's release pins ghcr.io/<fork>/* and must accept what it ships.
+    let digest_owners = ["gotempsh", temps_core::release_images::IMAGE_NAMESPACE];
     ["nodejs", "python", "all"].iter().any(|flavor| {
         ["0.2.0", "0.3.0", "0.3.1", "0.3.2", "0.3.3", "0.3.4"]
             .iter()
             .any(|version| image == format!("ghcr.io/gotempsh/temps-sandbox-{flavor}:{version}"))
     }) || image == "ghcr.io/gotempsh/temps-sandbox-node:0.1.0"
         || ["nodejs", "python", "all"].iter().any(|flavor| {
-            let prefix = format!("ghcr.io/gotempsh/temps-sandbox-{flavor}@sha256:");
-            image.strip_prefix(&prefix).is_some_and(|digest| {
-                digest.len() == 64
-                    && digest
-                        .bytes()
-                        .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+            digest_owners.iter().any(|owner| {
+                let prefix = format!("ghcr.io/{owner}/temps-sandbox-{flavor}@sha256:");
+                image.strip_prefix(&prefix).is_some_and(|digest| {
+                    digest.len() == 64
+                        && digest
+                            .bytes()
+                            .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+                })
             })
         })
 }
@@ -686,8 +691,16 @@ pub(crate) fn url_has_embedded_credentials(url: &str) -> bool {
 /// and the network stack. Until credentialed clones move to a host-owned
 /// staging helper, allow them only in the versioned images built by Temps.
 fn sandbox_image_is_trusted_for_credentials(handle: &temps_agents::sandbox::SandboxHandle) -> bool {
+    // Upstream's images and the ones this build embeds (a fork's release
+    // runs ghcr.io/<fork>/temps-sandbox-*, built by the same pipeline).
     handle.backend == temps_agents::sandbox::SandboxBackend::Docker
-        && handle.image.starts_with("ghcr.io/gotempsh/temps-sandbox-")
+        && ["gotempsh", temps_core::release_images::IMAGE_NAMESPACE]
+            .iter()
+            .any(|owner| {
+                handle
+                    .image
+                    .starts_with(&format!("ghcr.io/{owner}/temps-sandbox-"))
+            })
 }
 
 /// Docker exec inherits the image's configured environment. A custom image
@@ -4249,6 +4262,30 @@ mod tests {
     }
 
     #[test]
+    fn digest_images_under_the_embedded_namespace_are_managed() {
+        let namespace = temps_core::release_images::IMAGE_NAMESPACE;
+        for flavor in ["nodejs", "python", "all"] {
+            let image = format!(
+                "ghcr.io/{namespace}/temps-sandbox-{flavor}@sha256:{}",
+                "a".repeat(64)
+            );
+            assert!(is_managed_application_workspace_image(&image));
+        }
+        let bun = format!(
+            "ghcr.io/{namespace}/temps-sandbox-bun@sha256:{}",
+            "a".repeat(64)
+        );
+        assert!(!is_managed_application_workspace_image(&bun));
+        // Tags stay upstream-only: the DB constraint lists them one by one.
+        assert_eq!(
+            is_managed_application_workspace_image(&format!(
+                "ghcr.io/{namespace}/temps-sandbox-nodejs:0.3.4"
+            )),
+            namespace == "gotempsh"
+        );
+    }
+
+    #[test]
     fn application_workspace_runtimes_resolve_to_managed_daemon_images() {
         // A candidate can pass runtime preflight but fail persistence if its
         // pinned tag is absent from the database image CHECK constraint.
@@ -6163,6 +6200,13 @@ mod storage_cleanup_tests {
         let mut managed = handle_for("managed");
         managed.image = "ghcr.io/gotempsh/temps-sandbox-node:v1".to_string();
         assert!(sandbox_image_is_trusted_for_credentials(&managed));
+
+        let mut embedded = handle_for("embedded");
+        embedded.image = format!(
+            "ghcr.io/{}/temps-sandbox-node:v1",
+            temps_core::release_images::IMAGE_NAMESPACE
+        );
+        assert!(sandbox_image_is_trusted_for_credentials(&embedded));
 
         let mut custom = handle_for("custom");
         custom.image = "registry.example/customer/image:latest".to_string();

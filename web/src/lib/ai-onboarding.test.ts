@@ -14,7 +14,7 @@ describe('AI harness onboarding', () => {
   test('installs only the canonical Temps skill', () => {
     expect(
       buildAiHarnessCommands('https://temps.example.com').installSkill
-    ).toBe('bunx skills add gotempsh/temps --skill temps')
+    ).toBe('bunx skills add nextlw/temps --skill temps')
   })
 
   test('connects the pinned CLI without putting the API key in command text', () => {

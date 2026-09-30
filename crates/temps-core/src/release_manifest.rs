@@ -35,39 +35,47 @@ impl ImageKind {
     }
 }
 
+/// Registry owner the runtime images are bound to when the build does not name
+/// one. It stays the upstream owner so a plain local build (or one cut from
+/// gotempsh/temps) keeps accepting the manifests it always accepted; releases
+/// from the fork resolve to their own owner through the variables read by
+/// [`image_namespace`].
+pub const DEFAULT_IMAGE_NAMESPACE: &str = "gotempsh";
+
+/// Repository name of each runtime image inside `ghcr.io/<namespace>/`. The
+/// owner is not part of it because a fork publishes the same images under its
+/// own namespace (see `.github/scripts/release_image_manifest.py`).
 pub const IMAGES: [(ImageKind, &str); 10] = [
-    (
-        ImageKind::DaemonNodejs,
-        "ghcr.io/gotempsh/temps-sandbox-nodejs",
-    ),
-    (
-        ImageKind::DaemonPython,
-        "ghcr.io/gotempsh/temps-sandbox-python",
-    ),
-    (ImageKind::DaemonAll, "ghcr.io/gotempsh/temps-sandbox-all"),
-    (
-        ImageKind::SandboxNode,
-        "ghcr.io/gotempsh/temps-sandbox-node",
-    ),
-    (ImageKind::SandboxBun, "ghcr.io/gotempsh/temps-sandbox-bun"),
-    (
-        ImageKind::SandboxPython,
-        "ghcr.io/gotempsh/temps-sandbox-python",
-    ),
-    (
-        ImageKind::SandboxRust,
-        "ghcr.io/gotempsh/temps-sandbox-rust",
-    ),
-    (ImageKind::SandboxGo, "ghcr.io/gotempsh/temps-sandbox-go"),
-    (
-        ImageKind::SandboxFull,
-        "ghcr.io/gotempsh/temps-sandbox-full",
-    ),
-    (
-        ImageKind::PreviewGateway,
-        "ghcr.io/gotempsh/temps-preview-gateway",
-    ),
+    (ImageKind::DaemonNodejs, "temps-sandbox-nodejs"),
+    (ImageKind::DaemonPython, "temps-sandbox-python"),
+    (ImageKind::DaemonAll, "temps-sandbox-all"),
+    (ImageKind::SandboxNode, "temps-sandbox-node"),
+    (ImageKind::SandboxBun, "temps-sandbox-bun"),
+    (ImageKind::SandboxPython, "temps-sandbox-python"),
+    (ImageKind::SandboxRust, "temps-sandbox-rust"),
+    (ImageKind::SandboxGo, "temps-sandbox-go"),
+    (ImageKind::SandboxFull, "temps-sandbox-full"),
+    (ImageKind::PreviewGateway, "temps-preview-gateway"),
 ];
+
+/// Resolves the registry owner with the same precedence as the Python script
+/// that writes the manifest: `TEMPS_IMAGE_NAMESPACE`, then
+/// `GITHUB_REPOSITORY_OWNER` (always set on GitHub Actions), then
+/// [`DEFAULT_IMAGE_NAMESPACE`]. Both sides must agree or the build rejects the
+/// manifest the release pipeline just produced.
+pub fn image_namespace(explicit: Option<&str>, repository_owner: Option<&str>) -> String {
+    explicit
+        .filter(|value| !value.is_empty())
+        .or(repository_owner.filter(|value| !value.is_empty()))
+        .unwrap_or(DEFAULT_IMAGE_NAMESPACE)
+        .to_ascii_lowercase()
+}
+
+/// Full GHCR repository of a runtime image (`name` from [`IMAGES`]) under the
+/// resolved namespace; the manifest must reference exactly this repository.
+pub fn image_repository(namespace: &str, name: &str) -> String {
+    format!("ghcr.io/{namespace}/{name}")
+}
 
 #[derive(Debug, Error)]
 pub enum ManifestError {
@@ -81,7 +89,7 @@ pub enum ManifestError {
     #[error("image '{key}' must use {repo}@sha256:, got '{reference}'")]
     ImageReference {
         key: &'static str,
-        repo: &'static str,
+        repo: String,
         reference: String,
     },
     #[error("image '{key}' must have a 64-character lowercase sha256 digest, got '{digest}'")]
@@ -127,7 +135,7 @@ impl Images {
     }
 }
 
-pub fn parse_manifest(contents: &str) -> Result<Manifest, ManifestError> {
+pub fn parse_manifest(contents: &str, namespace: &str) -> Result<Manifest, ManifestError> {
     let manifest: Manifest =
         serde_json::from_str(contents).map_err(|source| ManifestError::Json { source })?;
     if manifest.revision.len() != 40 || !is_lower_hex(&manifest.revision) {
@@ -135,10 +143,11 @@ pub fn parse_manifest(contents: &str) -> Result<Manifest, ManifestError> {
             revision: manifest.revision,
         });
     }
-    for (key, repo) in IMAGES {
+    for (key, name) in IMAGES {
+        let repo = image_repository(namespace, name);
         let reference = manifest.images.get(key);
         let digest = reference
-            .strip_prefix(repo)
+            .strip_prefix(repo.as_str())
             .and_then(|rest| rest.strip_prefix("@sha256:"))
             .ok_or_else(|| ManifestError::ImageReference {
                 key: key.as_str(),
@@ -165,22 +174,35 @@ fn is_lower_hex(value: &str) -> bool {
 mod tests {
     use super::*;
 
-    fn valid() -> serde_json::Value {
+    fn valid_for(namespace: &str) -> serde_json::Value {
         let images: serde_json::Map<String, serde_json::Value> = IMAGES
             .iter()
-            .map(|(key, repo)| {
+            .map(|(key, name)| {
                 (
                     key.as_str().into(),
-                    format!("{repo}@sha256:{}", "a".repeat(64)).into(),
+                    format!(
+                        "{}@sha256:{}",
+                        image_repository(namespace, name),
+                        "a".repeat(64)
+                    )
+                    .into(),
                 )
             })
             .collect();
         serde_json::json!({"revision": "b".repeat(40), "images": images})
     }
 
+    fn valid() -> serde_json::Value {
+        valid_for(DEFAULT_IMAGE_NAMESPACE)
+    }
+
+    fn parse(value: &serde_json::Value) -> Result<Manifest, ManifestError> {
+        parse_manifest(&value.to_string(), DEFAULT_IMAGE_NAMESPACE)
+    }
+
     #[test]
     fn accepts_complete_manifest() {
-        let manifest = parse_manifest(&valid().to_string()).expect("valid manifest");
+        let manifest = parse(&valid()).expect("valid manifest");
         assert_eq!(
             manifest.images.get(ImageKind::DaemonNodejs),
             format!(
@@ -191,21 +213,53 @@ mod tests {
     }
 
     #[test]
+    fn accepts_fork_namespace_and_rejects_it_under_another_namespace() {
+        // Regression: v0.1.0-nextlw.3 failed in build.rs because the fork's
+        // manifest pointed at ghcr.io/nextlw/* while the repositories were
+        // fixed to ghcr.io/gotempsh/*.
+        let fork = valid_for("nextlw").to_string();
+        let manifest = parse_manifest(&fork, "nextlw").expect("fork manifest");
+        assert_eq!(
+            manifest.images.get(ImageKind::PreviewGateway),
+            format!(
+                "ghcr.io/nextlw/temps-preview-gateway@sha256:{}",
+                "a".repeat(64)
+            )
+        );
+        assert!(matches!(
+            parse_manifest(&fork, DEFAULT_IMAGE_NAMESPACE),
+            Err(ManifestError::ImageReference {
+                key: "daemon_nodejs",
+                ..
+            })
+        ));
+    }
+
+    #[test]
+    fn namespace_follows_the_manifest_script_precedence() {
+        assert_eq!(image_namespace(None, None), DEFAULT_IMAGE_NAMESPACE);
+        assert_eq!(image_namespace(Some(""), Some("")), DEFAULT_IMAGE_NAMESPACE);
+        assert_eq!(image_namespace(None, Some("NextLW")), "nextlw");
+        assert_eq!(image_namespace(Some(""), Some("nextlw")), "nextlw");
+        assert_eq!(image_namespace(Some("mirror"), Some("nextlw")), "mirror");
+    }
+
+    #[test]
     fn rejects_missing_extra_wrong_repo_and_bad_digest() {
         let mut missing = valid();
         missing["images"]
             .as_object_mut()
             .expect("images object")
             .remove("daemon_all");
-        assert!(parse_manifest(&missing.to_string()).is_err());
+        assert!(parse(&missing).is_err());
         let mut extra = valid();
         extra["images"]["unexpected"] = "value".into();
-        assert!(parse_manifest(&extra.to_string()).is_err());
+        assert!(parse(&extra).is_err());
         let mut wrong = valid();
         wrong["images"]["daemon_nodejs"] =
             format!("ghcr.io/other/repo@sha256:{}", "a".repeat(64)).into();
         assert!(matches!(
-            parse_manifest(&wrong.to_string()),
+            parse(&wrong),
             Err(ManifestError::ImageReference {
                 key: "daemon_nodejs",
                 ..
@@ -214,7 +268,7 @@ mod tests {
         let mut digest = valid();
         digest["images"]["sandbox_go"] = "ghcr.io/gotempsh/temps-sandbox-go@sha256:invalid".into();
         assert!(matches!(
-            parse_manifest(&digest.to_string()),
+            parse(&digest),
             Err(ManifestError::Digest {
                 key: "sandbox_go",
                 ..
@@ -223,7 +277,7 @@ mod tests {
         let mut uppercase = valid();
         uppercase["revision"] = "A".repeat(40).into();
         assert!(matches!(
-            parse_manifest(&uppercase.to_string()),
+            parse(&uppercase),
             Err(ManifestError::Revision { .. })
         ));
     }
@@ -235,7 +289,14 @@ mod tests {
             Some(path) => {
                 let contents =
                     std::fs::read_to_string(path).expect("compiled manifest still exists");
-                let manifest = parse_manifest(&contents).expect("compiled manifest is valid");
+                // Same resolution build.rs ran with, so the constants are
+                // checked against the namespace they were validated for.
+                let namespace = image_namespace(
+                    option_env!("TEMPS_IMAGE_NAMESPACE"),
+                    option_env!("GITHUB_REPOSITORY_OWNER"),
+                );
+                let manifest =
+                    parse_manifest(&contents, &namespace).expect("compiled manifest is valid");
                 assert_eq!(
                     crate::release_images::REVISION,
                     Some(manifest.revision.as_str())

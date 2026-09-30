@@ -11,7 +11,14 @@ use std::sync::Arc;
 use tempfile::{NamedTempFile, TempPath};
 use tracing::{debug, info};
 
-const GITHUB_RELEASES_API: &str = "https://api.github.com/repos/gotempsh/temps/releases";
+/// Releases endpoint of [`temps_core::RELEASES_REPOSITORY`] (the fork, not
+/// upstream), shared by the channel picker and the pinned-version lookup.
+fn github_releases_api() -> String {
+    format!(
+        "https://api.github.com/repos/{}/releases",
+        temps_core::RELEASES_REPOSITORY
+    )
+}
 
 /// Default base URL of the Temps Cloud license + EE binary proxy. The EE
 /// binary lives in a private repo and is only reachable through this
@@ -36,11 +43,13 @@ pub enum UpgradeTier {
 /// identified by a `-nightly.` segment (`v1.2.0-nightly.20260727.abc1234`),
 /// minted automatically by CI — see `is_nightly_tag`.
 ///
-/// Channel selection is **CLI-only** — there is no env-var fallback. The
-/// default is `Stable` and the user must explicitly pass `--channel beta`
-/// or `--channel nightly` to opt into prereleases. This is by design: an
-/// env var on a long-lived shell or CI runner could silently switch a host
-/// onto beta/nightly without an audit trail, which we want to prevent.
+/// Channel selection is **CLI-only** — there is no env-var fallback. Without
+/// `--channel`, the channel is inferred from the installed binary's own tag
+/// (`for_installed_version`), so a stable install stays on stable. The
+/// nextlw/temps fork only publishes `-nextlw.N` prereleases; a fixed `Stable`
+/// default would never find one of them. An env var on a long-lived shell or
+/// CI runner could silently switch a host onto beta/nightly without an audit
+/// trail, which we want to prevent.
 /// Pinning a specific `--version` ignores the channel entirely.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, ValueEnum)]
 pub enum UpgradeChannel {
@@ -60,7 +69,8 @@ pub enum UpgradeChannel {
     Nightly,
 }
 
-/// Is this tag a nightly build (minted by the `Nightly Release` CI workflow)?
+/// Is this tag a nightly build (minted by upstream's `Nightly Release` CI
+/// workflow; the nextlw/temps fork does not publish nightlies)?
 /// Nightly tags look like `v0.1.0-nightly.20260727.abc1234` — the
 /// `-nightly.` marker distinguishes them from a deliberate `-beta.N` cut.
 fn is_nightly_tag(tag: &str) -> bool {
@@ -125,7 +135,9 @@ impl UpgradeChannel {
 /// Self-upgrade temps to the latest version
 #[derive(Args)]
 pub struct UpgradeCommand {
-    /// Release channel to track. Default: `stable`. Pass `--channel beta`
+    /// Release channel to track. Default: the channel of the installed
+    /// version (`stable` for a plain tag, `beta` for a prerelease such as the
+    /// fork's `-nextlw.N`). Pass `--channel beta`
     /// to opt into prereleases, or `--channel nightly` to track automated
     /// nightly builds cut from `main`. Pinning a `--version` ignores the
     /// channel.
@@ -160,8 +172,7 @@ pub struct UpgradeCommand {
 
     /// DEPRECATED: alias for `--channel stable`. Kept for backward compat
     /// with existing scripts; will be removed in a future release. New
-    /// callers should use `--channel stable` (or just omit the flag — it's
-    /// the default).
+    /// callers should use `--channel stable`.
     #[arg(long, hide = true)]
     pub stable: bool,
 
@@ -223,15 +234,19 @@ impl UpgradeCommand {
     /// Precedence:
     ///   1. `--channel <X>` flag wins
     ///   2. legacy `--stable` alias selects Stable
-    ///   3. default: Stable
+    ///   3. default: the channel of the installed version
     fn resolved_channel(&self) -> UpgradeChannel {
+        self.resolved_channel_for(&current_version_tag())
+    }
+
+    fn resolved_channel_for(&self, installed_version: &str) -> UpgradeChannel {
         if let Some(c) = self.channel {
             return c;
         }
         if self.stable {
             return UpgradeChannel::Stable;
         }
-        UpgradeChannel::Stable
+        UpgradeChannel::for_installed_version(installed_version)
     }
 
     /// Effective tier. CLI-only, defaults to OSS.
@@ -1013,7 +1028,7 @@ pub async fn fetch_latest_release_in_channel(
     channel: UpgradeChannel,
 ) -> anyhow::Result<GitHubRelease> {
     let target = platform_target()?;
-    fetch_latest_release_in_channel_from(channel, GITHUB_RELEASES_API, &target).await
+    fetch_latest_release_in_channel_from(channel, &github_releases_api(), &target).await
 }
 
 async fn fetch_latest_release_in_channel_from(
@@ -1067,9 +1082,9 @@ async fn fetch_latest_release_in_channel_from(
             target
         ),
         UpgradeChannel::Nightly => anyhow::anyhow!(
-            "No nightly releases with a temps-{}.tar.gz asset found. The nightly build only cuts a new tag when \
-             `main` has commits since the last one — check the 'Nightly Release' \
-             workflow run history, or try `--channel beta`.",
+            "No nightly releases with a temps-{}.tar.gz asset found. The nextlw/temps fork \
+             does not publish nightly builds; use `--channel beta` for its `-nextlw.N` \
+             releases.",
             target
         ),
     })
@@ -1124,7 +1139,7 @@ fn pick_installable_release_for_channel(
 /// **This is a security boundary, not cosmetics.** The tag is interpolated into
 /// a GitHub API path, and the `url` crate resolves `..` segments when parsing —
 /// so an unvalidated tag like `v/../../../../../owner/repo/releases/latest`
-/// walks out of `gotempsh/temps` and resolves to *another repository's* release.
+/// walks out of `RELEASES_REPOSITORY` and resolves to *another repository's* release.
 /// Everything downstream then behaves normally: it downloads that release's
 /// `temps-<target>.tar.gz`, checks it against that release's own `.sha256`
 /// (which of course matches), executes it for the version preflight, and
@@ -1193,7 +1208,7 @@ pub(crate) async fn fetch_specific_release(version: &str) -> anyhow::Result<GitH
 
     // Built by pushing a validated segment rather than string interpolation, so
     // even a future validation slip cannot alter the path structure.
-    let mut url = reqwest::Url::parse("https://api.github.com/repos/gotempsh/temps/releases/tags/")
+    let mut url = reqwest::Url::parse(&format!("{}/tags/", github_releases_api()))
         .map_err(|e| anyhow::anyhow!("Failed to build the release URL: {e}"))?;
     url.path_segments_mut()
         .map_err(|_| anyhow::anyhow!("Failed to build the release URL"))?
@@ -2083,7 +2098,7 @@ mod tests {
     #[test]
     fn test_normalize_release_tag_blocks_path_traversal() {
         // The exploit this validation exists for: the `url` crate resolves
-        // `..` segments, so an unvalidated tag escapes gotempsh/temps and
+        // `..` segments, so an unvalidated tag escapes RELEASES_REPOSITORY and
         // reaches an arbitrary repository's release — whose asset would then
         // be downloaded, checksum-matched against ITS OWN published hash,
         // executed by the preflight and installed over the running binary.
@@ -3073,11 +3088,11 @@ mod tests {
     }
 
     #[test]
-    fn resolved_channel_defaults_to_stable() {
-        // CLI-only design: with no flags set, the user always lands on
-        // stable. No env var or implicit state can change this. This is
-        // the contract operators rely on — running `temps upgrade` on a
-        // fresh shell never lands them on a beta build.
+    fn resolved_channel_defaults_to_the_installed_channel() {
+        // CLI-only design: with no flags set, the channel follows the
+        // installed binary's tag. No env var or implicit state can change
+        // this: a stable install stays on stable, and a fork install
+        // (`-nextlw.N` prereleases only) keeps finding its own releases.
         let cmd = UpgradeCommand {
             channel: None,
             version: None,
@@ -3091,14 +3106,22 @@ mod tests {
             ee_api: None,
             data_dir: None,
         };
-        assert_eq!(cmd.resolved_channel(), UpgradeChannel::Stable);
+        assert_eq!(cmd.resolved_channel_for("v1.2.0"), UpgradeChannel::Stable);
+        assert_eq!(
+            cmd.resolved_channel_for("v0.1.0-nextlw.3"),
+            UpgradeChannel::Beta
+        );
+        assert_eq!(
+            cmd.resolved_channel(),
+            UpgradeChannel::for_installed_version(&current_version_tag())
+        );
     }
 
     #[test]
     fn resolved_channel_legacy_stable_flag_selects_stable() {
-        // The legacy `--stable` flag is now a no-op (Stable is already
-        // default), but we accept it for backward compat with existing
-        // CI scripts. Verify it doesn't somehow yield Beta.
+        // `--stable` forces Stable even on a prerelease install, where the
+        // default would follow the installed (Beta) channel. Verify it
+        // doesn't somehow yield Beta.
         let cmd = UpgradeCommand {
             channel: None,
             version: None,

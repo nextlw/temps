@@ -4,7 +4,7 @@
 #[path = "src/release_manifest.rs"]
 mod release_manifest;
 
-use release_manifest::{parse_manifest, ManifestError, IMAGES};
+use release_manifest::{image_namespace, parse_manifest, ManifestError, IMAGES};
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
@@ -25,6 +25,8 @@ enum BuildError {
         #[source]
         source: ManifestError,
     },
+    #[error("image namespace {namespace:?} must match ^[a-z0-9-]+$")]
+    InvalidNamespace { namespace: String },
     #[error("Cargo did not provide OUT_DIR for release image generation: {source}")]
     OutputDirectory {
         #[source]
@@ -40,7 +42,25 @@ enum BuildError {
 
 fn main() -> Result<(), BuildError> {
     println!("cargo:rerun-if-env-changed=TEMPS_RELEASE_IMAGE_MANIFEST");
+    println!("cargo:rerun-if-env-changed=TEMPS_IMAGE_NAMESPACE");
+    println!("cargo:rerun-if-env-changed=GITHUB_REPOSITORY_OWNER");
     println!("cargo:rerun-if-changed=src/release_manifest.rs");
+    // The manifest is written by .github/scripts/release_image_manifest.py
+    // under ghcr.io/<owner>/, so it is validated against the same owner the
+    // script resolved instead of a fixed upstream namespace.
+    let namespace = image_namespace(
+        env::var("TEMPS_IMAGE_NAMESPACE").ok().as_deref(),
+        env::var("GITHUB_REPOSITORY_OWNER").ok().as_deref(),
+    );
+    // Fail here rather than at the first workspace INSERT: the database only
+    // accepts owners shaped like a GHCR namespace.
+    let namespace_is_valid = !namespace.is_empty()
+        && namespace
+            .bytes()
+            .all(|byte| matches!(byte, b'a'..=b'z' | b'0'..=b'9' | b'-'));
+    if !namespace_is_valid {
+        return Err(BuildError::InvalidNamespace { namespace });
+    }
     let manifest = env::var_os("TEMPS_RELEASE_IMAGE_MANIFEST")
         .map(|path| -> Result<_, BuildError> {
             println!("cargo:rerun-if-changed={}", Path::new(&path).display());
@@ -49,7 +69,7 @@ fn main() -> Result<(), BuildError> {
                     path: PathBuf::from(&path),
                     source,
                 })?;
-            parse_manifest(&contents).map_err(|source| BuildError::InvalidManifest {
+            parse_manifest(&contents, &namespace).map_err(|source| BuildError::InvalidManifest {
                 path: PathBuf::from(&path),
                 source,
             })
@@ -59,6 +79,12 @@ fn main() -> Result<(), BuildError> {
     let revision = manifest.as_ref().map(|value| value.revision.as_str());
     generated.push_str(&format!(
         "pub const REVISION: Option<&str> = {revision:?};\n"
+    ));
+    // Exposed so runtime checks accept managed images under the owner this
+    // build embedded, not only under upstream's.
+    generated.push_str("/// GHCR owner the embedded runtime images belong to.\n");
+    generated.push_str(&format!(
+        "pub const IMAGE_NAMESPACE: &str = {namespace:?};\n"
     ));
     for (key, _) in IMAGES {
         let value = manifest.as_ref().map(|value| value.images.get(key));

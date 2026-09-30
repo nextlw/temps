@@ -9,7 +9,7 @@ name: Release
 # GitHub scopes Actions cache *writes* to the ref that produced them, and
 # scopes *reads* to the current ref plus the default branch. Publishing runs
 # execute on a tag ref — either the `push: tags:` trigger below, or
-# `workflow_dispatch --ref <tag>` from `nightly-release.yml`. A cache written
+# a manual `workflow_dispatch --ref <tag>`. A cache written
 # on a tag is therefore readable by exactly one thing: another run on that
 # same tag, which normally never happens. Manual branch dry-runs follow the
 # same restore-only policy so this workflow cannot unexpectedly consume the
@@ -186,6 +186,9 @@ jobs:
         run: cargo build --release --bin temps
         env:
           TEMPS_RELEASE_IMAGE_MANIFEST: ${{ github.workspace }}/release-inputs/runtime-images.json
+          # Owner only (no ghcr.io/ prefix), same meaning as in
+          # release_image_manifest.py: build.rs validates the manifest against it.
+          TEMPS_IMAGE_NAMESPACE: ${{ github.repository_owner }}
           SKIP_WEB_BUILD: 1
           CARGO_INCREMENTAL: 0
           TEMPS_VERSION: ${{ github.ref_name }}
@@ -263,6 +266,9 @@ jobs:
         run: cargo build --release --bin temps
         env:
           TEMPS_RELEASE_IMAGE_MANIFEST: ${{ github.workspace }}/release-inputs/runtime-images.json
+          # Owner only (no ghcr.io/ prefix), same meaning as in
+          # release_image_manifest.py: build.rs validates the manifest against it.
+          TEMPS_IMAGE_NAMESPACE: ${{ github.repository_owner }}
           SKIP_WEB_BUILD: 1
           CARGO_INCREMENTAL: 0
           TEMPS_VERSION: ${{ github.ref_name }}
@@ -349,6 +355,9 @@ jobs:
         run: cargo build --release --bin temps --target x86_64-apple-darwin
         env:
           TEMPS_RELEASE_IMAGE_MANIFEST: ${{ github.workspace }}/release-inputs/runtime-images.json
+          # Owner only (no ghcr.io/ prefix), same meaning as in
+          # release_image_manifest.py: build.rs validates the manifest against it.
+          TEMPS_IMAGE_NAMESPACE: ${{ github.repository_owner }}
           SKIP_WEB_BUILD: 1
           CARGO_INCREMENTAL: 0
           TEMPS_VERSION: ${{ github.ref_name }}
@@ -423,6 +432,9 @@ jobs:
         run: cargo build --release --bin temps --target aarch64-apple-darwin
         env:
           TEMPS_RELEASE_IMAGE_MANIFEST: ${{ github.workspace }}/release-inputs/runtime-images.json
+          # Owner only (no ghcr.io/ prefix), same meaning as in
+          # release_image_manifest.py: build.rs validates the manifest against it.
+          TEMPS_IMAGE_NAMESPACE: ${{ github.repository_owner }}
           SKIP_WEB_BUILD: 1
           CARGO_INCREMENTAL: 0
           TEMPS_VERSION: ${{ github.ref_name }}
@@ -557,7 +569,7 @@ jobs:
         # Tag pushes: prerelease iff the tag contains a `-` (e.g. `v0.1.0-beta.6`).
         # Dry-runs are always treated as prereleases so a test invocation
         # cannot promote to the stable `:<version>` ref by accident. A
-        # non-dry-run dispatch at a tag (used by nightly-release.yml) follows
+        # non-dry-run dispatch at a tag follows
         # the same tag-based channel selection as a tag push.
         env:
           DRY_RUN: ${{ inputs.dry_run }}
