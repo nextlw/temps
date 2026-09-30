@@ -91,7 +91,13 @@
     "checkConfiguration": "Check configuration",
     "variableLoading": "Loading variable…",
     "variableUnavailable": "Variable unavailable",
-    "variableNotFound": "Variable not found"
+    "variableNotFound": "Variable not found",
+    "databases": "$t(terms:externalServices)",
+    "kvStore": "KV Store",
+    "blobStorage": "Blob Storage",
+    "visitors": "Visitors",
+    "sessionReplay": "Session replay",
+    "platformResources": "$t(terms:platformResources)"
   },
   "titles": {
     "createFunnel": "Create Funnel - {{name}}",

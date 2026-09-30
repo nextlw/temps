@@ -40,9 +40,10 @@ interface BlobServiceProps {
   project: ProjectResponse
 }
 
-export function BlobService({ project: _project }: BlobServiceProps) {
+export function BlobService({ project }: BlobServiceProps) {
   const { t } = useTranslation('storage')
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t: tn } = useTranslation('nav')
 
   const { data: status, isLoading } = useQuery({
     ...blobStatusOptions(),
@@ -51,10 +52,14 @@ export function BlobService({ project: _project }: BlobServiceProps) {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Databases', href: `../storage` },
-      { label: 'Blob Storage' },
+      { label: tn('projects'), href: '/projects' },
+      { label: project.name, href: `/projects/${project.slug}` },
+      // KV and Blob are instance-wide resources, enabled from the platform
+      // tab of the storage page.
+      { label: tn('crumbs.platformResources'), href: '/storage?tab=platform' },
+      { label: tn('crumbs.blobStorage') },
     ])
-  }, [setBreadcrumbs])
+  }, [setBreadcrumbs, tn, project.name, project.slug])
 
   const isEnabled = status?.enabled ?? false
 
