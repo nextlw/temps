@@ -82,6 +82,13 @@ FROM toolchain AS builder
 # Create app directory
 RUN mkdir -p /app
 
+# `.dockerignore` keeps `.git` out of the context, so the version the binary
+# reports comes from these (see crates/temps-cli/build.rs). A host building a
+# tagged checkout passes `--build-arg TEMPS_VERSION=$(git describe --tags)`
+# and `--build-arg TEMPS_GIT_COMMIT=$(git rev-parse --short HEAD)`.
+ARG TEMPS_VERSION=
+ARG TEMPS_GIT_COMMIT=
+
 # Copy source code
 WORKDIR /build
 COPY . .
