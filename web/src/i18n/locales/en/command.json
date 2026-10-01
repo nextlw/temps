@@ -1,6 +1,6 @@
 {
   "nav": {
-    "projects": "$t(terms:project.plural)",
+    "projects": "$t(terms:projectGroup.plural)",
     "createProject": "Create New $t(terms:project.singular)",
     "dropProjectFiles": "Drop $t(terms:project.singular) Files",
     "importProject": "Import $t(terms:project.singular)",
