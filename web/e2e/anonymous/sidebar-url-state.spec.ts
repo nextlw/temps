@@ -62,6 +62,8 @@ test('sidebar follows the URL through back links and browser history', async ({
   await page.goto('/projects/example-app/environment-variables')
   const projectNav = page.getByRole('list', { name: 'Service navigation' })
   await expect(projectNav).toBeVisible()
+  // The service is in no Project (`/project-groups` answers `[]`), so its nav
+  // leads back to the Projects list.
   const back = page.getByRole('link', { name: 'Back to projects', exact: true })
   await expect(back).toHaveAttribute('href', '/projects')
   const breadcrumbs = page.getByRole('navigation', {

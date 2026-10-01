@@ -23,6 +23,7 @@ import {
   BadgeCheck,
   BarChart3,
   Bot,
+  Box,
   Boxes,
   ChevronsUpDown,
   Check,
@@ -53,16 +54,31 @@ import {
   Variable,
 } from 'lucide-react'
 
-import { getProjectBySlugOptions } from '@/api/client/@tanstack/react-query.gen'
+import {
+  getProjectBySlugOptions,
+  getProjectsOptions,
+} from '@/api/client/@tanstack/react-query.gen'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGettingStarted } from '@/hooks/useGettingStarted'
+import { useProjectGroups } from '@/hooks/useProjectGroups'
 import { usePluginsContext } from '@/contexts/PluginsContext'
 import { isPlatformToolsRoute } from '@/lib/platform-navigation'
 import { resolvePluginIcon } from '@/lib/pluginIcons'
 import { resolveProjectPrimaryRoute } from '@/lib/project-navigation'
+import {
+  findProjectGroupBySlug,
+  groupOfService,
+  groupServices,
+  projectGroupHref,
+} from '@/lib/project-groups'
 import { WORKER_NODES_URL } from '@/lib/worker-nodes'
 import { cn } from '@/lib/utils'
-import { SIDEBAR_BACK_TARGET, resolveSidebarMode } from '@/lib/sidebar-mode'
+import {
+  SIDEBAR_BACK_TARGET,
+  projectNavBackTarget,
+  resolveProjectGroupSection,
+  resolveSidebarMode,
+} from '@/lib/sidebar-mode'
 import { useQuery } from '@tanstack/react-query'
 import type { ParseKeys } from 'i18next'
 import { type LucideIcon } from 'lucide-react'
@@ -410,6 +426,8 @@ export default function AppSidebar() {
           <AiNav />
         ) : mode.kind === 'project' ? (
           <ProjectNav slug={mode.slug} />
+        ) : mode.kind === 'projectGroup' ? (
+          <ProjectGroupNav slug={mode.slug} />
         ) : (
           <DefaultNav pluginItems={pluginItems} />
         )}
@@ -1029,13 +1047,20 @@ function ProjectNav({ slug }: { slug: string }) {
   const active = resolveProjectPrimaryRoute(
     location.pathname.slice(`/projects/${slug}/`.length)
   )
+  // The service's Project, if it is in one, is where its back link leads.
+  const { groups } = useProjectGroups()
+  const group = project ? groupOfService(groups, project.id) : undefined
   return (
     <>
       <SwapHeader
         title={project?.name ?? t('common:loading')}
-        backTo={SIDEBAR_BACK_TARGET.project}
-        backText={t('projects')}
-        backLabel={t('back.toProjects')}
+        backTo={projectNavBackTarget(group)}
+        backText={group?.name ?? t('projects')}
+        backLabel={
+          group
+            ? t('back.toProjectGroup', { name: group.name })
+            : t('back.toProjects')
+        }
       />
       <SidebarGroup className="py-2">
         <SidebarMenu aria-label={t('project.navigationLabel')}>
@@ -1065,6 +1090,126 @@ function ProjectNav({ slug }: { slug: string }) {
           ))}
         </SidebarMenu>
       </SidebarGroup>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Project group nav (UI: Project) — replaces the whole sidebar when on
+// /project-groups/:slug/*. Lists the group's services, each leading into its
+// own service nav; back links to the Projects list.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ProjectGroupNav({ slug }: { slug: string }) {
+  const { groups, isLoading } = useProjectGroups()
+  const group = findProjectGroupBySlug(groups, slug)
+  // Same entry as the header's service switcher.
+  const { data: servicesPage } = useQuery({
+    ...getProjectsOptions({ query: { page: 1, per_page: 100 } }),
+    enabled: !!group && group.service_count > 0,
+  })
+  const location = useLocation()
+  const { isMinimal, isMobile, setOpenMobile } = useSidebar()
+  const { t } = useTranslation(['nav', 'common'])
+  const compact = isMinimal && !isMobile
+  const active = resolveProjectGroupSection(location.pathname)
+  const href = projectGroupHref(slug)
+  const items = [
+    {
+      section: 'overview',
+      titleKey: 'projectGroup.overview',
+      url: href,
+      icon: Home,
+    },
+    {
+      section: 'settings',
+      titleKey: 'projectGroup.settings',
+      tooltipKey: 'projectGroup.settingsTooltip',
+      url: `${href}/settings`,
+      icon: Settings,
+    },
+  ] as const
+  const services = useMemo(() => {
+    if (!group) return []
+    const sorted = (servicesPage?.projects ?? [])
+      .slice()
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+      )
+    return groupServices([group], sorted).groups[0].services
+  }, [group, servicesPage?.projects])
+  return (
+    <>
+      <SwapHeader
+        title={group?.name ?? (isLoading ? t('common:loading') : slug)}
+        backTo={SIDEBAR_BACK_TARGET.projectGroup}
+        backText={t('projects')}
+        backLabel={t('back.toProjects')}
+      />
+      <SidebarGroup className="py-2">
+        <SidebarMenu aria-label={t('projectGroup.navigationLabel')}>
+          {items.map((item) => (
+            <SidebarMenuItem key={item.section}>
+              <SidebarMenuButton
+                asChild
+                tooltip={
+                  compact
+                    ? t('tooltipKey' in item ? item.tooltipKey : item.titleKey)
+                    : undefined
+                }
+                className={cn(
+                  compact ? 'justify-center' : 'justify-start',
+                  active === item.section &&
+                    'bg-sidebar-accent text-sidebar-accent-foreground'
+                )}
+              >
+                <Link
+                  to={item.url}
+                  aria-current={active === item.section ? 'page' : undefined}
+                  onClick={() => isMobile && setOpenMobile(false)}
+                >
+                  <item.icon />
+                  {!compact && <span>{t(item.titleKey)}</span>}
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarGroup>
+      {group && (
+        <SidebarGroup className={compact ? '' : 'py-0'}>
+          <SidebarGroupLabel className={compact ? 'hidden' : ''}>
+            {t('projectGroup.services')}
+          </SidebarGroupLabel>
+          {group.service_count === 0 && !compact ? (
+            <p className="px-2 text-sm text-muted-foreground">
+              {t('projectGroup.noServices')}
+            </p>
+          ) : (
+            <SidebarMenu aria-label={t('projectGroup.servicesLabel')}>
+              {services.map((service) => (
+                <SidebarMenuItem key={service.id}>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip={compact ? service.name : undefined}
+                    className={compact ? 'justify-center' : 'justify-start'}
+                  >
+                    <Link
+                      to={`/projects/${service.slug}`}
+                      onClick={() => isMobile && setOpenMobile(false)}
+                    >
+                      <Box />
+                      {!compact && (
+                        <span className="truncate">{service.name}</span>
+                      )}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          )}
+        </SidebarGroup>
+      )}
     </>
   )
 }
