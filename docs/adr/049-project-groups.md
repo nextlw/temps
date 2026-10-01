@@ -337,7 +337,10 @@ no group shows no badge.
 
 ## Consequences
 
-- **Upstream surface is five registration points**, all one-line additions in
+- **Upstream surface is five registration points** (plus three incidental
+  files: `Cargo.lock`, the migration integration test in
+  `crates/temps-migrations/tests/migration_tests.rs`, and the corrected doc
+  comment in `crates/temps-database/src/connection.rs`), all small additions in
   files upstream also edits:
   1. `Cargo.toml` — workspace `members` gets `crates/temps-project-groups`.
   2. `crates/temps-cli/Cargo.toml` — a `temps-project-groups` dependency.
