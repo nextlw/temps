@@ -24,8 +24,12 @@ import type {
   ProjectGroupResponse,
   UpdateProjectGroupRequest,
 } from '@/lib/project-groups-types'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback } from 'react'
+import {
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 
 const BEARER_SECURITY = [{ scheme: 'bearer', type: 'http' }] as const
 
@@ -90,112 +94,109 @@ export function useProjectGroupForPath(pathname: string) {
     : undefined
 }
 
-function useInvalidateProjectGroups() {
-  const queryClient = useQueryClient()
-  return useCallback(
-    () => queryClient.invalidateQueries({ queryKey: PROJECT_GROUPS_QUERY_KEY }),
-    [queryClient]
-  )
+export interface ServiceMembership {
+  groupId: number
+  serviceId: number
 }
 
-export function useCreateProjectGroup() {
-  const invalidate = useInvalidateProjectGroups()
-  return useMutation({
-    mutationFn: async (body: CreateProjectGroupRequest) =>
-      (
-        await client.post<ProjectGroupResponse, unknown, true>({
-          security: [...BEARER_SECURITY],
-          url: '/project-groups',
-          body,
-          headers: { 'Content-Type': 'application/json' },
-          throwOnError: true,
-        })
-      ).data,
-    onSuccess: invalidate,
-  })
-}
-
-export function useUpdateProjectGroup() {
-  const invalidate = useInvalidateProjectGroups()
-  return useMutation({
-    mutationFn: async ({
-      id,
-      body,
-    }: {
-      id: number
-      body: UpdateProjectGroupRequest
-    }) =>
-      (
-        await client.patch<ProjectGroupResponse, unknown, true>({
+/**
+ * Options of every project-group mutation for `useMutation` (or a mutation
+ * cache): the request, then invalidating the group list so every reader
+ * refreshes.
+ */
+export function projectGroupMutations(queryClient: QueryClient) {
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: PROJECT_GROUPS_QUERY_KEY })
+  return {
+    create: {
+      mutationFn: async (body: CreateProjectGroupRequest) =>
+        (
+          await client.post<ProjectGroupResponse, unknown, true>({
+            security: [...BEARER_SECURITY],
+            url: '/project-groups',
+            body,
+            headers: { 'Content-Type': 'application/json' },
+            throwOnError: true,
+          })
+        ).data,
+      onSuccess: invalidate,
+    },
+    update: {
+      mutationFn: async ({
+        id,
+        body,
+      }: {
+        id: number
+        body: UpdateProjectGroupRequest
+      }) =>
+        (
+          await client.patch<ProjectGroupResponse, unknown, true>({
+            security: [...BEARER_SECURITY],
+            url: '/project-groups/{id}',
+            path: { id },
+            body,
+            headers: { 'Content-Type': 'application/json' },
+            throwOnError: true,
+          })
+        ).data,
+      onSuccess: invalidate,
+    },
+    remove: {
+      mutationFn: async (id: number) => {
+        await client.delete<unknown, unknown, true>({
           security: [...BEARER_SECURITY],
           url: '/project-groups/{id}',
           path: { id },
-          body,
-          headers: { 'Content-Type': 'application/json' },
           throwOnError: true,
         })
-      ).data,
-    onSuccess: invalidate,
-  })
-}
-
-/** Deletes a group. Its services are kept and become ungrouped. */
-export function useDeleteProjectGroup() {
-  const invalidate = useInvalidateProjectGroups()
-  return useMutation({
-    mutationFn: async (id: number) => {
-      await client.delete<unknown, unknown, true>({
-        security: [...BEARER_SECURITY],
-        url: '/project-groups/{id}',
-        path: { id },
-        throwOnError: true,
-      })
+      },
+      onSuccess: invalidate,
     },
-    onSuccess: invalidate,
-  })
-}
-
-/** Puts a service in a group, moving it out of any other group. */
-export function useAssignServiceToProjectGroup() {
-  const invalidate = useInvalidateProjectGroups()
-  return useMutation({
-    mutationFn: async ({
-      groupId,
-      serviceId,
-    }: {
-      groupId: number
-      serviceId: number
-    }) =>
-      (
-        await client.put<ProjectGroupResponse, unknown, true>({
+    assign: {
+      mutationFn: async ({ groupId, serviceId }: ServiceMembership) =>
+        (
+          await client.put<ProjectGroupResponse, unknown, true>({
+            security: [...BEARER_SECURITY],
+            url: '/project-groups/{id}/projects/{project_id}',
+            path: { id: groupId, project_id: serviceId },
+            throwOnError: true,
+          })
+        ).data,
+      onSuccess: invalidate,
+    },
+    unassign: {
+      mutationFn: async ({ groupId, serviceId }: ServiceMembership) => {
+        await client.delete<unknown, unknown, true>({
           security: [...BEARER_SECURITY],
           url: '/project-groups/{id}/projects/{project_id}',
           path: { id: groupId, project_id: serviceId },
           throwOnError: true,
         })
-      ).data,
-    onSuccess: invalidate,
-  })
+      },
+      onSuccess: invalidate,
+    },
+  }
+}
+
+export function useCreateProjectGroup() {
+  return useMutation(projectGroupMutations(useQueryClient()).create)
+}
+
+export function useUpdateProjectGroup() {
+  return useMutation(projectGroupMutations(useQueryClient()).update)
+}
+
+/** Deletes a group. Its services are kept and become ungrouped. */
+export function useDeleteProjectGroup() {
+  return useMutation(projectGroupMutations(useQueryClient()).remove)
+}
+
+/** Puts a service in a group, moving it out of any other group. */
+export function useAssignServiceToProjectGroup() {
+  return useMutation(projectGroupMutations(useQueryClient()).assign)
 }
 
 /** Takes a service out of its group; the service itself is kept. */
 export function useRemoveServiceFromProjectGroup() {
-  const invalidate = useInvalidateProjectGroups()
-  return useMutation({
-    mutationFn: async ({
-      groupId,
-      serviceId,
-    }: {
-      groupId: number
-      serviceId: number
-    }) => {
-      await client.delete<unknown, unknown, true>({
-        security: [...BEARER_SECURITY],
-        url: '/project-groups/{id}/projects/{project_id}',
-        path: { id: groupId, project_id: serviceId },
-        throwOnError: true,
-      })
-    },
-    onSuccess: invalidate,
-  })
+  return useMutation(projectGroupMutations(useQueryClient()).unassign)
 }
