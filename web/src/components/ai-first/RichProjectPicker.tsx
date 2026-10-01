@@ -21,6 +21,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
+import { ProjectGroupBadge } from '@/components/project-groups/ProjectGroupBadge'
 import {
   projectFaviconUrl,
   type ProjectPickerItem,
@@ -109,7 +110,7 @@ export function RichProjectPicker({
                     onValueChange(project.id)
                     setOpen(false)
                   }}
-                  value={`${project.name} ${project.slug} ${project.status}`}
+                  value={`${project.name} ${project.slug} ${project.status} ${project.projectGroupName ?? ''}`}
                 >
                   <ProjectIdentity project={project} />
                   <Check
@@ -154,6 +155,9 @@ export function ProjectIdentity({ project }: { project: ProjectPickerItem }) {
               STATUS_DOT[project.tone]
             )}
           />
+          {project.projectGroupName && (
+            <ProjectGroupBadge name={project.projectGroupName} />
+          )}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
           <span className="truncate font-mono">{project.slug}</span>

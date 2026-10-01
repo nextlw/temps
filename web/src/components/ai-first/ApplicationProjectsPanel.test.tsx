@@ -10,20 +10,47 @@ import {
   listServicesOptions,
 } from '@/api/client/@tanstack/react-query.gen'
 import type { ApplicationResponse, ExternalServiceInfo } from '@/api/client'
+import { AuthContext } from '@/contexts/AuthContext-shared'
+import { PROJECT_GROUPS_QUERY_KEY } from '@/hooks/useProjectGroups'
+import type { ReactNode } from 'react'
 import { ApplicationProjectsPanel } from './ApplicationProjectsPanel'
+
+const owner = {
+  user: { id: 1 } as never,
+  isLoading: false,
+  error: null,
+  logout: async () => {},
+  refetch: () => {},
+}
+
+// The panel reads the signed-in user's Projects (project groups) to badge
+// the linked services.
+function Providers({
+  client,
+  children,
+}: {
+  client: QueryClient
+  children: ReactNode
+}) {
+  return (
+    <QueryClientProvider client={client}>
+      <AuthContext.Provider value={owner}>
+        <MemoryRouter>{children}</MemoryRouter>
+      </AuthContext.Provider>
+    </QueryClientProvider>
+  )
+}
 
 describe('ApplicationProjectsPanel', () => {
   test('renders primary, deployment, and automatic-deploy state', () => {
     const queryClient = new QueryClient()
     const html = renderToStaticMarkup(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <ApplicationProjectsPanel
-            application={application}
-            onApplicationChange={() => {}}
-          />
-        </MemoryRouter>
-      </QueryClientProvider>
+      <Providers client={queryClient}>
+        <ApplicationProjectsPanel
+          application={application}
+          onApplicationChange={() => {}}
+        />
+      </Providers>
     )
 
     expect(html).toContain('Primary')
@@ -57,14 +84,12 @@ describe('ApplicationProjectsPanel', () => {
     )
 
     const html = renderToStaticMarkup(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <ApplicationProjectsPanel
-            application={application}
-            onApplicationChange={() => {}}
-          />
-        </MemoryRouter>
-      </QueryClientProvider>
+      <Providers client={queryClient}>
+        <ApplicationProjectsPanel
+          application={application}
+          onApplicationChange={() => {}}
+        />
+      </Providers>
     )
 
     expect(html).toContain('Databases')
@@ -74,17 +99,53 @@ describe('ApplicationProjectsPanel', () => {
     expect(html).toContain('sandbox receives no reusable platform token')
   })
 
+  test('badges each linked service with its Project, and only then', () => {
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(
+      [...PROJECT_GROUPS_QUERY_KEY, 1],
+      [
+        {
+          id: 3,
+          slug: 'crm',
+          name: 'CRM',
+          description: null,
+          service_ids: [7],
+          service_count: 1,
+          created_at: 1,
+          updated_at: 1,
+        },
+      ]
+    )
+    const html = renderToStaticMarkup(
+      <Providers client={queryClient}>
+        <ApplicationProjectsPanel
+          application={application}
+          onApplicationChange={() => {}}
+        />
+      </Providers>
+    )
+    expect(html).toContain('Project: CRM')
+
+    const ungrouped = renderToStaticMarkup(
+      <Providers client={new QueryClient()}>
+        <ApplicationProjectsPanel
+          application={application}
+          onApplicationChange={() => {}}
+        />
+      </Providers>
+    )
+    expect(ungrouped).not.toContain('Project:')
+  })
+
   test('requires a project before offering database links', () => {
     const queryClient = new QueryClient()
     const html = renderToStaticMarkup(
-      <QueryClientProvider client={queryClient}>
-        <MemoryRouter>
-          <ApplicationProjectsPanel
-            application={{ ...application, projects: [] }}
-            onApplicationChange={() => {}}
-          />
-        </MemoryRouter>
-      </QueryClientProvider>
+      <Providers client={queryClient}>
+        <ApplicationProjectsPanel
+          application={{ ...application, projects: [] }}
+          onApplicationChange={() => {}}
+        />
+      </Providers>
     )
 
     expect(html).toContain('Add a service first')

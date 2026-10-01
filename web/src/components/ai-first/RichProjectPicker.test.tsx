@@ -3,6 +3,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToStaticMarkup as renderTranslated } from '@/i18n/testing'
 import { ProjectIdentity } from './RichProjectPicker'
 import { projectFaviconUrl } from './rich-project-picker'
 
@@ -25,5 +26,22 @@ describe('ProjectIdentity', () => {
     expect(html).toContain('checkout-api')
     expect(html).toContain('ready')
     expect(html).toContain('bg-emerald-500')
+  })
+
+  test('shows the Project of a service that is in one', () => {
+    const html = renderTranslated(
+      <ProjectIdentity
+        project={{
+          id: 42,
+          name: 'Checkout API',
+          slug: 'checkout-api',
+          status: 'ready',
+          tone: 'healthy',
+          projectGroupName: 'Shop',
+        }}
+      />
+    )
+    expect(html).toContain('Shop')
+    expect(html).toContain('Project: Shop')
   })
 })
