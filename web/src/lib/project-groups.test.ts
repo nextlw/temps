@@ -34,6 +34,11 @@ describe('projectGroupHref', () => {
   it('points at the Project pages, not the service ones', () => {
     expect(projectGroupHref('crm')).toBe('/project-groups/crm')
   })
+
+  it('encodes the slug as one path segment', () => {
+    expect(projectGroupHref('café')).toBe('/project-groups/caf%C3%A9')
+    expect(projectGroupHref('a/b?c')).toBe('/project-groups/a%2Fb%3Fc')
+  })
 })
 
 describe('normalizeProjectGroups', () => {

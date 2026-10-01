@@ -23,6 +23,7 @@ import {
 } from '@/lib/breadcrumb-trail'
 import { featureKeyForPath } from '@/lib/feature-maturity'
 import { groupServices } from '@/lib/project-groups'
+import { resolveSidebarMode } from '@/lib/sidebar-mode'
 import { useConsoleExtensions } from '@temps-sdk/console-kit'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
@@ -219,6 +220,8 @@ export function Header() {
   const featureKey = featureKeyForPath(location.pathname)
   // The page owns its trail; the header only adds the service's Project.
   const projectGroup = useProjectGroupForPath(location.pathname)
+  const onGroupPage =
+    resolveSidebarMode(location.pathname).kind === 'projectGroup'
   const trail = withProjectGroupCrumb(breadcrumbs, projectSlug, projectGroup)
 
   return (
@@ -231,20 +234,26 @@ export function Header() {
             <BreadcrumbList className="flex-nowrap min-w-0">
               {trail.map((item, index) => {
                 const isLast = index === trail.length - 1
+                // The Project crumb is matched first: a Project and a service
+                // can share a name or slug.
+                const isGroupCrumb =
+                  !!projectGroup &&
+                  isProjectGroupCrumb(item, projectGroup, onGroupPage)
                 const isProjectCrumb =
-                  projectSlug !== null && isServiceCrumb(item, projectSlug)
+                  !isGroupCrumb &&
+                  projectSlug !== null &&
+                  isServiceCrumb(item, projectSlug)
                 return (
                   <React.Fragment key={index}>
                     <BreadcrumbItem className="min-w-0">
-                      {isProjectCrumb ? (
-                        <ProjectSwitcher
-                          currentSlug={projectSlug}
-                          label={item.label}
-                        />
-                      ) : projectGroup &&
-                        isProjectGroupCrumb(item, projectGroup) ? (
+                      {isGroupCrumb && projectGroup ? (
                         <ProjectGroupSwitcher
                           currentSlug={projectGroup.slug}
+                          label={item.label}
+                        />
+                      ) : isProjectCrumb && projectSlug !== null ? (
+                        <ProjectSwitcher
+                          currentSlug={projectSlug}
                           label={item.label}
                         />
                       ) : !isLast ? (

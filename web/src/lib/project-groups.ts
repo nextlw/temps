@@ -15,7 +15,7 @@ import type { ProjectGroupResponse } from './project-groups-types'
 export const PROJECT_GROUPS_PATH = '/project-groups'
 
 export function projectGroupHref(slug: string): string {
-  return `${PROJECT_GROUPS_PATH}/${slug}`
+  return `${PROJECT_GROUPS_PATH}/${encodeURIComponent(slug)}`
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>

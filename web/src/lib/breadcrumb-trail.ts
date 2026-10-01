@@ -8,33 +8,40 @@
 // touching what the owner set.
 
 import type { BreadcrumbItem } from '@/contexts/BreadcrumbContext-shared'
-import { projectGroupHref } from '@/lib/project-groups'
+import { PROJECT_GROUPS_PATH, projectGroupHref } from '@/lib/project-groups'
 
 export interface CrumbGroup {
   slug: string
   name: string
 }
 
-/** The crumb naming the service `serviceSlug` (by link, or by slug label). */
+/**
+ * The crumb naming the service `serviceSlug`: a link to it, or a crumb
+ * labelled with its slug. A link to a Project is never the service crumb,
+ * even when the Project's name equals the service's slug.
+ */
 export function isServiceCrumb(
   item: BreadcrumbItem,
   serviceSlug: string
 ): boolean {
+  if (item.href?.startsWith(`${PROJECT_GROUPS_PATH}/`)) return false
   return item.label === serviceSlug || item.href === `/projects/${serviceSlug}`
 }
 
 /**
- * The crumb naming `group`: a link to it, or the unlinked current page that
- * carries its name (the group's own pages).
+ * The crumb naming `group`: a link to it, anywhere. On the group's own pages
+ * (`onGroupPage`, from `resolveSidebarMode(pathname).kind === 'projectGroup'`)
+ * also the unlinked crumb carrying its name, which is how those pages name
+ * the current page; elsewhere a crumb that merely shares the name (a service
+ * sub-page called "Settings" in a Project called "Settings") is not it.
  */
 export function isProjectGroupCrumb(
   item: BreadcrumbItem,
-  group: CrumbGroup
+  group: CrumbGroup,
+  onGroupPage: boolean
 ): boolean {
-  return (
-    item.href === projectGroupHref(group.slug) ||
-    (item.href === undefined && item.label === group.name)
-  )
+  if (item.href === projectGroupHref(group.slug)) return true
+  return onGroupPage && item.href === undefined && item.label === group.name
 }
 
 /**
