@@ -224,6 +224,11 @@ const Import = lazy(() => import('./pages/Import'))
 const ProjectDetail = lazy(() =>
   import('./pages/ProjectDetail').then((m) => ({ default: m.ProjectDetail }))
 )
+const ProjectGroupDetail = lazy(() =>
+  import('./pages/ProjectGroupDetail').then((m) => ({
+    default: m.ProjectGroupDetail,
+  }))
+)
 const Settings = lazy(() =>
   import('./pages/Settings').then((m) => ({ default: m.Settings }))
 )
@@ -995,6 +1000,15 @@ const FullAppRoutes = () => {
                     <Route
                       path="/projects/:slug/*"
                       element={<ProjectDetail />}
+                    />
+                    {/* Projects (code: project groups, ADR-049) */}
+                    <Route
+                      path="/project-groups"
+                      element={<Navigate to="/projects" replace />}
+                    />
+                    <Route
+                      path="/project-groups/:groupSlug/*"
+                      element={<ProjectGroupDetail />}
                     />
                     {/* Utility */}
                     <Route path="/ip/:ip" element={<IpGeolocationDetail />} />

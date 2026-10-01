@@ -5,5 +5,112 @@
     "empty": "No $t(terms:projectGroup.pluralLower) found.",
     "all": "All $t(terms:projectGroup.pluralLower)"
   },
-  "ungrouped": "Ungrouped $t(terms:project.pluralLower)"
+  "ungrouped": "Ungrouped $t(terms:project.pluralLower)",
+  "detail": {
+    "loading": "Loading $t(terms:projectGroup.singularLower)…",
+    "settingsCrumb": "Settings",
+    "servicesHeading": "$t(terms:project.plural)",
+    "servicesCount_one": "{{count}} $t(terms:project.singularLower)",
+    "servicesCount_other": "{{count}} $t(terms:project.pluralLower)",
+    "servicesTable": "$t(terms:project.plural) in {{name}}",
+    "columnService": "$t(terms:project.singular)",
+    "columnEnvironments": "Environments",
+    "columnLastDeployment": "Last deployment",
+    "columnActions": "Actions",
+    "noServicesTitle": "No $t(terms:project.pluralLower) in this $t(terms:projectGroup.singularLower) yet",
+    "noServicesDescription": "Add the $t(terms:project.pluralLower) that ship together, such as a backend and its frontend.",
+    "servicesLoadFailed": "The $t(terms:project.pluralLower) of this $t(terms:projectGroup.singularLower) could not be loaded.",
+    "retry": "Retry",
+    "addService": "Add $t(terms:project.singularLower)",
+    "removeService": "Remove {{name}} from $t(terms:projectGroup.singularLower)"
+  },
+  "environments": {
+    "none": "No environments",
+    "live": "Live",
+    "sleeping": "Sleeping",
+    "notDeployed": "Not deployed",
+    "unavailable": "Unavailable",
+    "previews_one": "+{{count}} preview",
+    "previews_other": "+{{count}} previews"
+  },
+  "lastDeployment": {
+    "none": "Never deployed",
+    "unavailable": "Unavailable",
+    "completed": "Deployed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+    "inProgress": "In progress",
+    "other": "{{status}}"
+  },
+  "add": {
+    "title": "Add $t(terms:project.singularLower) to {{name}}",
+    "description": "A $t(terms:project.singularLower) belongs to one $t(terms:projectGroup.singularLower) at a time.",
+    "find": "Find $t(terms:project.singularLower)…",
+    "empty": "No $t(terms:project.pluralLower) found.",
+    "noneAvailable": "Every $t(terms:project.singularLower) you can see is already in this $t(terms:projectGroup.singularLower).",
+    "listLabel": "$t(terms:project.plural) you can add",
+    "inGroup": "In {{name}}",
+    "ungrouped": "Ungrouped",
+    "movesFrom": "{{service}} leaves {{from}} and joins {{to}}.",
+    "joins": "{{service}} joins {{to}}.",
+    "pickFirst": "Choose a $t(terms:project.singularLower) to add.",
+    "submit": "Add $t(terms:project.singularLower)",
+    "submitMove": "Move $t(terms:project.singularLower)",
+    "submitting": "Adding…",
+    "cancel": "Cancel",
+    "added": "{{service}} added to {{to}}",
+    "loadFailed": "$t(terms:project.plural) could not be loaded."
+  },
+  "remove": {
+    "title": "Remove {{service}} from {{name}}?",
+    "description": "The $t(terms:project.singularLower) keeps its deployments, environments and settings, and becomes ungrouped.",
+    "confirm": "Remove from $t(terms:projectGroup.singularLower)",
+    "removing": "Removing…",
+    "cancel": "Cancel",
+    "removed": "{{service}} removed from {{name}}"
+  },
+  "settings": {
+    "generalTitle": "General",
+    "generalDescription": "The name shown in the sidebar, the breadcrumb and the $t(terms:projectGroup.pluralLower) list.",
+    "nameLabel": "Name",
+    "nameRequired": "Enter a name.",
+    "nameTooLong": "Use at most {{max}} characters.",
+    "descriptionLabel": "Description",
+    "descriptionHint": "Optional. Leave it empty to remove it.",
+    "slugLabel": "Slug",
+    "slugHint": "Used in the URL. It cannot be changed.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "$t(terms:projectGroup.singular) saved",
+    "deleteTitle": "Delete $t(terms:projectGroup.singularLower)",
+    "deleteDescription": "$t(terms:project.plural) are kept and become ungrouped.",
+    "deleteButton": "Delete $t(terms:projectGroup.singularLower)",
+    "deleteConfirmTitle": "Delete {{name}}?",
+    "deleteConfirmDescription_one": "$t(terms:project.plural) are kept and become ungrouped: its {{count}} $t(terms:project.singularLower) stays as it is, outside any $t(terms:projectGroup.singularLower).",
+    "deleteConfirmDescription_other": "$t(terms:project.plural) are kept and become ungrouped: its {{count}} $t(terms:project.pluralLower) stay as they are, outside any $t(terms:projectGroup.singularLower).",
+    "deleting": "Deleting…",
+    "deleted": "{{name}} deleted",
+    "cancel": "Cancel"
+  },
+  "notFound": {
+    "crumb": "Not found",
+    "title": "$t(terms:projectGroup.singular) not found",
+    "description": "No $t(terms:projectGroup.singularLower) “{{slug}}” exists, or none of its $t(terms:project.pluralLower) are visible to you.",
+    "pageTitle": "Page not found",
+    "pageDescription": "This $t(terms:projectGroup.singularLower) has no page at this address.",
+    "back": "Back to $t(terms:projectGroup.pluralLower)",
+    "loadFailedTitle": "$t(terms:projectGroup.plural) could not be loaded",
+    "loadFailedDescription": "Check your connection and try again.",
+    "retry": "Retry"
+  },
+  "errors": {
+    "invalid": "The request was rejected. Check the name and try again.",
+    "forbidden": "You do not have permission for this, or the $t(terms:projectGroup.singularLower) includes $t(terms:project.pluralLower) you cannot access.",
+    "notFound": "This $t(terms:projectGroup.singularLower) or $t(terms:project.singularLower) no longer exists. The list has been refreshed.",
+    "conflict": "Another $t(terms:projectGroup.singularLower) already uses this name's slug. Choose a different name.",
+    "unknown": "The request failed. Try again."
+  },
+  "badge": {
+    "label": "$t(terms:projectGroup.singular): {{name}}"
+  }
 }

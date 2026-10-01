@@ -18,6 +18,7 @@ import {
   groupOfService,
   normalizeProjectGroups,
 } from '@/lib/project-groups'
+import { ProjectGroupRequestError } from '@/lib/project-group-errors'
 import { resolveSidebarMode } from '@/lib/sidebar-mode'
 import type {
   CreateProjectGroupRequest,
@@ -100,9 +101,34 @@ export interface ServiceMembership {
 }
 
 /**
+ * Unwraps a mutation response. A failure throws `ProjectGroupRequestError`
+ * with the HTTP status, because the problem body has none, so the caller can
+ * say what went wrong in its own (translated) words.
+ */
+function unwrap<T>(result: {
+  data?: T
+  error?: unknown
+  response?: Response
+}): T {
+  if (result.error !== undefined || !result.response?.ok) {
+    throw new ProjectGroupRequestError(
+      result.response?.status ?? 0,
+      result.error
+    )
+  }
+  return result.data as T
+}
+
+// Every caller shows its own message for a failed mutation (see
+// `projectGroupErrorReason`); the app-wide toast would repeat it with the
+// server's English detail.
+const callerHandlesErrors = () => undefined
+
+/**
  * Options of every project-group mutation for `useMutation` (or a mutation
  * cache): the request, then invalidating the group list so every reader
- * refreshes.
+ * refreshes. A failure throws `ProjectGroupRequestError` and skips the
+ * app-wide error toast.
  */
 export function projectGroupMutations(queryClient: QueryClient) {
   const invalidate = () =>
@@ -110,16 +136,16 @@ export function projectGroupMutations(queryClient: QueryClient) {
   return {
     create: {
       mutationFn: async (body: CreateProjectGroupRequest) =>
-        (
-          await client.post<ProjectGroupResponse, unknown, true>({
+        unwrap(
+          await client.post<ProjectGroupResponse, unknown, false>({
             security: [...BEARER_SECURITY],
             url: '/project-groups',
             body,
             headers: { 'Content-Type': 'application/json' },
-            throwOnError: true,
           })
-        ).data,
+        ),
       onSuccess: invalidate,
+      onError: callerHandlesErrors,
     },
     update: {
       mutationFn: async ({
@@ -129,51 +155,55 @@ export function projectGroupMutations(queryClient: QueryClient) {
         id: number
         body: UpdateProjectGroupRequest
       }) =>
-        (
-          await client.patch<ProjectGroupResponse, unknown, true>({
+        unwrap(
+          await client.patch<ProjectGroupResponse, unknown, false>({
             security: [...BEARER_SECURITY],
             url: '/project-groups/{id}',
             path: { id },
             body,
             headers: { 'Content-Type': 'application/json' },
-            throwOnError: true,
           })
-        ).data,
+        ),
       onSuccess: invalidate,
+      onError: callerHandlesErrors,
     },
     remove: {
       mutationFn: async (id: number) => {
-        await client.delete<unknown, unknown, true>({
-          security: [...BEARER_SECURITY],
-          url: '/project-groups/{id}',
-          path: { id },
-          throwOnError: true,
-        })
+        unwrap(
+          await client.delete<unknown, unknown, false>({
+            security: [...BEARER_SECURITY],
+            url: '/project-groups/{id}',
+            path: { id },
+          })
+        )
       },
       onSuccess: invalidate,
+      onError: callerHandlesErrors,
     },
     assign: {
       mutationFn: async ({ groupId, serviceId }: ServiceMembership) =>
-        (
-          await client.put<ProjectGroupResponse, unknown, true>({
+        unwrap(
+          await client.put<ProjectGroupResponse, unknown, false>({
             security: [...BEARER_SECURITY],
             url: '/project-groups/{id}/projects/{project_id}',
             path: { id: groupId, project_id: serviceId },
-            throwOnError: true,
           })
-        ).data,
+        ),
       onSuccess: invalidate,
+      onError: callerHandlesErrors,
     },
     unassign: {
       mutationFn: async ({ groupId, serviceId }: ServiceMembership) => {
-        await client.delete<unknown, unknown, true>({
-          security: [...BEARER_SECURITY],
-          url: '/project-groups/{id}/projects/{project_id}',
-          path: { id: groupId, project_id: serviceId },
-          throwOnError: true,
-        })
+        unwrap(
+          await client.delete<unknown, unknown, false>({
+            security: [...BEARER_SECURITY],
+            url: '/project-groups/{id}/projects/{project_id}',
+            path: { id: groupId, project_id: serviceId },
+          })
+        )
       },
       onSuccess: invalidate,
+      onError: callerHandlesErrors,
     },
   }
 }
