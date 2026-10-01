@@ -13,6 +13,7 @@ repo screenshots and media live in [`assets/`](../assets/).
 | `redis-walg/` | `gotempsh/redis-walg` | Redis with WAL-G-based backups |
 | `mongodb-walg/` | `gotempsh/mongodb-walg` | MongoDB with WAL-G-based backups |
 | `mariadb-walg/` | `ghcr.io/gotempsh/mariadb-walg` | MariaDB physical streaming backups through WAL-G |
+| `minio/` | `ghcr.io/<owner>/minio`, `ghcr.io/<owner>/mc` | MinIO server and mc client built from source (see [`minio/README.md`](minio/README.md)) |
 
 The default image tags used by the platform are set in
 `crates/temps-providers/src/externalsvc/`.
