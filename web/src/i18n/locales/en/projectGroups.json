@@ -59,7 +59,8 @@
     "submitting": "Adding…",
     "cancel": "Cancel",
     "added": "{{service}} added to {{to}}",
-    "loadFailed": "$t(terms:project.plural) could not be loaded."
+    "loadFailed": "$t(terms:project.plural) could not be loaded.",
+    "loading": "Loading $t(terms:project.pluralLower)…"
   },
   "remove": {
     "title": "Remove {{service}} from {{name}}?",

@@ -36,6 +36,8 @@ interface Props {
   group: ProjectGroupResponse
   groups: readonly ProjectGroupResponse[]
   catalog: readonly ProjectResponse[]
+  /** The first load of the catalogue: nothing is known about it yet. */
+  catalogLoading: boolean
   catalogError: boolean
 }
 
@@ -50,6 +52,7 @@ export function AddServiceToProjectGroupDialog({
   group,
   groups,
   catalog,
+  catalogLoading,
   catalogError,
 }: Props) {
   const { t } = useTranslation('projectGroups')
@@ -92,7 +95,11 @@ export function AddServiceToProjectGroupDialog({
           <DialogDescription>{t('add.description')}</DialogDescription>
         </DialogHeader>
 
-        {catalogError ? (
+        {catalogLoading ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            {t('add.loading')}
+          </p>
+        ) : catalogError ? (
           <Callout tone="error">{t('add.loadFailed')}</Callout>
         ) : candidates.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -163,7 +170,7 @@ export function AddServiceToProjectGroupDialog({
                     })}
               </span>
             </p>
-          ) : candidates.length > 0 ? (
+          ) : candidates.length > 0 && !catalogLoading ? (
             <p className="text-sm text-muted-foreground">
               {t('add.pickFirst')}
             </p>

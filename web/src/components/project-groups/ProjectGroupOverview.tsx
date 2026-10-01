@@ -181,6 +181,7 @@ export function ProjectGroupOverview({
         group={group}
         groups={groups}
         catalog={catalog}
+        catalogLoading={catalogLoading && catalog.length === 0}
         catalogError={catalogError}
       />
 
