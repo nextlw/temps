@@ -47,6 +47,7 @@ interface KvServiceProps {
 export function KvService({ project }: KvServiceProps) {
   const { t } = useTranslation('storage')
   const { setBreadcrumbs } = useBreadcrumbs()
+  const { t: tn } = useTranslation('nav')
 
   const { data: status, isLoading } = useQuery({
     ...kvStatusOptions(),
@@ -55,10 +56,14 @@ export function KvService({ project }: KvServiceProps) {
 
   useEffect(() => {
     setBreadcrumbs([
-      { label: 'Databases', href: `../storage` },
-      { label: 'KV Store' },
+      { label: tn('projects'), href: '/projects' },
+      { label: project.name, href: `/projects/${project.slug}` },
+      // KV and Blob are instance-wide resources, enabled from the platform
+      // tab of the storage page.
+      { label: tn('crumbs.platformResources'), href: '/storage?tab=platform' },
+      { label: tn('crumbs.kvStore') },
     ])
-  }, [setBreadcrumbs])
+  }, [setBreadcrumbs, tn, project.name, project.slug])
 
   const isEnabled = status?.enabled ?? false
 

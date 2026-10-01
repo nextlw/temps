@@ -311,9 +311,14 @@ export function ProjectStorage({ project }: { project: ProjectResponse }) {
     useState<ExternalServiceInfo | null>(null)
   const providers = useQuery({ ...getProvidersMetadataOptions(), retry: false })
 
+  const { t: tn } = useTranslation('nav')
   useEffect(() => {
-    setBreadcrumbs([{ label: 'Databases' }])
-  }, [setBreadcrumbs])
+    setBreadcrumbs([
+      { label: tn('projects'), href: '/projects' },
+      { label: project.name, href: `/projects/${project.slug}` },
+      { label: tn('crumbs.databases') },
+    ])
+  }, [setBreadcrumbs, tn, project.name, project.slug])
 
   useKeyboardShortcut({
     key: 'n',
