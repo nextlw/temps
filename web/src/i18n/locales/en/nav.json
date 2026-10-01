@@ -64,7 +64,9 @@
     "settingsTooltip": "$t(terms:projectGroup.singular) settings",
     "services": "$t(terms:project.plural)",
     "servicesLabel": "$t(terms:project.plural) in this $t(terms:projectGroup.singularLower)",
-    "noServices": "No $t(terms:project.pluralLower) yet"
+    "noServices": "No $t(terms:project.pluralLower) yet",
+    "moreServices_one": "{{count}} more $t(terms:project.singularLower) not shown",
+    "moreServices_other": "{{count}} more $t(terms:project.pluralLower) not shown"
   },
   "back": {
     "toProjects": "Back to $t(terms:projectGroup.pluralLower)",

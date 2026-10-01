@@ -3,9 +3,9 @@
 
 import { ProjectAvatar } from '@/components/project/ProjectAvatar'
 import { useProjectGroups } from '@/hooks/useProjectGroups'
-import { projectGroupHref } from '@/lib/project-groups'
+import { projectGroupHref, sortProjectGroups } from '@/lib/project-groups'
 import { Check, ChevronsUpDown, Folder } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import {
@@ -34,15 +34,17 @@ export function ProjectGroupSwitcher({
   const navigate = useNavigate()
   const { t } = useTranslation('projectGroups')
   const [open, setOpen] = useState(false)
-  // Already cached by the sidebar and the breadcrumb; groups come by name.
-  const { groups } = useProjectGroups()
+  // Already cached by the sidebar and the breadcrumb.
+  const { groups: unsorted } = useProjectGroups()
+  const groups = useMemo(() => sortProjectGroups(unsorted), [unsorted])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={t('switcher.switch')}
+          // Starts with the visible name (WCAG 2.5.3, label in name).
+          aria-label={t('switcher.switchLabel', { name: label })}
           className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm font-normal text-foreground transition-colors hover:bg-accent"
         >
           <span className="max-w-[120px] truncate sm:max-w-[200px] lg:max-w-[280px]">

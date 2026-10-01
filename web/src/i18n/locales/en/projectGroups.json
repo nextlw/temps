@@ -1,6 +1,6 @@
 {
   "switcher": {
-    "switch": "Switch $t(terms:projectGroup.singularLower)",
+    "switchLabel": "{{name}} — Switch $t(terms:projectGroup.singularLower)",
     "find": "Find $t(terms:projectGroup.singular)…",
     "empty": "No $t(terms:projectGroup.pluralLower) found.",
     "all": "All $t(terms:projectGroup.pluralLower)"

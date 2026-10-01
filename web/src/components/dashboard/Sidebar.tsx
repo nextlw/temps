@@ -1181,10 +1181,15 @@ function ProjectGroupNav({ slug }: { slug: string }) {
           <SidebarGroupLabel className={compact ? 'hidden' : ''}>
             {t('projectGroup.services')}
           </SidebarGroupLabel>
-          {group.service_count === 0 && !compact ? (
-            <p className="px-2 text-sm text-muted-foreground">
-              {t('projectGroup.noServices')}
-            </p>
+          {services.length === 0 ? (
+            // Nothing listed: "no services" only for a Project without
+            // members; members off the loaded page are counted below.
+            !compact &&
+            group.service_count === 0 && (
+              <p className="px-2 text-sm text-muted-foreground">
+                {t('projectGroup.noServices')}
+              </p>
+            )
           ) : (
             <SidebarMenu aria-label={t('projectGroup.servicesLabel')}>
               {services.map((service) => (
@@ -1208,6 +1213,17 @@ function ProjectGroupNav({ slug }: { slug: string }) {
               ))}
             </SidebarMenu>
           )}
+          {/* Members beyond the loaded page of services are counted, not
+              listed; the Project's overview lists them all. */}
+          {!compact &&
+            servicesPage !== undefined &&
+            group.service_count > services.length && (
+              <p className="px-2 pt-1 text-xs text-muted-foreground">
+                {t('projectGroup.moreServices', {
+                  count: group.service_count - services.length,
+                })}
+              </p>
+            )}
         </SidebarGroup>
       )}
     </>

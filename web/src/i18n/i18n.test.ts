@@ -58,7 +58,15 @@ describe('i18n init', () => {
     expect(i18n.t('nav:projectGroup.navigationLabel')).toBe(
       'Project navigation'
     )
-    expect(i18n.t('projectGroups:switcher.switch')).toBe('Switch project')
+    expect(i18n.t('projectGroups:switcher.switchLabel', { name: 'CRM' })).toBe(
+      'CRM — Switch project'
+    )
+    expect(i18n.t('nav:projectGroup.moreServices', { count: 1 })).toBe(
+      '1 more service not shown'
+    )
+    expect(i18n.t('nav:projectGroup.moreServices', { count: 4 })).toBe(
+      '4 more services not shown'
+    )
     expect(i18n.t('projectGroups:ungrouped')).toBe('Ungrouped services')
     expect(i18n.t('terms:project.singular')).toBe('Service')
     expect(i18n.t('terms:projectGroup.singular')).toBe('Project')
