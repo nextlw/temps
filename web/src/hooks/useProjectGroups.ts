@@ -10,9 +10,15 @@
 // URL, bearer auth, error parsing) with local types until the client is
 // regenerated with the `Project Groups` tag.
 
+import { getProjectBySlugOptions } from '@/api/client/@tanstack/react-query.gen'
 import { client } from '@/api/client/client.gen'
 import { useAuth } from '@/contexts/AuthContext'
-import { normalizeProjectGroups } from '@/lib/project-groups'
+import {
+  findProjectGroupBySlug,
+  groupOfService,
+  normalizeProjectGroups,
+} from '@/lib/project-groups'
+import { resolveSidebarMode } from '@/lib/sidebar-mode'
 import type {
   CreateProjectGroupRequest,
   ProjectGroupResponse,
@@ -61,11 +67,33 @@ export function useProjectGroups() {
   return { ...query, groups: query.data ?? [] }
 }
 
+/**
+ * The project group of the page at `pathname`: the group itself on
+ * `/project-groups/:slug/*`, the service's group on `/projects/:slug/*`, and
+ * nothing elsewhere or for a service in no group. The kind of page comes from
+ * the URL, the group from data; the service query is the one the sidebar's
+ * service nav already holds.
+ */
+export function useProjectGroupForPath(pathname: string) {
+  const mode = resolveSidebarMode(pathname)
+  const serviceSlug = mode.kind === 'project' ? mode.slug : null
+  const { groups } = useProjectGroups()
+  const { data: service } = useQuery({
+    ...getProjectBySlugOptions({ path: { slug: serviceSlug ?? '' } }),
+    enabled: serviceSlug !== null,
+  })
+  if (mode.kind === 'projectGroup') {
+    return findProjectGroupBySlug(groups, mode.slug)
+  }
+  return serviceSlug !== null && service
+    ? groupOfService(groups, service.id)
+    : undefined
+}
+
 function useInvalidateProjectGroups() {
   const queryClient = useQueryClient()
   return useCallback(
-    () =>
-      queryClient.invalidateQueries({ queryKey: PROJECT_GROUPS_QUERY_KEY }),
+    () => queryClient.invalidateQueries({ queryKey: PROJECT_GROUPS_QUERY_KEY }),
     [queryClient]
   )
 }
