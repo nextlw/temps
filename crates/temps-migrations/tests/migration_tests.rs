@@ -5393,23 +5393,35 @@ async fn test_project_groups_migration_cascades_and_round_trips() -> anyhow::Res
          (9001, 'Back', '', '', '.', 'main', 'dockerfile', now(), now(), 'pg-back'), \
          (9002, 'Front', '', '', '.', 'main', 'dockerfile', now(), now(), 'pg-front'); \
          INSERT INTO project_groups (id, name, slug) VALUES (1, 'CRM', 'crm'), (2, 'Ops', 'ops'); \
-         INSERT INTO project_group_members (project_id, group_id) VALUES (9001, 1), (9002, 1);",
+         INSERT INTO project_group_members (project_id, group_id) VALUES (9001, 1), (9002, 1); \
+         SELECT setval('project_groups_id_seq', 2);",
     )
     .await?;
 
-    // Slug is unique.
-    assert!(db
+    // Slug is unique. The sequence is past the explicit ids, so the only
+    // constraint this insert can trip is the slug's.
+    let duplicate_slug = db
         .execute_unprepared("INSERT INTO project_groups (name, slug) VALUES ('Dup', 'crm')")
         .await
-        .is_err());
+        .expect_err("a second 'crm' slug must be rejected")
+        .to_string();
+    assert!(
+        duplicate_slug.contains("project_groups_slug_key"),
+        "{duplicate_slug}"
+    );
 
     // A project belongs to at most one group; moving it is an upsert.
-    assert!(db
+    let second_group = db
         .execute_unprepared(
-            "INSERT INTO project_group_members (project_id, group_id) VALUES (9001, 2)"
+            "INSERT INTO project_group_members (project_id, group_id) VALUES (9001, 2)",
         )
         .await
-        .is_err());
+        .expect_err("a project cannot be in two groups")
+        .to_string();
+    assert!(
+        second_group.contains("project_group_members_pkey"),
+        "{second_group}"
+    );
     db.execute_unprepared(
         "INSERT INTO project_group_members (project_id, group_id) VALUES (9001, 2) \
          ON CONFLICT (project_id) DO UPDATE SET group_id = EXCLUDED.group_id",
