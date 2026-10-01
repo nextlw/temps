@@ -304,6 +304,21 @@ Project it belongs to, read from the same cached group list the sidebar uses.
 (`m20260831_000001_ai_first_applications.rs`) are not modified. A service with
 no group shows no badge.
 
+### Details fixed during implementation
+
+- A `PATCH` that changes nothing does not write, does not bump `updated_at` and
+  is not audited. Assign and unassign bump `updated_at` of the groups involved.
+- `name` is at most 255 characters. A slug is at most 64 characters of
+  `[a-z0-9]` in segments joined by single hyphens. A name with no ASCII letter
+  or digit and no explicit `slug` is rejected with 400.
+- `PROJECT_GROUP_UPDATED` records `name` only when it changed, plus
+  `description_changed: bool` instead of the description text.
+- Assign and unassign check access with the checker directly
+  (`user_can_access_projects`, one batch for the members and the target)
+  instead of `project_access_guard!`. Same semantics (admin bypass, fail
+  closed); it avoids adding the crate to `project_access_guard_coverage_snapshot`
+  in `temps-auth`, which would be a sixth upstream touch point.
+
 ## Non-goals
 
 - **Access grants per group.** Visibility is derived from services (DF2-3);
@@ -336,15 +351,19 @@ no group shows no badge.
   Everything else is in new files. In the web console, the hot files
   (`Sidebar.tsx`, `Header.tsx`, `App.tsx`, `Projects.tsx`,
   `GeneralSettings.tsx`) receive targeted edits, with logic in new modules.
-- **Rollback to an older image is safe.** The migration only creates two tables.
-  `run_migrations` (`crates/temps-database/src/connection.rs`, doc comment at
-  lines 395-402) states that `Migrator::up` applies only migrations the binary
-  defines and that rows in `seaql_migrations` the binary does not know are
-  "simply ignored". An older binary therefore starts against a database that
-  already holds the extra row and the extra tables, which nothing in the
-  existing schema references. The migration's `down` drops both tables if a
-  full revert is wanted. No existing table is altered, so `/api/projects` and
-  `/api/projects/{id}` return the same bytes before and after.
+- **Rolling back to an older image needs a manual step.** The migration only
+  creates two tables, which nothing in the existing schema references, but an
+  older binary refuses to boot against it: sea-orm-migration 1.1.20
+  (`src/migrator.rs:121-131`) fails `Migrator::up` when `seaql_migrations`
+  holds a version the binary does not define ("Migration file of version
+  '…' is missing"). The doc comment on `run_migrations` in
+  `crates/temps-database/src/connection.rs` claimed the opposite; it is
+  corrected alongside this ADR. A rollback therefore either runs the new
+  binary's `down` for the migrations being undone before swapping the image,
+  or deletes those rows from `seaql_migrations` (the extra tables are harmless
+  to the older binary). This applies to every migration, not only this one.
+  No existing table is altered, so `/api/projects` and `/api/projects/{id}`
+  return the same bytes before and after.
 - **Visibility needs the checker in every read.** Each list and get filters
   through `ProjectAccessChecker`; the pure visibility functions concentrate that
   rule so a new endpoint cannot forget it silently. The
