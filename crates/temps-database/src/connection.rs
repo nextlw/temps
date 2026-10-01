@@ -395,11 +395,12 @@ pub async fn cancel_migration_backend(database_url: &str, pid: i32) -> ServiceRe
 /// Apply all pending migrations.
 ///
 /// Uses Sea-ORM's `Migrator::up`, which applies only migrations present in this
-/// binary that are NOT yet recorded in `seaql_migrations`. Migration rows in the
-/// DB that this binary does not define (e.g. a newer version was run against the
-/// DB earlier, or EE-only migrations) are simply ignored — `up` never validates
-/// the reverse direction, so an "extra" applied migration can never cause a
-/// failure here.
+/// binary that are NOT yet recorded in `seaql_migrations`. It does NOT tolerate
+/// the reverse: a row in `seaql_migrations` that this binary does not define
+/// (e.g. a newer version was run against the DB earlier) makes `up` fail with
+/// "Migration file of version '…' is missing" (sea-orm-migration 1.1.20,
+/// `migrator.rs`). Rolling back to an older binary therefore needs the newer
+/// binary's `down` first, or those rows removed from `seaql_migrations`.
 ///
 /// A short session `lock_timeout` is set first so a migration blocked on a
 /// contended lock fails fast (and the operator retries) rather than burning the
