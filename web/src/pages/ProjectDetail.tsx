@@ -85,6 +85,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useMatch,
   useParams,
@@ -99,7 +100,8 @@ import { toast } from 'sonner'
 export function ProjectDetail() {
   const { slug } = useParams()
   const navigate = useNavigate()
-  const { setBreadcrumbs } = useBreadcrumbs()
+  const { pathname } = useLocation()
+  const { setLayoutBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
   const { t: tp } = useTranslation('projects')
   const variableRoute = useMatch('/projects/:slug/environment-variables/*')
@@ -125,8 +127,10 @@ export function ProjectDetail() {
     enabled: !!slug,
   })
 
-  // The project layout owns this trail so parent refreshes cannot overwrite
-  // a nested page's breadcrumbs. Reuse the detail page's query cache.
+  // The project layout sets the default trail of every project URL, plus the
+  // environment-variable pages it renders. Pages that set their own trail
+  // (deployment detail, traces, errors…) own their URL: see
+  // `setLayoutBreadcrumbs`. Reuse the detail page's query cache.
   const breadcrumbVariables = useQuery({
     ...getEnvironmentVariablesOptions({
       path: { project_id: project?.id || 0 },
@@ -307,7 +311,7 @@ export function ProjectDetail() {
   useEffect(() => {
     const projectPath = `/projects/${project?.slug || slug}`
     const variablesPath = `${projectPath}/environment-variables`
-    setBreadcrumbs([
+    setLayoutBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project?.name || t('projectDetails'), href: projectPath },
       ...(isVariableRoute
@@ -328,7 +332,10 @@ export function ProjectDetail() {
         : []),
     ])
   }, [
-    setBreadcrumbs,
+    setLayoutBreadcrumbs,
+    // Re-apply on every navigation inside the project, so leaving a page
+    // that owned its trail does not leave that trail behind.
+    pathname,
     t,
     project?.name,
     project?.slug,
