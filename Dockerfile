@@ -84,8 +84,10 @@ RUN mkdir -p /app
 
 # `.dockerignore` keeps `.git` out of the context, so the version the binary
 # reports comes from these (see crates/temps-cli/build.rs). A host building a
-# tagged checkout passes `--build-arg TEMPS_VERSION=$(git describe --tags)`
-# and `--build-arg TEMPS_GIT_COMMIT=$(git rev-parse --short HEAD)`.
+# tagged checkout passes
+# `--build-arg TEMPS_VERSION=$(git describe --tags --exact-match)` and
+# `--build-arg TEMPS_GIT_COMMIT=$(git rev-parse --short HEAD)`. Declared before
+# the web build on purpose: the UI shows the same version.
 ARG TEMPS_VERSION=
 ARG TEMPS_GIT_COMMIT=
 

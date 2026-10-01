@@ -85,12 +85,23 @@ fn git_output(args: &[&str]) -> Option<String> {
         .map(|s| s.trim().to_string())
 }
 
+/// `v` followed by a digit, with no whitespace — the shape of a release tag.
+fn is_release_tag(value: &str) -> bool {
+    let mut chars = value.chars();
+    chars.next() == Some('v')
+        && chars.next().is_some_and(|c| c.is_ascii_digit())
+        && !value.contains(char::is_whitespace)
+}
+
 fn set_git_version_info() {
     // `.dockerignore` excludes `.git`, so inside an image build every git
     // command below fails and the binary would report the Cargo version with
     // an "unknown" commit. Builds that know the release (the release workflow,
     // or a host building from a tagged checkout) pass it in explicitly.
+    // Only a release tag counts: a manually dispatched release exports the
+    // branch name here, and `temps upgrade` parses the first word as a version.
     let version_override = env_override("TEMPS_VERSION");
+    let version_override = version_override.filter(|value| is_release_tag(value));
     let commit_override = env_override("TEMPS_GIT_COMMIT");
 
     // Get git commit hash

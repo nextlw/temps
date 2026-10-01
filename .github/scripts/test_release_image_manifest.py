@@ -6,7 +6,7 @@ import json
 import subprocess
 from unittest.mock import patch
 
-from release_image_manifest import REPOSITORIES, assemble, record, verify_platforms, verify_registry, promotion_tags, promote_images
+from release_image_manifest import NAMESPACE, REPOSITORIES, assemble, record, verify_platforms, verify_registry, promotion_tags, promote_images
 
 
 class ReleaseImageManifestTests(unittest.TestCase):
@@ -56,7 +56,7 @@ class ReleaseImageManifestTests(unittest.TestCase):
 
     def test_promotion_keeps_channels_and_legacy_python_separate(self):
         self.assertEqual(promotion_tags("daemon_python", "stable", "0.3.4", "0.1.0", "0.1.0"),
-                         ["ghcr.io/gotempsh/temps-sandbox-python:0.3.4"])
+                         [f"ghcr.io/{NAMESPACE}/temps-sandbox-python:0.3.4"])
         for kind in REPOSITORIES:
             beta = promotion_tags(kind, "beta", "0.3.4", "0.1.0", "0.1.0")
             self.assertTrue(all(tag.endswith(("-beta", ":beta")) for tag in beta))
