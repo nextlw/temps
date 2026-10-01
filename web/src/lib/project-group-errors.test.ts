@@ -32,5 +32,8 @@ describe('projectGroupNameProblem', () => {
     expect(projectGroupNameProblem(' CRM ')).toBeUndefined()
     expect(projectGroupNameProblem('x'.repeat(255))).toBeUndefined()
     expect(projectGroupNameProblem('x'.repeat(256))).toBe('tooLong')
+    // 255 emoji are 510 UTF-16 units but 255 characters.
+    expect(projectGroupNameProblem('😀'.repeat(255))).toBeUndefined()
+    expect(projectGroupNameProblem('😀'.repeat(256))).toBe('tooLong')
   })
 })

@@ -246,6 +246,13 @@ export function Projects() {
           total: projectsData.total,
         })
       : tp('list.total', { count: projectsData.total })
+  // With no Project yet, the call to action is the one way to create one,
+  // so the header does not offer a second, differently worded button.
+  const showCreateCallout =
+    !grouped &&
+    !projectGroups.isLoading &&
+    !projectGroups.isError &&
+    (projectsData?.total ?? 0) > 0
   const groupedSummary = !groupedView
     ? undefined
     : !catalog.data
@@ -272,12 +279,14 @@ export function Projects() {
         actions={
           <>
             <PlatformStrip />
-            <Button
-              variant="outline"
-              onClick={(event) => openCreateGroup(event.currentTarget)}
-            >
-              {tg('list.newProject')}
-            </Button>
+            {!showCreateCallout && (
+              <Button
+                variant="outline"
+                onClick={(event) => openCreateGroup(event.currentTarget)}
+              >
+                {tg('list.newProject')}
+              </Button>
+            )}
             <CreateActionButton
               to="/projects/new"
               label={tp('list.newProject')}
@@ -307,12 +316,9 @@ export function Projects() {
         </Callout>
       )}
 
-      {!grouped &&
-        !projectGroups.isLoading &&
-        !projectGroups.isError &&
-        (projectsData?.total ?? 0) > 0 && (
-          <CreateProjectGroupCallout onCreate={openCreateGroup} />
-        )}
+      {showCreateCallout && (
+        <CreateProjectGroupCallout onCreate={openCreateGroup} />
+      )}
 
       {((projectsData?.total ?? 0) > 0 ||
         Boolean(projectSearch) ||

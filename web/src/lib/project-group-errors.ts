@@ -55,6 +55,7 @@ export function projectGroupNameProblem(
 ): 'required' | 'tooLong' | undefined {
   const trimmed = name.trim()
   if (trimmed.length === 0) return 'required'
-  if (trimmed.length > PROJECT_GROUP_NAME_MAX) return 'tooLong'
+  // Counted in code points, as the server counts characters (`chars()`).
+  if ([...trimmed].length > PROJECT_GROUP_NAME_MAX) return 'tooLong'
   return undefined
 }

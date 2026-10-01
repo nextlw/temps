@@ -6,7 +6,10 @@
 // failing service never blanks the others.
 
 import { getLastDeployment } from '@/api/client'
-import { getEnvironmentsOptions } from '@/api/client/@tanstack/react-query.gen'
+import {
+  getEnvironmentsOptions,
+  getLastDeploymentQueryKey,
+} from '@/api/client/@tanstack/react-query.gen'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TimeAgo } from '@/components/utils/TimeAgo'
 import {
@@ -74,8 +77,10 @@ export function ServiceLastDeploymentCell({
 }) {
   const { t } = useTranslation('projectGroups')
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['service-last-deployment', serviceId] as const,
-    // 404 is how the endpoint says "never deployed"; it is not a failure.
+    // The generated key, shared with the service pages. 404 is how the
+    // endpoint says "never deployed", so here it reads as no deployment (the
+    // service pages only check the value for truthiness).
+    queryKey: getLastDeploymentQueryKey({ path: { id: serviceId } }),
     queryFn: async ({ signal }) => {
       const { data, error, response } = await getLastDeployment({
         path: { id: serviceId },

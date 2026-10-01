@@ -67,13 +67,38 @@ export function ProjectGroupOverview({
     [catalog, group]
   )
 
+  const removeButton = (service: ProjectResponse, className?: string) => (
+    <Button
+      variant="ghost"
+      size="icon"
+      className={className}
+      aria-label={t('detail.removeService', { name: service.name })}
+      title={t('detail.removeService', { name: service.name })}
+      onClick={(event) => {
+        removeOpener.current = event.currentTarget
+        remove.reset()
+        setRemoving(service)
+      }}
+    >
+      <Unlink className="size-4" />
+    </Button>
+  )
+
+  // Below `md` the table scrolls sideways, so the action lives next to the
+  // name, in the column that is always on screen; from `md` up it has its
+  // own column. Only one of the two is ever displayed.
   const columns: DataTableColumn<ProjectResponse>[] = [
     {
       key: 'service',
       header: t('detail.columnService'),
       className: 'min-w-44',
       render: (service) => (
-        <RecordLink to={`/projects/${service.slug}`}>{service.name}</RecordLink>
+        <div className="flex items-center justify-between gap-2">
+          <RecordLink to={`/projects/${service.slug}`}>
+            {service.name}
+          </RecordLink>
+          {removeButton(service, 'shrink-0 md:hidden')}
+        </div>
       ),
     },
     {
@@ -91,22 +116,8 @@ export function ProjectGroupOverview({
     {
       key: 'actions',
       header: <span className="sr-only">{t('detail.columnActions')}</span>,
-      className: 'w-12 text-right',
-      render: (service) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={t('detail.removeService', { name: service.name })}
-          title={t('detail.removeService', { name: service.name })}
-          onClick={(event) => {
-            removeOpener.current = event.currentTarget
-            remove.reset()
-            setRemoving(service)
-          }}
-        >
-          <Unlink className="size-4" />
-        </Button>
-      ),
+      className: 'hidden w-12 text-right md:table-cell',
+      render: (service) => removeButton(service),
     },
   ]
 
