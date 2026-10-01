@@ -18,7 +18,10 @@ import {
   groupOfService,
   normalizeProjectGroups,
 } from '@/lib/project-groups'
-import { ProjectGroupRequestError } from '@/lib/project-group-errors'
+import {
+  ProjectGroupRequestError,
+  projectGroupErrorReason,
+} from '@/lib/project-group-errors'
 import { resolveSidebarMode } from '@/lib/sidebar-mode'
 import type {
   CreateProjectGroupRequest,
@@ -121,8 +124,13 @@ function unwrap<T>(result: {
 
 // Every caller shows its own message for a failed mutation (see
 // `projectGroupErrorReason`); the app-wide toast would repeat it with the
-// server's English detail.
-const callerHandlesErrors = () => undefined
+// server's English detail. A 403 or 404 means the list the screen shows is
+// out of date (a group or service gone, access changed), so it is reloaded
+// then too, as the 404 message tells the user.
+const refreshWhenStale = (invalidate: () => unknown) => (error: Error) => {
+  const reason = projectGroupErrorReason(error)
+  if (reason === 'notFound' || reason === 'forbidden') void invalidate()
+}
 
 /**
  * Options of every project-group mutation for `useMutation` (or a mutation
@@ -145,7 +153,7 @@ export function projectGroupMutations(queryClient: QueryClient) {
           })
         ),
       onSuccess: invalidate,
-      onError: callerHandlesErrors,
+      onError: refreshWhenStale(invalidate),
     },
     update: {
       mutationFn: async ({
@@ -165,7 +173,7 @@ export function projectGroupMutations(queryClient: QueryClient) {
           })
         ),
       onSuccess: invalidate,
-      onError: callerHandlesErrors,
+      onError: refreshWhenStale(invalidate),
     },
     remove: {
       mutationFn: async (id: number) => {
@@ -178,7 +186,7 @@ export function projectGroupMutations(queryClient: QueryClient) {
         )
       },
       onSuccess: invalidate,
-      onError: callerHandlesErrors,
+      onError: refreshWhenStale(invalidate),
     },
     assign: {
       mutationFn: async ({ groupId, serviceId }: ServiceMembership) =>
@@ -190,7 +198,7 @@ export function projectGroupMutations(queryClient: QueryClient) {
           })
         ),
       onSuccess: invalidate,
-      onError: callerHandlesErrors,
+      onError: refreshWhenStale(invalidate),
     },
     unassign: {
       mutationFn: async ({ groupId, serviceId }: ServiceMembership) => {
@@ -203,7 +211,7 @@ export function projectGroupMutations(queryClient: QueryClient) {
         )
       },
       onSuccess: invalidate,
-      onError: callerHandlesErrors,
+      onError: refreshWhenStale(invalidate),
     },
   }
 }

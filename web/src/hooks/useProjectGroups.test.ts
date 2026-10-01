@@ -167,3 +167,21 @@ test('a failed mutation rejects and leaves the list as it was', async () => {
     queryClient.getQueryState([...PROJECT_GROUPS_QUERY_KEY, 1])?.isInvalidated
   ).toBe(false)
 })
+
+for (const status of [403, 404]) {
+  test(`a ${status} rejects and reloads the list, which is out of date`, async () => {
+    const queryClient = new QueryClient()
+    queryClient.setQueryData([...PROJECT_GROUPS_QUERY_KEY, 1], [crm])
+    respondWith(() => Response.json({ title: 'x' }, { status }))
+    const options = projectGroupMutations(queryClient).unassign
+    await expect(
+      queryClient
+        .getMutationCache()
+        .build(queryClient, options)
+        .execute({ groupId: 3, serviceId: 41 })
+    ).rejects.toMatchObject({ status })
+    expect(
+      queryClient.getQueryState([...PROJECT_GROUPS_QUERY_KEY, 1])?.isInvalidated
+    ).toBe(true)
+  })
+}
