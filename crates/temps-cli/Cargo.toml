@@ -78,6 +78,8 @@ temps-notifications = { path = "../temps-notifications" }
 temps-otel = { path = "../temps-otel" }
 temps-telemetry = { path = "../temps-telemetry" }
 temps-projects = { path = "../temps-projects" }
+# Fork (nextlw): project groups, ADR-049.
+temps-project-groups = { path = "../temps-project-groups" }
 temps-providers = { path = "../temps-providers" }
 temps-proxy = { path = "../temps-proxy" }
 temps-routes = { path = "../temps-routes" }

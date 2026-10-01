@@ -19,10 +19,14 @@
 //! them reach — see [`visibility`].
 
 pub mod error;
+pub mod handlers;
+pub mod plugin;
 pub mod service;
 pub mod visibility;
 
 pub use error::ProjectGroupError;
+pub use handlers::{ProjectGroupResponse, ProjectGroupsApiDoc, ProjectGroupsAppState};
+pub use plugin::ProjectGroupsPlugin;
 pub use service::{
     AssignOutcome, CreateProjectGroupRequest, ProjectGroupService, ProjectGroupWithMembers,
     UpdateProjectGroupRequest, UpdatedFields,

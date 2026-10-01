@@ -12,13 +12,16 @@ homepage.workspace = true
 description = "Project groups: a grouping of projects shown as \"Project\" in the console (ADR-049)"
 
 [dependencies]
+temps-auth = { path = "../temps-auth" }
 temps-core = { path = "../temps-core" }
 temps-entities = { path = "../temps-entities" }
 
+anyhow = { workspace = true }
 axum = { workspace = true }
 chrono = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 utoipa = { workspace = true }
