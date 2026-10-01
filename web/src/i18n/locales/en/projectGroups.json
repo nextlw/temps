@@ -155,5 +155,20 @@
     "submitting": "Creating…",
     "cancel": "Cancel",
     "created": "{{name}} created"
+  },
+  "membership": {
+    "title": "$t(terms:projectGroup.singular)",
+    "description": "The $t(terms:projectGroup.singularLower) this $t(terms:project.singularLower) ships with. It appears under it in the sidebar, the breadcrumb and the $t(terms:projectGroup.pluralLower) list.",
+    "label": "$t(terms:projectGroup.singular)",
+    "none": "None",
+    "hint": "Choosing another $t(terms:projectGroup.singularLower) moves the $t(terms:project.singularLower) out of the current one.",
+    "noGroups": "No $t(terms:projectGroup.pluralLower) yet.",
+    "createLink": "Create one on the $t(terms:projectGroup.pluralLower) page",
+    "open": "Open {{name}}",
+    "saving": "Saving…",
+    "moved": "{{service}} moved to {{name}}",
+    "removed": "{{service}} is no longer in a $t(terms:projectGroup.singularLower)",
+    "loadFailed": "$t(terms:projectGroup.plural) could not be loaded.",
+    "retry": "Retry"
   }
 }

@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ConfirmNameBadge } from '@/components/ui/confirm-name-badge'
 import { CloudTelemetryBackfillCard } from './CloudTelemetryBackfillCard'
+import { ProjectGroupMembershipSection } from '@/components/project-groups/ProjectGroupMembershipSection'
 import { MonitoringCard } from './MonitoringCard'
 import {
   Form,
@@ -282,6 +283,9 @@ export function GeneralSettings({ project, refetch }: GeneralSettingsProps) {
           </SettingsSection>
         </form>
       </Form>
+
+      {/* The Project this service ships with (ADR-049) */}
+      <ProjectGroupMembershipSection project={project} />
 
       {/* Monitoring — what deployments report about themselves */}
       <MonitoringCard project={project} refetch={refetch} />

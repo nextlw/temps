@@ -4,12 +4,17 @@
 import { i18n } from '@/i18n'
 import { AuditLogIpInfo, AuditLogUserInfo } from '@/api/client'
 import {
+  isProjectGroupOperation,
+  type AuditLabel,
+} from '@/lib/project-group-audit'
+import {
   Bell,
   Box,
   ChartLine,
   Database,
   FileCode,
   FolderKanban,
+  Folders,
   GitBranch,
   Globe,
   HardDrive,
@@ -43,6 +48,7 @@ export type Category =
   | 'user'
   | 'mfa'
   | 'project'
+  | 'projectGroup'
   | 'deployment'
   | 'container'
   | 'workspace'
@@ -95,6 +101,8 @@ export function categorize(op: string): Category {
     return 'deployment'
   if (op === 'CONTAINER_ACTION') return 'container'
   if (op.startsWith('WORKSPACE_')) return 'workspace'
+  // Before `PROJECT_`: a Project (code: project group) is not a service.
+  if (isProjectGroupOperation(op)) return 'projectGroup'
   if (
     op.startsWith('PROJECT_') ||
     op.startsWith('ENVIRONMENT_') ||
@@ -134,7 +142,8 @@ export function categorize(op: string): Category {
 
 export const CATEGORY_META: Record<
   Category,
-  { label: string; icon: typeof LogIn; tone: string }
+  // A key for new entries, translated where the badge renders (F6.0).
+  { label: AuditLabel; icon: typeof LogIn; tone: string }
 > = {
   plugin: {
     label: 'Plugin',
@@ -159,6 +168,11 @@ export const CATEGORY_META: Record<
   project: {
     label: i18n.t('audit:categories.project'),
     icon: FolderKanban,
+    tone: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+  },
+  projectGroup: {
+    label: { key: 'categories.projectGroup' },
+    icon: Folders,
     tone: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
   },
   service: {
