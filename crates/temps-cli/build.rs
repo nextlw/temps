@@ -64,50 +64,59 @@ fn main() {
     build_web(&web_dir, &dist_dir);
 }
 
-fn set_git_version_info() {
-    // Get git commit hash
-    let commit_hash = Command::new("git")
-        .args(["rev-parse", "--short", "HEAD"])
+/// Reads a version override from the environment, treating an empty value as
+/// unset: a Docker `ARG` with no value still exports the variable, empty.
+fn env_override(name: &str) -> Option<String> {
+    println!("cargo:rerun-if-env-changed={name}");
+    env::var(name)
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+/// Trimmed stdout of a git command, or `None` when git is missing or fails.
+fn git_output(args: &[&str]) -> Option<String> {
+    Command::new("git")
+        .args(args)
         .output()
         .ok()
-        .and_then(|output| {
-            if output.status.success() {
-                String::from_utf8(output.stdout).ok()
-            } else {
-                None
-            }
-        })
-        .unwrap_or_else(|| "unknown".to_string())
-        .trim()
-        .to_string();
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok())
+        .map(|s| s.trim().to_string())
+}
+
+/// `v` followed by a digit, with no whitespace — the shape of a release tag.
+fn is_release_tag(value: &str) -> bool {
+    let mut chars = value.chars();
+    chars.next() == Some('v')
+        && chars.next().is_some_and(|c| c.is_ascii_digit())
+        && !value.contains(char::is_whitespace)
+}
+
+fn set_git_version_info() {
+    // `.dockerignore` excludes `.git`, so inside an image build every git
+    // command below fails and the binary would report the Cargo version with
+    // an "unknown" commit. Builds that know the release (the release workflow,
+    // or a host building from a tagged checkout) pass it in explicitly.
+    // Only a release tag counts: a manually dispatched release exports the
+    // branch name here, and `temps upgrade` parses the first word as a version.
+    let version_override = env_override("TEMPS_VERSION");
+    let version_override = version_override.filter(|value| is_release_tag(value));
+    let commit_override = env_override("TEMPS_GIT_COMMIT");
+
+    // Get git commit hash
+    let commit_hash = commit_override
+        .or_else(|| git_output(&["rev-parse", "--short", "HEAD"]))
+        .unwrap_or_else(|| "unknown".to_string());
 
     // Get git tag (if on a tag)
-    let git_tag = Command::new("git")
-        .args(["describe", "--tags", "--exact-match"])
-        .output()
-        .ok()
-        .and_then(|output| {
-            if output.status.success() {
-                String::from_utf8(output.stdout).ok()
-            } else {
-                None
-            }
-        })
-        .map(|s| s.trim().to_string());
+    let git_tag = version_override
+        .clone()
+        .or_else(|| git_output(&["describe", "--tags", "--exact-match"]));
 
     // Get the most recent tag
-    let latest_tag = Command::new("git")
-        .args(["describe", "--tags", "--abbrev=0"])
-        .output()
-        .ok()
-        .and_then(|output| {
-            if output.status.success() {
-                String::from_utf8(output.stdout).ok()
-            } else {
-                None
-            }
-        })
-        .map(|s| s.trim().to_string())
+    let latest_tag = version_override
+        .or_else(|| git_output(&["describe", "--tags", "--abbrev=0"]))
         .unwrap_or_else(|| env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".to_string()));
 
     // Get build timestamp
@@ -157,7 +166,7 @@ fn build_web(web_dir: &std::path::Path, dist_dir: &std::path::Path) {
 
     // Get version info for web build
     // Prefer TEMPS_VERSION env var (set by CI), then git tag, then fallback to Cargo version
-    let git_tag = env::var("TEMPS_VERSION").ok().unwrap_or_else(|| {
+    let git_tag = env_override("TEMPS_VERSION").unwrap_or_else(|| {
         Command::new("git")
             .args(["describe", "--tags", "--abbrev=0"])
             .output()
