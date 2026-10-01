@@ -218,3 +218,8 @@ pub mod compose_security_legacy_migrations;
 pub mod http_checks;
 
 pub mod env_var_history;
+
+// Fork (nextlw): project groups, ADR-049. Kept in one block at the end so
+// upstream merges touch nothing else in this file.
+pub mod project_group_members;
+pub mod project_groups;

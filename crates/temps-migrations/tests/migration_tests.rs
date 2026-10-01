@@ -5305,3 +5305,150 @@ async fn test_trace_summary_create_and_upgrade_reconciliation() -> anyhow::Resul
     assert!(!state.try_get::<bool>("", "completed")?);
     Ok(())
 }
+
+const MIGRATION_PROJECT_GROUPS: &str = "m20261001_000001_create_project_groups";
+
+async fn table_exists(db: &DatabaseConnection, table: &str) -> anyhow::Result<bool> {
+    let row = db
+        .query_one(sea_orm::Statement::from_sql_and_values(
+            sea_orm::DatabaseBackend::Postgres,
+            "SELECT EXISTS (\
+                SELECT 1 FROM information_schema.tables \
+                WHERE table_schema = 'public' AND table_name = $1\
+             ) AS present",
+            [table.into()],
+        ))
+        .await?
+        .expect("table existence query returns one row");
+    Ok(row.try_get::<bool>("", "present")?)
+}
+
+/// `SELECT count(*)` over `from_where` (a table plus optional `WHERE`).
+async fn count_rows(db: &DatabaseConnection, from_where: &str) -> anyhow::Result<i64> {
+    let row = db
+        .query_one(sea_orm::Statement::from_string(
+            sea_orm::DatabaseBackend::Postgres,
+            format!("SELECT count(*)::bigint AS count FROM {from_where}"),
+        ))
+        .await?
+        .expect("count query returns one row");
+    Ok(row.try_get::<i64>("", "count")?)
+}
+
+/// ADR-049: membership is keyed by project, both foreign keys cascade, and
+/// the migration is purely additive — down drops the two tables and up
+/// recreates them on a database that already ran every other migration.
+#[tokio::test]
+async fn test_project_groups_migration_cascades_and_round_trips() -> anyhow::Result<()> {
+    if external_db_configured() {
+        println!(
+            "⏭️  Skipping test_project_groups_migration_cascades_and_round_trips: using external database via TEMPS_TEST_DATABASE_URL"
+        );
+        return Ok(());
+    }
+
+    let container = match GenericImage::new("timescale/timescaledb-ha", "pg18")
+        .with_wait_for(postgres_ready_wait_for())
+        .with_env_var("POSTGRES_DB", "postgres")
+        .with_env_var("POSTGRES_USER", "postgres")
+        .with_env_var("POSTGRES_PASSWORD", "postgres")
+        .with_env_var("POSTGRES_HOST_AUTH_METHOD", "trust")
+        .with_cmd(vec![
+            "postgres",
+            "-c",
+            "timescaledb.max_background_workers=0",
+        ])
+        .with_startup_timeout(CONTAINER_STARTUP_TIMEOUT)
+        .start()
+        .await
+    {
+        Ok(container) => container,
+        Err(error) => {
+            eprintln!(
+                "⏭️  Skipping test_project_groups_migration_cascades_and_round_trips: Docker unavailable ({error})"
+            );
+            return Ok(());
+        }
+    };
+    let port = container.get_host_port_ipv4(5432).await?;
+    let db_url = format!("postgresql://postgres:postgres@localhost:{port}/postgres");
+    let db = connect_with_retries(&db_url).await?;
+
+    Migrator::up(&db, None).await?;
+    assert!(table_exists(&db, "project_groups").await?);
+    assert!(table_exists(&db, "project_group_members").await?);
+
+    // Down/up on top of the full history: the tables go away cleanly and
+    // come back, so a revert of this release alone is possible.
+    Migrator::down(&db, Some(steps_back_to(MIGRATION_PROJECT_GROUPS))).await?;
+    assert!(!table_exists(&db, "project_group_members").await?);
+    assert!(!table_exists(&db, "project_groups").await?);
+    Migrator::up(&db, None).await?;
+    assert!(table_exists(&db, "project_groups").await?);
+
+    db.execute_unprepared(
+        "INSERT INTO projects \
+         (id, name, repo_name, repo_owner, directory, main_branch, preset, created_at, updated_at, slug) \
+         VALUES \
+         (9001, 'Back', '', '', '.', 'main', 'dockerfile', now(), now(), 'pg-back'), \
+         (9002, 'Front', '', '', '.', 'main', 'dockerfile', now(), now(), 'pg-front'); \
+         INSERT INTO project_groups (id, name, slug) VALUES (1, 'CRM', 'crm'), (2, 'Ops', 'ops'); \
+         INSERT INTO project_group_members (project_id, group_id) VALUES (9001, 1), (9002, 1); \
+         SELECT setval('project_groups_id_seq', 2);",
+    )
+    .await?;
+
+    // Slug is unique. The sequence is past the explicit ids, so the only
+    // constraint this insert can trip is the slug's.
+    let duplicate_slug = db
+        .execute_unprepared("INSERT INTO project_groups (name, slug) VALUES ('Dup', 'crm')")
+        .await
+        .expect_err("a second 'crm' slug must be rejected")
+        .to_string();
+    assert!(
+        duplicate_slug.contains("project_groups_slug_key"),
+        "{duplicate_slug}"
+    );
+
+    // A project belongs to at most one group; moving it is an upsert.
+    let second_group = db
+        .execute_unprepared(
+            "INSERT INTO project_group_members (project_id, group_id) VALUES (9001, 2)",
+        )
+        .await
+        .expect_err("a project cannot be in two groups")
+        .to_string();
+    assert!(
+        second_group.contains("project_group_members_pkey"),
+        "{second_group}"
+    );
+    db.execute_unprepared(
+        "INSERT INTO project_group_members (project_id, group_id) VALUES (9001, 2) \
+         ON CONFLICT (project_id) DO UPDATE SET group_id = EXCLUDED.group_id",
+    )
+    .await?;
+    let moved = "project_group_members WHERE group_id = 2";
+    assert_eq!(count_rows(&db, moved).await?, 1);
+
+    // Deleting a group only ungroups its projects.
+    db.execute_unprepared("DELETE FROM project_groups WHERE id = 1")
+        .await?;
+    let ungrouped = "project_group_members WHERE project_id = 9002";
+    assert_eq!(count_rows(&db, ungrouped).await?, 0);
+    let kept = "projects WHERE id IN (9001, 9002)";
+    assert_eq!(count_rows(&db, kept).await?, 2);
+
+    // Hard-deleting a project drops its membership row.
+    db.execute_unprepared("DELETE FROM projects WHERE id = 9001")
+        .await?;
+    let members = "project_group_members";
+    assert_eq!(count_rows(&db, members).await?, 0);
+
+    Migrator::down(&db, Some(steps_back_to(MIGRATION_PROJECT_GROUPS))).await?;
+    assert!(!table_exists(&db, "project_group_members").await?);
+    assert!(!table_exists(&db, "project_groups").await?);
+    let untouched = "projects WHERE id = 9002";
+    assert_eq!(count_rows(&db, untouched).await?, 1, "down kept projects");
+
+    Ok(())
+}
