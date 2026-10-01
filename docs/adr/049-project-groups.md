@@ -319,6 +319,35 @@ no group shows no badge.
   closed); it avoids adding the crate to `project_access_guard_coverage_snapshot`
   in `temps-auth`, which would be a sixth upstream touch point.
 
+### Grant roles on mutations (review, 2026-10-01)
+
+Coarse access to a service is not enough to reorganise it. Every mutation also
+checks the effective permission of the user's team grant, the way
+`project_permission_guard!` does for `update_project` / `delete_project` in
+`crates/temps-projects`:
+
+| Route | Needs, on |
+|---|---|
+| `PATCH /project-groups/{id}` | `projects:write` on every member |
+| `DELETE /project-groups/{id}` | `projects:delete` on every member |
+| `PUT` / `DELETE /project-groups/{id}/projects/{project_id}` | `projects:write` on the target service |
+
+A grant whose role lacks the permission (for example `viewer`) gets 403 with
+type `https://temps.sh/probs/project-permission-denied`, title "Project
+Permission Denied" and `required_permission` in the body. No grant information
+falls back to coarse access; an id missing from the checker's answer is denied;
+instance admins skip the check; a failing checker returns 500. This matters
+beyond the console: in F3 a group carries shared variables and previews, so a
+move becomes a write to the service's environment.
+
+Request bodies reject unknown fields (`deny_unknown_fields`): a `slug` in
+`PATCH` or an `id` in `POST` is a 400 problem+json, as is malformed JSON.
+
+Assign serialises on the service: it locks the `projects` row with
+`FOR NO KEY UPDATE` (which does not block foreign-key `FOR KEY SHARE`) and reads
+the group `FOR SHARE`, so the audited `previous_group_id` is exact under
+concurrent moves and a group deleted mid-request yields 404, not 500.
+
 ## Non-goals
 
 - **Access grants per group.** Visibility is derived from services (DF2-3);
