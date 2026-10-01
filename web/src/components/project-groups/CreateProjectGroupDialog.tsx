@@ -71,9 +71,11 @@ export function CreateProjectGroupDialog({
     setSubmitted(true)
     if (nameProblem) return
     create.mutate(
+      // Only contract fields, and only those with a value: the server
+      // rejects unknown fields (400) and an absent description is unset.
       {
         name: trimmedName,
-        description: description.trim() || null,
+        ...(description.trim() ? { description: description.trim() } : {}),
       },
       {
         onSuccess: (group) => {
