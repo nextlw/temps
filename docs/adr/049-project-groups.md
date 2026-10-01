@@ -159,7 +159,7 @@ the project DTOs (`crates/temps-projects/src/handlers/types.rs` uses
 | Method and path | Permission | Success | Notes |
 |---|---|---|---|
 | `GET /project-groups` | `ProjectsRead` | 200 `[ProjectGroupResponse]` | Visible groups only; ordered by name. |
-| `POST /project-groups` | `ProjectsCreate` | 201 `ProjectGroupResponse` | Slug generated from the name. |
+| `POST /project-groups` | `ProjectsCreate` | 201 `ProjectGroupResponse` | `slug` is optional; when omitted it is generated from the name. |
 | `GET /project-groups/{id}` | `ProjectsRead` | 200 `ProjectGroupResponse` | |
 | `GET /project-groups/by-slug/{slug}` | `ProjectsRead` | 200 `ProjectGroupResponse` | Mirrors `/projects/by-slug/{slug}` (`crates/temps-projects/src/handlers/handlers.rs`). |
 | `PATCH /project-groups/{id}` | `ProjectsWrite` | 200 `ProjectGroupResponse` | Slug is immutable. |
@@ -184,7 +184,7 @@ ProjectGroupResponse {
 }
 
 // POST body
-CreateProjectGroupRequest { name: String, description: Option<String> }
+CreateProjectGroupRequest { name: String, slug: Option<String>, description: Option<String> }
 
 // PATCH body: only the fields present are changed
 UpdateProjectGroupRequest { name: Option<String>, description: Option<String> }
@@ -267,7 +267,7 @@ Content-Type: application/problem+json
 | 401 | No valid credentials. |
 | 403 | Missing permission; deployment token; hidden member (rename/delete); no access to the service being assigned or unassigned. |
 | 404 | Group not found or fully hidden from the caller; service not found; `DELETE .../projects/{project_id}` when the service is not a member of that group. |
-| 409 | The slug generated from the name is already taken. |
+| 409 | The slug (given or generated from the name) is already taken. |
 
 ### Audit
 
