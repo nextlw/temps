@@ -782,6 +782,8 @@ mod tests {
     struct FakeChecker {
         allowed: BTreeSet<i32>,
         permissions: BTreeMap<i32, Vec<String>>,
+        /// Left out of the permission batch answer, breaking its contract.
+        omitted: BTreeSet<i32>,
         fail: bool,
         fail_permissions: bool,
     }
@@ -825,6 +827,7 @@ mod tests {
             }
             Ok(project_ids
                 .iter()
+                .filter(|id| !self.omitted.contains(id))
                 .map(|id| (*id, self.permissions.get(id).cloned()))
                 .collect())
         }
@@ -1431,6 +1434,28 @@ mod tests {
         )
         .await;
         assert_eq!(status_of(result), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn a_project_missing_from_the_permission_answer_is_refused() {
+        // Coarse access says yes and there is no per-permission opinion, but
+        // the batch left the id out: that is refused, not read as `None`.
+        let checker = Some(FakeChecker {
+            allowed: BTreeSet::from([41]),
+            omitted: BTreeSet::from([41]),
+            ..FakeChecker::default()
+        });
+        let h = harness(group_with_members(1, &[]), checker);
+        let result = assign_project_to_group(
+            RequireAuth(member_user()),
+            State(h.state),
+            Extension(metadata()),
+            Path((1, 41)),
+        )
+        .await;
+        let problem = result.err().expect("an unanswered project is refused");
+        assert_eq!(problem.status_code, StatusCode::FORBIDDEN);
+        assert_eq!(problem.body["title"], "Project Permission Denied");
     }
 
     #[tokio::test]
