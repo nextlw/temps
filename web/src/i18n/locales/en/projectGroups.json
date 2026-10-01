@@ -112,5 +112,48 @@
   },
   "badge": {
     "label": "$t(terms:projectGroup.singular): {{name}}"
+  },
+  "list": {
+    "description": "Each $t(terms:projectGroup.singularLower) holds the $t(terms:project.pluralLower) that ship together.",
+    "newProject": "New $t(terms:projectGroup.singular)",
+    "projectsHeading": "$t(terms:projectGroup.plural)",
+    "projectsCount_one": "{{count}} $t(terms:projectGroup.singularLower)",
+    "projectsCount_other": "{{count}} $t(terms:projectGroup.pluralLower)",
+    "ungroupedHeading": "Ungrouped $t(terms:project.pluralLower)",
+    "ungroupedDescription": "$t(terms:project.plural) that are not in any $t(terms:projectGroup.singularLower).",
+    "ungroupedEmpty": "Every $t(terms:project.singularLower) is in a $t(terms:projectGroup.singularLower).",
+    "summary": "{{projects}} · {{services}}",
+    "searchLabel": "Filter $t(terms:projectGroup.pluralLower) and $t(terms:project.pluralLower) by name or slug",
+    "searchPlaceholder": "Filter $t(terms:projectGroup.pluralLower) and $t(terms:project.pluralLower)…",
+    "noMatchTitle": "No matching $t(terms:projectGroup.pluralLower) or $t(terms:project.pluralLower)",
+    "noMatchHint": "No name or slug contains “{{query}}”.",
+    "clearFilter": "Clear filter",
+    "loadFailedTitle": "$t(terms:project.plural) could not be loaded",
+    "loadFailedHint": "The $t(terms:projectGroup.pluralLower) are known, but their $t(terms:project.pluralLower) could not be listed.",
+    "groupsFailed": "$t(terms:projectGroup.plural) could not be loaded, so $t(terms:project.pluralLower) are listed without them.",
+    "retry": "Retry",
+    "ctaTitle": "Group $t(terms:project.pluralLower) into $t(terms:projectGroup.pluralLower)",
+    "ctaDescription": "A $t(terms:projectGroup.singularLower) keeps the $t(terms:project.pluralLower) that ship together, such as a backend and its frontend, side by side.",
+    "ctaAction": "Create $t(terms:projectGroup.singularLower)",
+    "ungroupedEmptyHint": "New $t(terms:project.pluralLower) appear here until they are added to a $t(terms:projectGroup.singularLower)."
+  },
+  "card": {
+    "noServices": "No $t(terms:project.pluralLower) yet",
+    "servicesLabel": "$t(terms:project.plural) in {{name}}",
+    "more_one": "+{{count}} more $t(terms:project.singularLower)",
+    "more_other": "+{{count}} more $t(terms:project.pluralLower)"
+  },
+  "create": {
+    "title": "Create $t(terms:projectGroup.singularLower)",
+    "description": "Give the $t(terms:projectGroup.singularLower) a name, then add its $t(terms:project.pluralLower).",
+    "nameLabel": "Name",
+    "namePlaceholder": "CRM",
+    "nameHint": "The URL slug is derived from the name and cannot be changed later.",
+    "descriptionLabel": "Description",
+    "descriptionHint": "Optional.",
+    "submit": "Create $t(terms:projectGroup.singularLower)",
+    "submitting": "Creating…",
+    "cancel": "Cancel",
+    "created": "{{name}} created"
   }
 }

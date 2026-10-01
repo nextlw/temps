@@ -126,7 +126,7 @@
     "repositoryFallback": "Repository"
   },
   "tools": {
-    "projects": "$t(terms:project.plural)",
+    "projects": "$t(terms:projectGroup.plural)",
     "domainsDescription": "Attach domains to $t(terms:project.pluralLower) and compose containers.",
     "dataDescription": "Manage databases, backups, email, and domains.",
     "databasesDescription": "Create and operate managed databases.",
