@@ -12471,6 +12471,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "temps-project-groups"
+version = "0.1.0-nextlw.1"
+dependencies = [
+ "axum",
+ "chrono",
+ "sea-orm",
+ "serde",
+ "temps-core",
+ "temps-entities",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "utoipa",
+]
+
+[[package]]
 name = "temps-projects"
 version = "0.1.0-nextlw.1"
 dependencies = [

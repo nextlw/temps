@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2024-2026 Temps Contributors
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+[package]
+name = "temps-project-groups"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Project groups: a grouping of projects shown as \"Project\" in the console (ADR-049)"
+
+[dependencies]
+temps-core = { path = "../temps-core" }
+temps-entities = { path = "../temps-entities" }
+
+axum = { workspace = true }
+chrono = { workspace = true }
+sea-orm = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+utoipa = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

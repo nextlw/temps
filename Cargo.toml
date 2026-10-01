@@ -102,6 +102,8 @@ members = [
     "crates/temps-metrics",
     "crates/temps-ai-api-tools",
     "crates/temps-mcp-server",
+    # Fork (nextlw): project groups, ADR-049.
+    "crates/temps-project-groups",
     "examples/example-plugin",
     "examples/lighthouse-plugin",
     "examples/indexnow-plugin",
