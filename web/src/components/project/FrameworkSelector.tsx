@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useState, useMemo } from 'react'
 import { Folder, AlertCircle, Check, Grid3x3, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,7 @@ export function FrameworkSelector({
   onRefresh,
   disabled = false,
 }: FrameworkSelectorProps) {
+  const { t } = useTranslation('projects')
   const [manualMode, setManualMode] = useState(false)
   const {
     presets: availablePresets,
@@ -201,7 +203,7 @@ export function FrameworkSelector({
           user to "pick one manually" hides an auth problem that will break
           the next step too, so it gets its own actionable state. */}
       {error && isGitAuthError(error) && (
-        <GitConnectionExpiredAlert operation="detect this project's framework" />
+        <GitConnectionExpiredAlert operation={t('framework.detectOperation')} />
       )}
       {error && !isGitAuthError(error) && shouldShowAllPresets && (
         <Alert>
@@ -216,9 +218,7 @@ export function FrameworkSelector({
       {shouldShowAllPresets && !error && !manualMode && (
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Select a preset for your project from the list below.
-          </AlertDescription>
+          <AlertDescription>{t('framework.selectPreset')}</AlertDescription>
         </Alert>
       )}
 

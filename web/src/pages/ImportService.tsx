@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   listAvailableContainersOptions,
   importExternalServiceMutation,
@@ -46,6 +47,7 @@ const generateId = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 4)
 type Step = 'select-container' | 'configure-service'
 
 export function ImportService() {
+  const { t } = useTranslation('storage')
   usePageTitle('Import database')
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
@@ -182,14 +184,14 @@ export function ImportService() {
     return z.object({
       name: z
         .string()
-        .min(1, 'Service name is required')
+        .min(1, t('create.nameRequired'))
         .regex(
           /^[a-z0-9-]+$/,
           'Name must contain only lowercase letters, numbers, and hyphens'
         ),
       parameters: z.object(paramSchema),
     })
-  }, [parameters])
+  }, [parameters, t])
 
   type FormValues = z.infer<typeof formSchema>
 
@@ -229,14 +231,14 @@ export function ImportService() {
   const importServiceMut = useMutation({
     ...importExternalServiceMutation(),
     meta: {
-      errorTitle: 'Failed to import service',
+      errorTitle: t('import.failed'),
     },
     onSuccess: () => {
-      toast.success('Service imported successfully')
+      toast.success(t('import.imported'))
       navigate('/storage')
     },
     onError: (error) => {
-      toast.error(error?.message || 'Failed to import service')
+      toast.error(error?.message || t('import.failed'))
     },
   })
 
@@ -283,7 +285,7 @@ export function ImportService() {
             <h1 className="text-2xl font-semibold">Import database</h1>
             <p className="text-sm text-muted-foreground">
               {step === 'select-container'
-                ? 'Select a running container to import as a service'
+                ? t('import.selectContainer')
                 : `Configure ${selectedContainer?.container_name}`}
             </p>
           </div>
@@ -382,13 +384,13 @@ export function ImportService() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Service Type Selection */}
               <FormItem>
-                <FormLabel>Service Type</FormLabel>
+                <FormLabel>{t('import.typeLabel')}</FormLabel>
                 <Select
                   value={selectedServiceType || ''}
                   onValueChange={setSelectedServiceType}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select service type" />
+                    <SelectValue placeholder={t('import.typePlaceholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {serviceTypes?.map((type) => (
@@ -409,10 +411,10 @@ export function ImportService() {
                 name="name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Service Name</FormLabel>
+                    <FormLabel>{t('create.nameLabel')}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="my-service"
+                        placeholder={t('import.namePlaceholder')}
                         {...field}
                         disabled={importServiceMut.isPending}
                       />
@@ -425,7 +427,7 @@ export function ImportService() {
               {/* Dynamic Parameters */}
               {selectedServiceType && isLoadingParameters && (
                 <div className="text-sm text-muted-foreground py-4">
-                  Loading service parameters...
+                  {t('import.loadingParameters')}
                 </div>
               )}
 

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getProjectsOptions,
   revenueGlobalEventsOptions,
@@ -52,6 +53,7 @@ const EVENT_TYPE_GROUPS: Array<{
 const PAID_TYPES = ['invoice.paid', 'charge.succeeded']
 
 export function Revenue() {
+  const { t } = useTranslation('observability')
   const { setBreadcrumbs } = useBreadcrumbs()
   usePageTitle('Revenue')
 
@@ -95,13 +97,13 @@ export function Revenue() {
 
   const projectOptions = useMemo<SearchableSelectOption[]>(() => {
     const opts: SearchableSelectOption[] = [
-      { value: ALL_PROJECTS, label: 'All projects' },
+      { value: ALL_PROJECTS, label: t('revenue.allProjects') },
     ]
     for (const p of projectsQuery.data?.projects ?? []) {
       opts.push({ value: String(p.id), label: p.name })
     }
     return opts
-  }, [projectsQuery.data])
+  }, [projectsQuery.data, t])
 
   const projectSlugById = useMemo(() => {
     const map = new Map<number, string>()
@@ -158,7 +160,7 @@ export function Revenue() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold tracking-tight">Revenue</h1>
         <p className="text-sm text-muted-foreground">
-          Transactions, invoices, and subscription events across every project.
+          {t('revenue.description')}
         </p>
       </div>
 
@@ -266,9 +268,9 @@ export function Revenue() {
               value={projectFilter}
               onValueChange={setProjectFilter}
               options={projectOptions}
-              placeholder="Filter by project"
-              searchPlaceholder="Search projects..."
-              emptyText="No projects."
+              placeholder={t('revenue.filterPlaceholder')}
+              searchPlaceholder={t('revenue.searchPlaceholder')}
+              emptyText={t('revenue.empty')}
               className="w-full sm:w-[220px]"
               disabled={projectsQuery.isLoading}
             />
@@ -302,7 +304,9 @@ export function Revenue() {
             <TableHeader>
               <TableRow>
                 <TableHead>Event</TableHead>
-                <TableHead className="hidden md:table-cell">Project</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  {t('revenue.projectColumn')}
+                </TableHead>
                 <TableHead className="hidden lg:table-cell">Customer</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead className="text-right">MRR Δ</TableHead>
@@ -346,7 +350,7 @@ export function Revenue() {
                       description={
                         hasFilters
                           ? 'Try widening the date range or clearing filters.'
-                          : 'Connect Stripe or LemonSqueezy on a project to start capturing invoices and subscription changes.'
+                          : t('revenue.connectHint')
                       }
                       action={
                         hasFilters ? (

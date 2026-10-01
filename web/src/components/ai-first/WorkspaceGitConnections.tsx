@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useId, useState } from 'react'
 import { GitBranch, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -50,6 +51,7 @@ export function WorkspaceGitConnections({
   onConnect,
   onDisconnect,
 }: Props) {
+  const { t } = useTranslation('ai')
   const id = useId()
   const [projectId, setProjectId] = useState('')
   const [repositoryKey, setRepositoryKey] = useState('')
@@ -73,8 +75,7 @@ export function WorkspaceGitConnections({
           <GitBranch className="size-4" /> Git connections
         </h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Choose the account and repository for each project. Connections never
-          fall back to another account.
+          {t('workspace.gitHint')}
         </p>
       </div>
       {loading ? (
@@ -90,7 +91,10 @@ export function WorkspaceGitConnections({
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-medium">
                       {projects.find((item) => item.id === binding.projectId)
-                        ?.name ?? `Project ${binding.projectId}`}{' '}
+                        ?.name ??
+                        t('workspace.gitProjectFallback', {
+                          id: binding.projectId,
+                        })}{' '}
                       / <code>{binding.remoteName}</code>
                     </span>
                     <Button
@@ -99,7 +103,10 @@ export function WorkspaceGitConnections({
                       variant="ghost"
                       disabled={busy}
                       onClick={() => onDisconnect(binding.id)}
-                      aria-label={`Disconnect ${binding.remoteName} from project ${binding.projectId}`}
+                      aria-label={t('workspace.gitDisconnect', {
+                        remote: binding.remoteName,
+                        id: binding.projectId,
+                      })}
                     >
                       Disconnect
                     </Button>
@@ -143,7 +150,9 @@ export function WorkspaceGitConnections({
               }}
             >
               <div className="space-y-1">
-                <Label htmlFor={`${id}-project`}>Project</Label>
+                <Label htmlFor={`${id}-project`}>
+                  {t('workspace.gitProjectLabel')}
+                </Label>
                 <select
                   id={`${id}-project`}
                   className="h-9 w-full rounded-md border bg-background px-2 text-sm"
@@ -151,7 +160,7 @@ export function WorkspaceGitConnections({
                   disabled={busy}
                   onChange={(event) => setProjectId(event.target.value)}
                 >
-                  <option value="">Choose a project</option>
+                  <option value="">{t('workspace.gitChooseProject')}</option>
                   {projects.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
@@ -192,8 +201,7 @@ export function WorkspaceGitConnections({
               </div>
               {duplicate && (
                 <p role="alert" className="text-sm text-destructive">
-                  This project already has that remote. Disconnect it before
-                  choosing another account.
+                  {t('workspace.gitDuplicate')}
                 </p>
               )}
               <Button

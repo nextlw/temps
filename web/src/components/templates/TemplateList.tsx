@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import {
   listProjectTemplatesOptions,
@@ -44,6 +45,7 @@ export function TemplateList({
   onUseGitUrl,
   onBrowseRepositories,
 }: TemplateListProps) {
+  const { t } = useTranslation('projects')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [showFeaturedOnly, setShowFeaturedOnly] = useState(false)
@@ -237,8 +239,15 @@ export function TemplateList({
 
       {/* Template count */}
       <div className="text-xs text-muted-foreground text-center pt-2">
-        {filteredTemplates.length} of {templatesData?.total ?? 0}{' '}
-        {kind === 'service' ? 'services' : 'templates'}
+        {t(
+          kind === 'service'
+            ? 'templates.countService'
+            : 'templates.countStarter',
+          {
+            shown: filteredTemplates.length,
+            total: templatesData?.total ?? 0,
+          }
+        )}
       </div>
     </div>
   )

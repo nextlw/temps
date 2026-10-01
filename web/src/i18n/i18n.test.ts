@@ -41,16 +41,22 @@ describe('i18n init', () => {
   it('falls back to en for a language without translations', async () => {
     await i18n.changeLanguage('pt-BR')
     expect(i18n.language).toBe('pt-BR')
-    expect(i18n.t('nav:projects')).toBe('Projects')
+    expect(i18n.t('nav:projects')).toBe('Services')
     expect(i18n.t('common:loading')).toBe('Loading…')
   })
 
   it('resolves keys across namespaces and nests terms', () => {
-    expect(i18n.t('nav:projects')).toBe('Projects')
-    expect(i18n.t('nav:project.settingsTooltip')).toBe('Project settings')
+    // The code's `project` reads "Service"; the grouping entity reads
+    // "Project" (ADR-048).
+    expect(i18n.t('nav:projects')).toBe('Services')
+    expect(i18n.t('nav:project.settingsTooltip')).toBe('Service settings')
     expect(i18n.t('nav:platform.settingsTooltip')).toBe('Platform settings')
-    expect(i18n.t('nav:back.toProjects')).toBe('Back to projects')
-    expect(i18n.t('terms:project.singular')).toBe('Project')
+    expect(i18n.t('nav:back.toProjects')).toBe('Back to services')
+    expect(i18n.t('terms:project.singular')).toBe('Service')
+    expect(i18n.t('terms:projectGroup.singular')).toBe('Project')
+    expect(i18n.t('command:categories.externalService')).toBe('Database')
+    expect(i18n.t('projects:list.total', { count: 1 })).toBe('1 service')
+    expect(i18n.t('projects:list.total', { count: 3 })).toBe('3 services')
   })
 
   it('types keys against the en catalogs', () => {

@@ -1,3 +1,5 @@
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import { SettingsSection } from '@/components/ui/settings-section'
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -170,14 +172,14 @@ function PartOfBulkActivation({
   batchId: string
   row: BulkActivationJobProjectResponse
 }) {
+  const { t } = useTranslation('projects')
   return (
     <Alert>
       <Layers className="h-4 w-4" aria-hidden="true" />
       <AlertTitle>Part of a bulk Cloud activation</AlertTitle>
       <AlertDescription className="space-y-3">
         <p>
-          This backfill was not started for this project on its own — it is one
-          step of an instance-wide activation ({row.status}).{' '}
+          {t('settings.cloudBackfill.bulkHint', { status: row.status })}{' '}
           {PROJECT_STATUS_HINTS[row.status]}
         </p>
         <p className="font-mono text-xs break-all text-muted-foreground">
@@ -216,10 +218,11 @@ function StatusBadge({ status }: { status: CloudBackfillStatusResponse }) {
  * missing and links straight to the page that fixes it.
  */
 function NotOptedIn({ status }: { status: CloudBackfillStatusResponse }) {
+  const { t } = useTranslation('projects')
   return (
     <Alert>
       <AlertCircle className="h-4 w-4" aria-hidden="true" />
-      <AlertTitle>This project is not set up for Cloud read-back</AlertTitle>
+      <AlertTitle>{t('settings.cloudBackfill.notSetUp')}</AlertTitle>
       <AlertDescription className="space-y-3">
         <p>
           Telemetry fidelity is <code className="font-mono">metered</code>, so
@@ -356,5 +359,5 @@ function CommandBlock({
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message
   if (typeof error === 'string' && error) return error
-  return 'The instance did not return a status for this project.'
+  return i18n.t('projects:settings.cloudBackfill.noStatus')
 }

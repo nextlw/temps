@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { FolderGit2, LayoutTemplate, Link as LinkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -13,11 +14,14 @@ export function TemplateCatalogEmptyState({
   onUseGitUrl?: () => void
   onBrowseRepositories?: () => void
 }) {
+  const { t } = useTranslation('projects')
   return (
     <div className="flex flex-col items-center rounded-lg border border-dashed px-6 py-12 text-center">
       <LayoutTemplate className="mb-3 size-8 text-muted-foreground" />
       <p className="font-medium">
-        No {kind === 'service' ? 'services' : 'templates'} available
+        {kind === 'service'
+          ? t('templates.emptyService')
+          : t('templates.emptyStarter')}
       </p>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
         Start from your own source while the catalog is empty.

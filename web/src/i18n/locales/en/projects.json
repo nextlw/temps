@@ -1,0 +1,565 @@
+{
+  "list": {
+    "title": "$t(terms:project.plural)",
+    "description": "Manage your $t(terms:project.pluralLower) and their settings",
+    "newProject": "New $t(terms:project.singular)",
+    "searchLabel": "Filter $t(terms:project.pluralLower) by name or slug",
+    "searchPlaceholder": "Filter $t(terms:project.pluralLower)…",
+    "countUnavailable": "$t(terms:project.singular) count unavailable",
+    "loading": "Loading $t(terms:project.pluralLower)…",
+    "loadingLabel": "Loading $t(terms:project.pluralLower)",
+    "matching_one": "{{count}} matching $t(terms:project.singularLower) · searching {{loaded}} of {{total}}",
+    "matching_other": "{{count}} matching $t(terms:project.pluralLower) · searching {{loaded}} of {{total}}",
+    "total_one": "{{count}} $t(terms:project.singularLower)",
+    "total_other": "{{count}} $t(terms:project.pluralLower)",
+    "loadErrorTitle": "$t(terms:project.plural) could not be loaded",
+    "loadErrorStale": "Showing previously loaded $t(terms:project.pluralLower). Refresh to get the latest status.",
+    "loadErrorHint": "Check your connection and retry loading your $t(terms:project.pluralLower).",
+    "retry": "Retry loading $t(terms:project.pluralLower)",
+    "noMatchTitle": "No matching $t(terms:project.pluralLower)",
+    "noMatchHint": "No $t(terms:project.singularLower) name or slug contains “{{query}}”.",
+    "paginationLabel": "$t(terms:project.singular) list pagination",
+    "perPage": "$t(terms:project.plural) per page"
+  },
+  "create": {
+    "newProject": "New $t(terms:project.singular)",
+    "importProject": "Import $t(terms:project.singular)",
+    "configureProject": "Configure $t(terms:project.singular)",
+    "loadingConfiguration": "Loading $t(terms:project.singularLower) configuration...",
+    "importFailed": "Failed to import $t(terms:project.singularLower)",
+    "imported": "$t(terms:project.singular) imported successfully",
+    "createFailed": "Failed to create $t(terms:project.singularLower)",
+    "created": "$t(terms:project.singular) created successfully",
+    "backToCreate": "Back to Create $t(terms:project.singular)",
+    "nameRequired": "$t(terms:project.singular) name is required",
+    "nameLabel": "$t(terms:project.singular) Name",
+    "namePlaceholder": "Enter $t(terms:project.singularLower) name",
+    "nameSlugPlaceholder": "my-awesome-$t(terms:project.singularLower)",
+    "nameTitlePlaceholder": "My Awesome $t(terms:project.singular)",
+    "createdBang": "$t(terms:project.singular) created successfully!",
+    "createFailedWithMessage": "Failed to create $t(terms:project.singularLower): {{message}}",
+    "configurationTitle": "$t(terms:project.singular) Configuration",
+    "configurationDescription": "Configure your $t(terms:project.singularLower) settings",
+    "configurationDescriptionNew": "Configure your new $t(terms:project.singularLower)",
+    "submitting": "Creating $t(terms:project.singular)...",
+    "submit": "Create $t(terms:project.singular)",
+    "submitFromTemplate": "Create $t(terms:project.singular) from Template",
+    "willBeLinked": "will be linked to this $t(terms:project.singularLower)",
+    "thisProjectUrl": "This $t(terms:project.singularLower)'s URL",
+    "dockerfilePortMismatch": "This Dockerfile exposes port {{detected}}, but the $t(terms:project.singularLower) is configured for port {{selected}}. Temps routes to the exposed image port after the build, so an app that listens on the configured PORT value may fail its health check. Make these ports match unless your startup command intentionally ignores PORT.",
+    "staticFilesHint": "After creating the $t(terms:project.singularLower), you'll be able to upload your static files (tar.gz or zip) through the $t(terms:project.singularLower) dashboard or API.",
+    "flexibleTitle": "Flexible $t(terms:project.singular):",
+    "gitLater": "Git repository (configure later in $t(terms:project.singularLower) settings)",
+    "composeContainersInFile": "$t(terms:containers) in this file",
+    "composeFilesFound_one": "{{count}} compose file found. Each container with exposed ports gets a subdomain automatically.",
+    "composeFilesFound_other": "{{count}} compose files found. Each container with exposed ports gets a subdomain automatically.",
+    "oneDatabasePerType": "Only one database of each type can be linked to a $t(terms:project.singularLower).",
+    "templateRetry": "$t(terms:project.singular) \"{{name}}\" was created, but deployment must be retried.",
+    "templateCreated": "$t(terms:project.singular) \"{{name}}\" created successfully!",
+    "reloadDatabases": "Reload the database list before creating this $t(terms:project.singularLower).",
+    "selectRequirements": "Select {{requirements}} before creating this $t(terms:project.singularLower).",
+    "reviewFields": "Review the highlighted fields before creating your $t(terms:project.singularLower).",
+    "deployProject": "Deploy $t(terms:project.singular)"
+  },
+  "drop": {
+    "creating": "Creating $t(terms:project.singularLower)",
+    "uploading": "Uploading $t(terms:project.singularLower)",
+    "selectFiles": "Select $t(terms:project.singularLower) files",
+    "choosePreset": "Choose a detected $t(terms:project.singularLower) preset",
+    "chooseDetected": "Choose a detected $t(terms:project.singularLower)",
+    "noProjectRecord": "Temps created no $t(terms:project.singularLower) record",
+    "noEnvironment": "The $t(terms:project.singularLower) has no deployment environment",
+    "incompleteRemoved": " The incomplete $t(terms:project.singularLower) was removed.",
+    "acceptedBody": "Temps accepted the bundle and started the deployment. The $t(terms:project.singularLower) page has the live build log and final status.",
+    "projectName": "$t(terms:project.singular) name",
+    "detectedProjects": "Detected $t(terms:project.pluralLower)",
+    "packing": "Packaging $t(terms:project.singularLower) files",
+    "inspecting": "Inspecting $t(terms:project.singularLower) files",
+    "stillWorking": "Still working — larger $t(terms:project.pluralLower) can take a little longer. {{seconds}}s elapsed. You can cancel with the X.",
+    "dragHere": "Drag your $t(terms:project.singularLower) here",
+    "dragHint": "A $t(terms:project.singularLower) folder, one HTML file, or a .zip archive. Folders are packaged locally before upload.",
+    "noPreset": "No deployable $t(terms:project.singularLower) preset was detected"
+  },
+  "importWizard": {
+    "configureStepDescription": "Set up $t(terms:project.singularLower) name, framework, and deployment settings",
+    "executeStepDescription": "Creating your $t(terms:project.singularLower)",
+    "fetchFailed": "Failed to fetch $t(terms:project.singularLower) details",
+    "redirecting": "Redirecting to $t(terms:project.pluralLower) list...",
+    "configureHint": "Configure your $t(terms:project.singularLower) settings. The framework preset is auto-detected from your repository.",
+    "nameHint": "Enter a name for your $t(terms:project.singularLower)",
+    "presetHint": "Configure the $t(terms:project.singularLower) type based on the detected framework",
+    "nameColon": "$t(terms:project.singular) Name:",
+    "idColon": "$t(terms:project.singular) ID:",
+    "navigating": "Navigating to your new $t(terms:project.singularLower)...",
+    "creating": "Please wait while we create your $t(terms:project.singularLower)...",
+    "redirectingToProject": "Redirecting to your $t(terms:project.singularLower)...",
+    "pageTitle": "Import $t(terms:project.singular)"
+  },
+  "settings": {
+    "general": {
+      "nameRequired": "$t(terms:project.singular) name is required",
+      "nameTooLong": "$t(terms:project.singular) name must be 100 characters or fewer",
+      "slugRequired": "$t(terms:project.singular) slug is required",
+      "slugTooLong": "$t(terms:project.singular) slug must be 63 characters or fewer",
+      "updateSettingsFailed": "Failed to update $t(terms:project.singularLower) settings",
+      "updateFailed": "Failed to update $t(terms:project.singularLower)",
+      "updated": "$t(terms:project.singular) updated successfully",
+      "traceSharingUpdating": "Updating cross-$t(terms:project.singularLower) trace sharing...",
+      "traceSharingUpdated": "Cross-$t(terms:project.singularLower) trace sharing updated",
+      "traceSharingFailed": "Failed to update cross-$t(terms:project.singularLower) trace sharing",
+      "deleteFailed": "Failed to delete $t(terms:project.singularLower)",
+      "deleting": "Deleting $t(terms:project.singularLower)...",
+      "deleted": "$t(terms:project.singular) deleted",
+      "identityTitle": "$t(terms:project.singular) identity",
+      "nameLabel": "$t(terms:project.singular) Name",
+      "nameDescription": "The display name shown on the dashboard, in alerts, and in notifications. Also used as the $t(terms:otelService.singular) name for future deployments, so renaming starts a new series in traces and metrics.",
+      "slugLabel": "$t(terms:project.singular) Slug",
+      "slugDescription": "This will be used in your $t(terms:project.singularLower)'s URL",
+      "traceSharingLabel": "Cross-$t(terms:project.singularLower) trace sharing",
+      "traceSharingDescription": "When on, this $t(terms:project.singularLower)'s spans appear in other $t(terms:project.pluralLower)' unified cross-$t(terms:project.singularLower) traces. Turn off to keep this $t(terms:project.singularLower)'s spans private to itself.",
+      "deleteTitle": "Delete $t(terms:project.singularLower)",
+      "deleteDescription": "Permanently delete this $t(terms:project.singularLower) and all of its contents from the platform. This action is not reversible, so please continue with caution.",
+      "deleteButton": "Delete $t(terms:project.singularLower)",
+      "deleteConfirmDescription": "This action cannot be undone. This will permanently delete this $t(terms:project.singularLower) and remove all associated data from our servers.",
+      "updating": "Updating $t(terms:project.singularLower)..."
+    },
+    "sections": {
+      "projectSettings": "$t(terms:project.singular) settings",
+      "projectSetup": "$t(terms:project.singular) setup"
+    },
+    "extensionsEmpty": "Installed $t(terms:project.singularLower) extensions will appear here.",
+    "overview": {
+      "domains": "Attach and manage $t(terms:project.singularLower) domains.",
+      "groupProject": "$t(terms:project.singular)",
+      "general": "$t(terms:project.singular) identity and default deployment behavior.",
+      "secrets": "Store encrypted $t(terms:project.singularLower) credentials.",
+      "security": "Headers and $t(terms:project.singularLower) security controls.",
+      "access": "Control who can view and change this $t(terms:project.singularLower).",
+      "telemetry": "Where this $t(terms:project.singularLower)’s spans are stored, and what leaves this instance.",
+      "automation": "Scheduled work and programmable $t(terms:project.singularLower) extensions.",
+      "webhooks": "Notify external systems about $t(terms:project.singularLower) events.",
+      "aiWorkflows": "Automate $t(terms:project.singularLower) work with agents.",
+      "skills": "Give $t(terms:project.singularLower) agents reusable capabilities.",
+      "mcpServers": "Connect $t(terms:project.singularLower) agents to external tools.",
+      "intro": "$t(terms:project.singular)-wide defaults and environment-specific runtime controls, organized by the scope they affect."
+    },
+    "security": {
+      "updating": "Updating $t(terms:project.singularLower) settings...",
+      "updated": "$t(terms:project.singular) settings updated successfully",
+      "updateFailed": "Failed to update $t(terms:project.singularLower) settings",
+      "inheritance": "$t(terms:project.singular)-level security settings override global settings. Leave fields empty to inherit from global configuration.",
+      "attackModeHint": "Require CAPTCHA verification for all visitors to this $t(terms:project.singularLower)",
+      "aiDescription": "Configure AI summaries and assistance for this $t(terms:project.singularLower)",
+      "vulnerabilityHint": "Scan this $t(terms:project.singularLower)'s deployed Docker images for known CVEs, categorized by severity, after every deploy and once daily. Off by default.",
+      "headersDescription": "Configure $t(terms:project.singularLower) HTTP security headers that override global settings",
+      "rateLimitDescription": "Configure $t(terms:project.singularLower) rate limits that override global settings",
+      "whitelistLabel": "Whitelist IPs ($t(terms:project.singular)-specific)",
+      "whitelistHint": "Additional IPs that bypass rate limiting for this $t(terms:project.singularLower)",
+      "blacklistLabel": "Blacklist IPs ($t(terms:project.singular)-specific)",
+      "blacklistHint": "Additional IPs to block for this $t(terms:project.singularLower)"
+    },
+    "cloudBackfill": {
+      "bulkHint": "This backfill was not started for this $t(terms:project.singularLower) on its own — it is one step of an instance-wide activation ({{status}}).",
+      "notSetUp": "This $t(terms:project.singularLower) is not set up for Cloud read-back",
+      "noStatus": "The instance did not return a status for this $t(terms:project.singularLower)."
+    },
+    "composeSecurity": {
+      "legacy": "This $t(terms:project.singularLower) has legacy “Disable sandbox” settings. They no longer apply to new deployments. Review and acknowledge the individual exceptions you need here before redeploying.",
+      "intro": "Checks are enabled by default. Exceptions apply to this $t(terms:project.singularLower) on its next deployment and may expose the host or other $t(terms:project.pluralLower). Docker configuration validity and protection of Temps-generated files always remain enforced. Ordinary named volumes need no exception. These settings replace the former per-container “Disable sandbox” option; configure any required exceptions here before your next deployment.",
+      "legacyAcknowledge": "I have reviewed the exceptions this $t(terms:project.singularLower) needs for its next deployment.",
+      "disableScope": "This applies to every $t(terms:composeService.singularLower) in this $t(terms:project.singularLower) on the next deployment. Other checks remain enforced.",
+      "trustAcknowledge": "I trust this stack and understand that this exception can affect the host and other $t(terms:project.pluralLower)."
+    },
+    "cronJobs": {
+      "addDescription": "Follow these steps to add cron jobs to your $t(terms:project.singularLower)"
+    },
+    "deploymentSource": {
+      "allowed": "This $t(terms:project.singularLower) can now also be deployed from an uploaded folder",
+      "restricted": "This $t(terms:project.singularLower) now only deploys from its configured source",
+      "description": "How this $t(terms:project.singularLower) is built and deployed.",
+      "implicit": "This $t(terms:project.singularLower) already deploys from uploaded source, so it always accepts one.",
+      "switchLabel": "Allow deploying this $t(terms:project.singularLower) from other sources"
+    },
+    "domains": {
+      "intro": "Configure domains for your $t(terms:project.singularLower). Each domain can be assigned to a specific environment and optionally set up with redirects.",
+      "deleteDescription": "This action cannot be undone. This will permanently delete the domain from your $t(terms:project.singularLower)."
+    },
+    "variables": {
+      "notFoundHint": "This variable may have been deleted or is not part of this $t(terms:project.singularLower).",
+      "addDescription": "Add a new environment variable to your $t(terms:project.singularLower).",
+      "emptyDescription": "Add environment variables to configure your $t(terms:project.singularLower) across different environments."
+    },
+    "git": {
+      "updateFailed": "Failed to update $t(terms:project.singularLower) settings",
+      "noRepositoryHint": "Connect a Git repository to enable deployments for this $t(terms:project.singularLower).",
+      "uploadedSourceHint": "This $t(terms:project.singularLower) currently deploys source archives uploaded through Drop. Connect a repository to enable deployments from commits and branches.",
+      "composeSecurityLoadFailed": "Could not load this $t(terms:project.singularLower)'s Compose security policy.",
+      "composeSecurityAdminHint": "If you trust this stack, an instance administrator can disable this check for this $t(terms:project.singularLower)."
+    },
+    "imageRetention": {
+      "description": "How long this $t(terms:project.singularLower)'s built Docker images are kept before the nightly cleanup removes them. Rolling back or promoting a deployment requires its image, so this is effectively the $t(terms:project.singularLower)'s rollback window."
+    },
+    "access": {
+      "subtitle": "Control which teams can reach this $t(terms:project.singularLower).",
+      "restrictedHint": "Only members of these teams — and instance administrators — can see or open this $t(terms:project.singularLower). Revoking the last grant makes it open again.",
+      "openHint": "Any user with the relevant instance permission can see and open this $t(terms:project.singularLower). Granting a team access is what restricts it.",
+      "teamsDescription": "A member's permissions here are the narrower of their role in the team and the role the team holds on this $t(terms:project.singularLower).",
+      "example": "Give your operations team access to this $t(terms:project.singularLower).",
+      "emptyDescription": "Grant a team access to restrict this $t(terms:project.singularLower) to its members.",
+      "tableLabel": "Teams with $t(terms:project.singularLower) access",
+      "roleHeader": "Role on this $t(terms:project.singularLower)",
+      "grantAnother": "Add another team to this $t(terms:project.singularLower).",
+      "grantFirst": "This is the first grant — it will restrict the $t(terms:project.singularLower) to the teams listed here.",
+      "allHaveAccess": "Every team already has access to this $t(terms:project.singularLower).",
+      "revokeDescription": "Members of {{team}} lose access to this $t(terms:project.singularLower) immediately, unless another team also grants it to them.",
+      "revokeTeamFallback": "this team",
+      "revokeLast": " This is the last grant — revoking it makes the $t(terms:project.singularLower) open to everyone again."
+    },
+    "template": {
+      "unreadable": "Temps could not read this $t(terms:project.singularLower)'s saved template release. Its current runtime is still editable, but upgrades and resetting to template defaults are disabled until this is resolved.",
+      "createdFrom": "This $t(terms:project.singularLower) was created from the {{template}} template. Changes below become the source of truth for future deploys.",
+      "definitionUnavailable": "The saved template definition is currently unavailable. You can still edit and save this $t(terms:project.singularLower)'s stored runtime; only resetting to template defaults is unavailable.",
+      "linkRequiredTitle": "Link the required $t(terms:externalService.singularLower)",
+      "linkRequiredBody": "Add {{services}} to this $t(terms:project.singularLower) before applying the update. Existing $t(terms:externalService.singularLower) links are never removed automatically."
+    },
+    "webhooks": {
+      "subtitle": "Configure webhooks to receive real-time notifications about events in your $t(terms:project.singularLower)",
+      "emptyDescription": "Webhooks allow you to receive real-time HTTP notifications about events in your $t(terms:project.singularLower), such as deployments, errors, and more.",
+      "noDeliveries": "Webhook deliveries will appear here when events matching your subscriptions occur in this $t(terms:project.singularLower)."
+    },
+    "tokens": {
+      "analyticsRead": "Read $t(terms:project.singularLower) analytics data.",
+      "emailsSend": "Send email for this $t(terms:project.singularLower).",
+      "flagsRead": "Evaluate $t(terms:project.singularLower) feature flags."
+    },
+    "environments": {
+      "createDescription": "Add a new environment to your $t(terms:project.singularLower) for different deployment stages."
+    },
+    "telemetry": {
+      "localDescription": "Spans are written to this instance’s span store first, then optionally mirrored to Temps Cloud. This is the default and what every $t(terms:project.singularLower) did before Cloud-primary writes existed.",
+      "cloudDescription": "Spans go straight to this instance’s durable telemetry queue and are shipped to Temps Cloud. No span for this $t(terms:project.singularLower) is stored on this instance — which is how a local span store stops being necessary. Traces are then read back from Cloud.",
+      "nowCloud": "This $t(terms:project.singularLower)’s spans now go to Temps Cloud. They are no longer stored on this instance.",
+      "nowLocal": "This $t(terms:project.singularLower)’s spans are stored on this instance.",
+      "changeFailed": "Could not change this $t(terms:project.singularLower)’s telemetry storage.",
+      "statusUnavailable": "This instance could not report where this $t(terms:project.singularLower)’s spans are stored.",
+      "mismatchTitle": "Spans are not going where this $t(terms:project.singularLower)’s settings say",
+      "mismatchFallback": "Temps Cloud is not accepting this $t(terms:project.singularLower)’s spans, so they are being stored on this instance instead.",
+      "writeModeDescription": "Choose whether this $t(terms:project.singularLower)'s spans are stored locally or in Temps Cloud",
+      "meteredConflict": "Metered spans are pseudonymised placeholders that cannot be read back, and a Cloud-primary $t(terms:project.singularLower) stores nothing here — this $t(terms:project.singularLower)’s traces would exist nowhere. Choose “Store spans on this instance”, or keep fidelity at Queryable.",
+      "historyDescription": "Where this $t(terms:project.singularLower)’s spans actually went, which is what decides which store answers a query for a given time range."
+    },
+    "environmentConfig": {
+      "memoryHint": "Maximum memory allocation. Leave empty to inherit the $t(terms:project.singularLower)/default limit, or set",
+      "timeoutsHint": "Override the global request timeout defaults for this environment. Leave blank to inherit the $t(terms:project.singularLower)/global default (no timeout, unless an operator configured one). Enter 0 to explicitly force no timeout for this environment. Nonzero values are always clamped server-side to the operator's global hard ceiling.",
+      "concurrencyInherit": "Leave blank to inherit the $t(terms:project.singularLower)/global default (unlimited, unless an operator configured one).",
+      "attackModeInherit": "Require a CAPTCHA challenge for visitors. Inherit uses the $t(terms:project.singularLower) default (currently {{state}}).",
+      "on": "on",
+      "off": "off"
+    }
+  },
+  "framework": {
+    "detectOperation": "detect this $t(terms:project.singularLower)'s framework",
+    "selectPreset": "Select a preset for your $t(terms:project.singularLower) from the list below."
+  },
+  "monitors": {
+    "idLabel": "$t(terms:project.singular) ID",
+    "subtitle": "Monitor your $t(terms:project.singularLower)'s uptime and performance",
+    "createDescription": "Set up a new monitor to track your $t(terms:project.singularLower)'s uptime and performance.",
+    "emptyDescription": "Create a monitor to track this $t(terms:project.singularLower)'s uptime and response time."
+  },
+  "deployments": {
+    "noImageRef": "No image reference found for this $t(terms:project.singularLower)"
+  },
+  "overview": {
+    "tour": "Take a tour of your $t(terms:project.singularLower)",
+    "analyticsHint": "Track visitors, page views, and returning activity from this $t(terms:project.singularLower).",
+    "noEnvironments": "No environments found for this $t(terms:project.singularLower).",
+    "noRoutes": "Routes appear here as soon as the $t(terms:project.singularLower) receives traffic."
+  },
+  "revenue": {
+    "title": "Revenue",
+    "subtitle": "Track MRR, ARR, churn, and active customers for this $t(terms:project.singularLower)."
+  },
+  "select": {
+    "placeholder": "Select $t(terms:project.singularLower)…",
+    "all": "All $t(terms:project.pluralLower)",
+    "refresh": "Refresh $t(terms:project.pluralLower)",
+    "loadFailed": "Failed to load $t(terms:project.pluralLower)",
+    "empty": "No $t(terms:project.pluralLower) found."
+  },
+  "storage": {
+    "perProject": "Per $t(terms:project.singularLower)",
+    "unlink": "Unlink from $t(terms:project.singularLower)",
+    "link": "Link to $t(terms:project.singularLower)",
+    "linkFailed": "Failed to link $t(terms:externalService.singularLower) to $t(terms:project.singularLower)",
+    "unlinkFailed": "Failed to unlink $t(terms:externalService.singularLower) from $t(terms:project.singularLower)",
+    "linking": "Linking $t(terms:externalService.singularLower)...",
+    "linked": "$t(terms:externalService.singular) linked",
+    "linkError": "Failed to link $t(terms:externalService.singularLower)",
+    "unlinking": "Unlinking $t(terms:externalService.singularLower)...",
+    "unlinked": "$t(terms:externalService.singular) unlinked",
+    "unlinkError": "Failed to unlink $t(terms:externalService.singularLower)",
+    "subtitle": "Link an existing database or create a new one for this $t(terms:project.singularLower).",
+    "linksLoadFailed": "Could not determine which databases are linked to this $t(terms:project.singularLower).",
+    "chooseHint": "Choose an existing database below, or create a new database of any supported type. Linking makes its connection settings available to this $t(terms:project.singularLower).",
+    "allLinked": "All existing databases are linked to this $t(terms:project.singularLower). You can create another database above.",
+    "customDatabase": "Custom database",
+    "perEnvironment": "Per environment"
+  },
+  "tools": {
+    "pin": "Pin to $t(terms:project.singularLower) sidebar",
+    "unpin": "Unpin from $t(terms:project.singularLower) sidebar",
+    "title": "All $t(terms:project.singularLower) tools",
+    "intro": "Browse every secondary capability for {{name}}. Pin the tools you use often to keep them one click away in the $t(terms:project.singularLower) sidebar.",
+    "searchLabel": "Search $t(terms:project.singularLower) tools",
+    "noMatch": "No matching $t(terms:project.singularLower) tool",
+    "configureDescription": "Connect runtime features and automate $t(terms:project.singularLower) workflows.",
+    "settingsGroup": "$t(terms:project.singular) settings"
+  },
+  "tour": {
+    "overview": "Your $t(terms:project.singularLower) home — deployments, status and setup all live here."
+  },
+  "providedVariables": {
+    "errorTracking": "Sentry-compatible $t(terms:project.singularLower) and release metadata",
+    "openTelemetry": "Trace export and $t(terms:otelService.singular) metadata"
+  },
+  "flags": {
+    "credentialsHint": "Apps deployed on this instance already have these. Set them yourself only when running locally or somewhere else — a deployment token pins the $t(terms:project.singularLower) and environment, so no app can read another $t(terms:project.singularLower)'s flags."
+  },
+  "detail": {
+    "loadFailed": "Failed to load $t(terms:project.singularLower)",
+    "unexpectedError": "An unexpected error occurred",
+    "attackMode": "Attack Mode is enabled for this $t(terms:project.singularLower)",
+    "previewAlt": "{{name}} preview"
+  },
+  "compose": {
+    "previewSubtitle": "Repository + enabled containers + override",
+    "previewApplies": "This preview applies disabled containers and your override.",
+    "routesIntro": "Choose the compose container and port mapping for each public URL.",
+    "routesEmpty": "Containers remain private until you expose a container port.",
+    "routeContainer": "Container",
+    "routePortLabel": "Container port for {{name}}",
+    "routeFallbackName": "route {{index}}",
+    "noDeclaredPort": "No declared port found for this container. You can still enter a known container port manually.",
+    "healthDetected": "Detected from this container’s Compose healthcheck.",
+    "healthDefault": "Defaults to / when the compose container has no HTTP healthcheck.",
+    "readFailed": "Couldn't read compose containers from {{path}}",
+    "listLabel": "$t(terms:composeService.plural)",
+    "listIntro": "Uncheck a container to skip deploying it entirely — e.g. a raw database container, which won’t have Temps backup/restore. Every container runs with all Linux container permissions dropped except a minimal set (CHOWN, DAC_OVERRIDE, FOWNER, SETUID, SETGID) most official images need to fix ownership on their data volume at startup — that’s granted automatically, nothing to configure. If a container still fails with “Operation not permitted” errors, it may need an exception in Advanced security settings below.",
+    "refreshUploaded": "Upload a new source archive to refresh $t(terms:composeService.pluralLower)",
+    "noneDetected": "No compose containers detected yet —",
+    "selectLabel": "Select $t(terms:composeService.singularLower)",
+    "selectPlaceholder": "Select a $t(terms:composeService.singularLower)",
+    "searchPlaceholder": "Search $t(terms:composeService.pluralLower)…",
+    "empty": "No $t(terms:composeService.singularLower) found.",
+    "groupHeading": "$t(terms:containers) in the effective Compose file",
+    "domainLabel": "$t(terms:composeService.singular)",
+    "allContainers": "All containers",
+    "domainHint": "Route this domain to a specific Docker $t(terms:composeService.singularLower)",
+    "domainContainer": "Container: {{name}}",
+    "secretsMountHint": ". Docker Compose $t(terms:project.pluralLower) get the same mount in every container. A redeploy is required for new or updated secrets to take effect.",
+    "secretsEveryContainer": "This secret will be mounted in every container. To restrict it to specific containers — so a database or sidecar can't read an application's credentials — sync this $t(terms:project.singularLower)'s $t(terms:composeService.pluralLower) from Git settings, then edit the secret.",
+    "secretsSelectHint": "Leave empty to mount this secret in every container. Selecting containers restricts it to those containers — the others get no file at all, so a database or sidecar can't read an application's credentials.",
+    "containerField": "Container",
+    "container": "Container: {{name}}",
+    "excludedHint": "Unchecked containers are excluded from deployment entirely.",
+    "reading": "Reading containers from compose file…"
+  },
+  "setup": {
+    "errorTrackingPreset": "preset we detected in this $t(terms:project.singularLower).",
+    "loadFailed": "Failed to load $t(terms:project.singularLower) setup",
+    "loadFailedDescription": "Temps could not check the current setup state for this $t(terms:project.singularLower).",
+    "title": "$t(terms:project.singular) setup",
+    "readyTitle": "This $t(terms:project.singularLower) is production-ready",
+    "readyDescription": "Every recommended $t(terms:project.singularLower) integration is connected and reporting.",
+    "allItems": "All $t(terms:project.singularLower) setup items",
+    "domainDescription": "Give the $t(terms:project.singularLower) a production hostname and let Temps provision and renew its TLS certificate.",
+    "storageDescription": "Attach a managed $t(terms:externalService.singularLower) to this $t(terms:project.singularLower) so application data and deployment configuration stay together.",
+    "storageCta": "Open databases"
+  },
+  "onboarding": {
+    "databaseDescription": "Provision a managed Postgres, Redis, or MongoDB to attach to a $t(terms:project.singularLower).",
+    "teamDescription": "Add teammates so they can manage $t(terms:project.pluralLower) and deployments.",
+    "wildcardAll": "• Wildcard domain for all $t(terms:project.pluralLower):",
+    "subdomainsHint": "This will allow all your $t(terms:project.pluralLower) to use subdomains automatically.",
+    "projectDeployments": "• $t(terms:project.singular) deployments:",
+    "projectSubdomain": "$t(terms:project.singularLower)-name",
+    "stepProject": "$t(terms:project.singular)",
+    "allSet": "You're all set to start deploying $t(terms:project.pluralLower) with Temps",
+    "goToProjects": "Go to $t(terms:project.plural)",
+    "harnessHint": "Connect Codex, Claude Code, Cursor, or another harness, then ask it to create a $t(terms:project.singularLower) or PostgreSQL database and verify the result in Temps.",
+    "harnessCreate": "Create a $t(terms:project.singularLower)",
+    "dropChoose": "Choose a $t(terms:project.singularLower) folder or ZIP",
+    "dropUnreadable": "Those $t(terms:project.singularLower) files could not be read",
+    "dropTitle": "Drop $t(terms:project.singularLower) files",
+    "dropRelease": "Release to inspect your $t(terms:project.singularLower)"
+  },
+  "card": {
+    "imageLabel": "{{name}} $t(terms:project.singularLower) image",
+    "healthError": "Temps could not load request health for this $t(terms:project.singularLower). Reload the page to try again; if it persists, check that the proxy is running.",
+    "healthMissing": "The health summary returned no entry for this $t(terms:project.singularLower), so its status could not be determined.",
+    "noTraffic": "No user requests reached this $t(terms:project.singularLower) in {{window}}, so there is no traffic to measure. Add an uptime monitor to get a health signal that does not depend on visitors."
+  },
+  "teams": {
+    "memberRoleCap": "Their role here is capped by the role this team holds on each $t(terms:project.singularLower) — the narrower of the two applies.",
+    "renameHint": "Changing the name doesn't affect who can reach what — membership and $t(terms:project.singularLower) grants stay as they are.",
+    "projectFallback": "$t(terms:project.singular) {{id}}",
+    "membersDescription": "Everyone here reaches every $t(terms:project.singularLower) granted to this team.",
+    "noMembersDescription": "Add users to this team so they inherit its $t(terms:project.singularLower) access.",
+    "projectsTitle": "$t(terms:project.plural)",
+    "projectsDescription": "Grants are added from each $t(terms:project.singularLower)'s Access tab.",
+    "noAccessTitle": "No $t(terms:project.singularLower) access",
+    "noAccessDescription": "This team can't reach any $t(terms:project.singularLower) yet. Open a $t(terms:project.singularLower)'s Access tab to grant it.",
+    "projectColumn": "$t(terms:project.singular)",
+    "removeMember": "{{name}} loses access to every $t(terms:project.singularLower) they could only reach through this team. This takes effect immediately.",
+    "removeMemberFallback": "This user",
+    "roleOwner": "Deploy, manage env vars, settings and domains, and delete the $t(terms:project.singularLower)",
+    "roleAdmin": "Deploy, manage env vars, settings and domains. Cannot delete the $t(terms:project.singularLower)",
+    "enforcementNote": "Roles currently restrict deployments, environment variables, $t(terms:project.singularLower) settings, domains and $t(terms:project.singularLower) deletion. Other actions still follow the member's instance-wide role.",
+    "createDescription": "Teams group users. Once created, grant the team access to the $t(terms:project.pluralLower) its members should reach.",
+    "pageDescription": "Group users, then grant each team access to the $t(terms:project.pluralLower) it should reach. $t(terms:project.plural) with no grants stay open to everyone.",
+    "emptyDescription": "Create a team, add members, then grant it access to a $t(terms:project.singularLower) from that $t(terms:project.singularLower)'s Access tab.",
+    "deleteDescription": "This permanently deletes the team{{name}} along with its memberships and $t(terms:project.singularLower)-access grants. Members lose access to every $t(terms:project.singularLower) they could only reach through this team. This cannot be undone."
+  },
+  "live": {
+    "title": "{{name}} - Live Visitors",
+    "titleFallback": "$t(terms:project.singular)",
+    "back": "Back to $t(terms:project.singular)",
+    "backToList": "Back to $t(terms:project.plural)",
+    "notFound": "$t(terms:project.singular) not found"
+  },
+  "domainMove": {
+    "description": "Choose the $t(terms:project.singularLower) first, then the environment that should receive this hostname.",
+    "targetLabel": "Target $t(terms:project.singularLower)",
+    "loading": "Loading $t(terms:project.pluralLower)…",
+    "select": "Select a $t(terms:project.singularLower)",
+    "loadingMore": "Loading more $t(terms:project.pluralLower)…",
+    "loadMore": "Load more $t(terms:project.pluralLower)",
+    "none": "No other accessible $t(terms:project.pluralLower) are available.",
+    "loadFailed": "$t(terms:project.plural) could not be loaded. Close and try again.",
+    "selectFirst": "Select a $t(terms:project.singularLower) first",
+    "environmentsFailed": "Environments could not be loaded. Select the $t(terms:project.singularLower) again to retry."
+  },
+  "emailDomain": {
+    "fetchFailed": "Failed to fetch authorized $t(terms:project.pluralLower)",
+    "authorizeFailed": "Failed to authorize $t(terms:project.singularLower)",
+    "authorized": "$t(terms:project.singular) authorized",
+    "authorizedDescription": "Deployments in this $t(terms:project.singularLower) can now send from this domain.",
+    "revokeFailed": "Failed to revoke $t(terms:project.singularLower)",
+    "revoked": "$t(terms:project.singular) access revoked",
+    "title": "Authorized $t(terms:project.pluralLower)",
+    "description": "Choose which $t(terms:project.singularLower) deployment tokens may send email from {{domain}}.",
+    "searchPlaceholder": "Search $t(terms:project.pluralLower) by name or slug",
+    "loadFailed": "Could not load $t(terms:project.singularLower) authorizations",
+    "empty": "No $t(terms:project.pluralLower) are authorized yet. Deployment tokens cannot send from this domain until you add one.",
+    "adminOnly": "Only an instance or platform administrator can change sender-domain $t(terms:project.singularLower) access.",
+    "revokeTitle": "Revoke $t(terms:project.singularLower) access?",
+    "authorizeTitle": "Authorize $t(terms:project.singularLower) to send email?",
+    "thisProject": "This $t(terms:project.singularLower)",
+    "authorizeTail": "Every deployment token in that $t(terms:project.singularLower) gains this ability immediately."
+  },
+  "roles": {
+    "user": "Can deploy and operate every existing and future $t(terms:project.singularLower), but cannot manage users or system settings.",
+    "admin": "Full control of $t(terms:project.pluralLower), users, roles, settings, and system resources.",
+    "teamViewer": "Can view team $t(terms:project.pluralLower).",
+    "teamDeployer": "Can view and deploy team $t(terms:project.pluralLower).",
+    "teamAdmin": "Can operate $t(terms:project.pluralLower) and manage team members.",
+    "teamOwner": "Full control of the team and its $t(terms:project.singularLower) access.",
+    "scopeUserTitle": "All-$t(terms:project.singularLower) access",
+    "scopeUserDescription": "Can access every existing $t(terms:project.singularLower) and every $t(terms:project.singularLower) created later. $t(terms:project.singular) access is not limited to selected $t(terms:project.pluralLower).",
+    "scopeAdminDescription": "Can manage all $t(terms:project.pluralLower), users, roles, settings, and system resources, including destructive operations.",
+    "userShort": "Can deploy and operate every existing and future $t(terms:project.singularLower).",
+    "adminShort": "Full control of $t(terms:project.pluralLower), users, settings, and the system."
+  },
+  "security": {
+    "scanDisabled": "Vulnerability scanning is disabled for this $t(terms:project.singularLower)",
+    "scanDisabledSentence": "Vulnerability scanning is disabled for this $t(terms:project.singularLower)."
+  },
+  "environment": {
+    "staticSite": "This $t(terms:project.singularLower) does not have running containers to manage."
+  },
+  "errors": {
+    "dsnHint": "Use this DSN in your {{environment}} environment to send errors to this $t(terms:project.singularLower)",
+    "createDsn": "Create a new Data Source Name for error tracking in your $t(terms:project.singularLower)."
+  },
+  "docker": {
+    "explanation": "Mounts /var/run/docker.sock into this $t(terms:project.singularLower)'s containers so it can manage containers on its host — for operator-owned infrastructure services only. A granted $t(terms:project.singularLower) is root-equivalent on every host that grants it.",
+    "noGrant": "No host grants this $t(terms:project.singularLower) access to the Docker socket."
+  },
+  "hostnames": {
+    "console": "This is the Temps console domain. Routing it to a $t(terms:project.singularLower) would make the console unreachable.",
+    "preview": "This is the preview domain Temps generates deployment URLs from and cannot be assigned to a $t(terms:project.singularLower)."
+  },
+  "errorTitles": {
+    "project": "$t(terms:project.singularLower)",
+    "projects": "$t(terms:project.pluralLower)"
+  },
+  "monitoring": {
+    "saveAlerts": "Save $t(terms:project.singularLower) alerts",
+    "digestIntro": "Receive a comprehensive weekly summary of your $t(terms:project.singularLower)'s activity, performance, and health metrics",
+    "digestDescription": "Get a weekly email with $t(terms:project.singularLower) insights and metrics",
+    "digestProjects": "$t(terms:project.singular) Updates",
+    "saving": "Saving $t(terms:project.singularLower) alert settings...",
+    "saved": "$t(terms:project.singular) alert settings saved successfully",
+    "saveFailed": "Failed to save $t(terms:project.singularLower) alert settings",
+    "healthTitle": "$t(terms:project.singular) Health"
+  },
+  "timeouts": {
+    "maxHint": "No $t(terms:project.singularLower)/environment override, and no default below, can exceed this — but only applies once a timeout is actually configured. Min 5, max 86400 (24h). Default 600 (10m).",
+    "ceilingsTitle": "$t(terms:project.singular) Override Ceilings",
+    "ceilingsDescription": "Bound the resource and timeout overrides $t(terms:project.pluralLower) and environments can configure",
+    "ceilingsIntroStart": "The two settings above are",
+    "ceilingsIntro": "— anyone who can edit a $t(terms:project.singularLower) or environment's Deployment Config can override them, including overriding them to unlimited. These ceilings bound those overrides. All three are off by default, so nothing changes until you set one, and holders of the Settings write permission are never blocked by them. An override that breaks a ceiling is rejected with an explanation, never silently reduced.",
+    "ceilingsRetro": "Setting a ceiling here does not change $t(terms:project.pluralLower) that already exceed it — they keep running as configured until someone next edits them. Note also that the memory ceiling is per container, so a $t(terms:project.singularLower) with several replicas can still total more than the ceiling.",
+    "memoryHint": "0 = no ceiling (default). When set, a $t(terms:project.singularLower) cannot request more than this, nor set its memory limit to unlimited.",
+    "allowUnlimited": "Allow $t(terms:project.pluralLower) to disable timeouts",
+    "allowUnlimitedHint": "On by default. Turn it off to stop a $t(terms:project.singularLower) from setting its request, SSE, or WebSocket timeout to 0 — the value that opts out of the hard ceiling above entirely. Timeouts a $t(terms:project.singularLower) sets to a real number are already clamped to that ceiling."
+  },
+  "globalAi": {
+    "mcpIntro": "Platform-wide MCP server configurations available to all $t(terms:project.pluralLower). Configs are merged into",
+    "mcpEmpty": "Global MCP servers are available to all $t(terms:project.pluralLower). Define common tools like browser automation, database access, or file system servers here.",
+    "mcpDelete": "This will permanently delete this MCP server. All $t(terms:project.pluralLower) that reference it will lose access.",
+    "mcpCreate": "Define a new global MCP server available to all $t(terms:project.pluralLower).",
+    "skillsIntro": "Platform-wide skill definitions available to all $t(terms:project.pluralLower). Skills are injected as",
+    "skillsEmpty": "Global skills are available to all $t(terms:project.pluralLower). Define common patterns, coding standards, or reusable instructions here.",
+    "skillDelete": "This will permanently delete this skill. All $t(terms:project.pluralLower) that reference it will lose access.",
+    "skillCreate": "Define a new global skill available to all $t(terms:project.pluralLower).",
+    "scopeProject": "$t(terms:project.singular) {{id}}"
+  },
+  "nodes": {
+    "projectColumn": "$t(terms:project.singular)"
+  },
+  "templates": {
+    "sourceTitle": "$t(terms:project.singular) templates",
+    "backToServiceTemplates": "Back to $t(terms:project.singularLower) templates",
+    "backToTemplates": "Back to templates",
+    "curatedTitle": "Curated $t(terms:project.singularLower) templates",
+    "countService": "{{shown}} of {{total}} $t(terms:project.singularLower) templates",
+    "countStarter": "{{shown}} of {{total}} templates",
+    "emptyService": "No $t(terms:project.singularLower) templates available",
+    "emptyStarter": "No templates available"
+  },
+  "serviceMentions": {
+    "goToProjects": "Go to $t(terms:project.pluralLower)",
+    "gitProviderHint": "Connect a Git provider to deploy and manage your $t(terms:project.pluralLower)",
+    "pluginProjectHint": "Open a $t(terms:project.singularLower) to find this plugin in its sidebar.",
+    "readProjects": "Read $t(terms:project.pluralLower)",
+    "readProjectsDescription": "Read $t(terms:project.singularLower) metadata across this instance.",
+    "eventsDescription": "Receive subscribed $t(terms:project.singularLower), deployment, and domain events across this instance.",
+    "emailProject": "· $t(terms:project.singularLower) #{{id}}",
+    "gitProviderDelete": "$t(terms:project.plural) still deployed from this provider block the delete — the error names them.",
+    "alertChannels": "Maps to the notification severity. Alerts are delivered through the notification channels configured for this $t(terms:project.singularLower).",
+    "aiCrawlers": "Requests from AI crawlers (ChatGPT, Claude, Perplexity, and more) fetching this $t(terms:project.singularLower), newest first.",
+    "workspacesDescription": "Persistent $t(terms:project.pluralLower) and working context, with compute when you need it.",
+    "workspacesList": "$t(terms:project.plural) and persistent context, with optional compute and AI threads.",
+    "cloudDisconnect": "Disconnecting disables Cloud exports, removes managed backup schedules, and revokes Cloud console access and its sessions. It removes the saved Cloud credential. Local $t(terms:project.pluralLower) and deployments remain available. After reconnecting, review your Cloud exports and backup schedule.",
+    "agentSkills": "$t(terms:project.singular)- and platform-level skills available to this workflow. Injected as",
+    "autopilotLocal": "Trigger a one-off run from a local YAML file — nothing is stored in the $t(terms:project.singularLower) config. Great for experimenting before committing.",
+    "retainedContainers": "These containers are not receiving public traffic. Inspect their live logs before redeploying; the next successful deployment or $t(terms:project.singularLower) deletion removes them automatically.",
+    "mariadb": "Create a shared MariaDB server. Linked $t(terms:project.pluralLower) get separate databases inside it; use the size profile below to tune the container for the host.",
+    "storageEmpty": "Pick a provider to spin up a managed database or store you can connect to your team's $t(terms:project.pluralLower).",
+    "linkProject": "Link a $t(terms:project.singularLower)",
+    "sessionDiagnostics": "Inspect stored chat events and the native harness session when available. Credentials are redacted and export limits are reported in the JSON. Messages and $t(terms:project.singularLower) details may still be private; review before sharing. This is a snapshot, not a live feed. Refresh to inspect pending tools.",
+    "sandboxRepo": "GitHub repo path. The repo must be accessible via the $t(terms:project.singularLower)'s git provider connection. Leave empty to disable."
+  }
+}

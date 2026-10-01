@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
+import { useTranslation } from 'react-i18next'
 import {
   acknowledgeAlarmMutation,
   getProjectAlarmsSummaryOptions,
@@ -113,14 +115,20 @@ function scopeLabel(alarm: AlarmResponse): string {
   const parts: string[] = []
   if (alarm.environment_id != null) parts.push(`env #${alarm.environment_id}`)
   if (alarm.deployment_id != null) parts.push(`deploy #${alarm.deployment_id}`)
-  if (alarm.service_id != null) parts.push(`service #${alarm.service_id}`)
+  if (alarm.service_id != null)
+    parts.push(
+      i18n.t('observability:misc.alarmDatabase', { id: alarm.service_id })
+    )
   if (alarm.container_id != null) parts.push(`container #${alarm.container_id}`)
-  return parts.length > 0 ? parts.join(' · ') : 'project-wide'
+  return parts.length > 0
+    ? parts.join(' · ')
+    : i18n.t('observability:misc.alarmWide')
 }
 
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export function Alarms({ embedded = false }: { embedded?: boolean } = {}) {
+  const { t } = useTranslation('observability')
   const { setBreadcrumbs } = useBreadcrumbs()
   const queryClient = useQueryClient()
   usePageTitle('Alarms')
@@ -314,7 +322,7 @@ export function Alarms({ embedded = false }: { embedded?: boolean } = {}) {
           disabled={projectsLoading || projects.length === 0}
         >
           <SelectTrigger className="w-full sm:w-[240px]">
-            <SelectValue placeholder="Select a project…" />
+            <SelectValue placeholder={t('alarms.selectProject')} />
           </SelectTrigger>
           <SelectContent>
             {projects.map((p) => (
@@ -430,8 +438,8 @@ export function Alarms({ embedded = false }: { embedded?: boolean } = {}) {
                     <EmptyState
                       size="compact"
                       icon={AlarmClock}
-                      title="No project selected"
-                      description="Select a project to view its alarm history."
+                      title={t('alarms.noProject')}
+                      description={t('alarms.noProjectDescription')}
                     />
                   </TableCell>
                 </TableRow>
@@ -468,7 +476,7 @@ export function Alarms({ embedded = false }: { embedded?: boolean } = {}) {
                       description={
                         hasFilters
                           ? 'Try adjusting your filters to see more results.'
-                          : 'Nothing has fired for this project yet.'
+                          : t('alarms.nothingFired')
                       }
                     />
                   </TableCell>

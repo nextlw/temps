@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import type { DropPresetCandidate } from '@/api/client'
 import { PresetIcon } from '@/components/presets/PresetIcon'
 import { cn } from '@/lib/utils'
@@ -16,6 +17,7 @@ export function DetectedPresetCard({
   isDetecting: boolean
   phase?: 'packing' | 'detecting'
 }) {
+  const { t } = useTranslation('projects')
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   useEffect(() => {
@@ -31,10 +33,10 @@ export function DetectedPresetCard({
   }, [isDetecting])
 
   const detectionTitle =
-    phase === 'packing' ? 'Packaging project files' : 'Inspecting project files'
+    phase === 'packing' ? t('drop.packing') : t('drop.inspecting')
   const detectionDescription =
     elapsedSeconds >= 5
-      ? `Still working — larger projects can take a little longer. ${elapsedSeconds}s elapsed. You can cancel with the X.`
+      ? t('drop.stillWorking', { seconds: elapsedSeconds })
       : phase === 'packing'
         ? 'Creating a secure archive in your browser…'
         : 'Uploading the archive and reading framework manifests…'

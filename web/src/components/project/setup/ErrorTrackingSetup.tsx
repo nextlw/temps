@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client/types.gen'
 import {
   getOrCreateDsnMutation,
@@ -537,6 +538,7 @@ Future<void> main() async {
 ]
 
 export function ErrorTrackingSetup({ project }: ErrorTrackingSetupProps) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const [wizardStep, setWizardStep] = useState<WizardStepId>('framework')
   const recommendedPlatform = useMemo(
@@ -668,7 +670,7 @@ ${platform.buildSnippet(platform.dsnExpression)}
                   <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
                     {project.preset}
                   </code>{' '}
-                  preset we detected in this project.
+                  {t('setup.errorTrackingPreset')}
                 </p>
               </div>
             </div>

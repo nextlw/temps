@@ -1096,8 +1096,14 @@ const getErrorTitle = (
   }
   const mutationKey = context?.mutationKey?.[0]
   if (mutationKey) {
-    // e.g., "createProject" -> "Failed to create project"
-    return `Failed to ${mutationKey.replace(/([A-Z])/g, ' $1').toLowerCase()}`
+    // e.g., "createProject" -> "Failed to create service": the code's
+    // `project` reads as its UI term (ADR-048).
+    const words = mutationKey
+      .replace(/([A-Z])/g, ' $1')
+      .toLowerCase()
+      .replace(/\bprojects\b/g, i18n.t('projects:errorTitles.projects'))
+      .replace(/\bproject\b/g, i18n.t('projects:errorTitles.project'))
+    return `Failed to ${words}`
   }
 
   return defaultTitle

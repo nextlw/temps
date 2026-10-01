@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { deleteServiceMutation } from '@/api/client/@tanstack/react-query.gen'
 import {
   AlertDialog,
@@ -32,6 +33,7 @@ export function DeleteServiceButton({
   serviceName,
   onSuccess,
 }: DeleteServiceButtonProps) {
+  const { t } = useTranslation('storage')
   const [isOpen, setIsOpen] = useState(false)
   const [confirmName, setConfirmName] = useState('')
   const queryClient = useQueryClient()
@@ -41,7 +43,7 @@ export function DeleteServiceButton({
   const deleteMutation = useMutation({
     ...deleteServiceMutation(),
     meta: {
-      errorTitle: 'Failed to delete service',
+      errorTitle: t('delete.failed'),
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['listServices'] })
@@ -70,7 +72,7 @@ export function DeleteServiceButton({
   const errorMessage = deleteMutation.error
     ? deleteMutation.error instanceof Error
       ? deleteMutation.error.message
-      : 'Failed to delete service. Please try again.'
+      : t('delete.retry')
     : null
 
   return (
@@ -91,11 +93,8 @@ export function DeleteServiceButton({
       </AlertDialogTrigger>
       <AlertDialogContent onClick={(e) => e.stopPropagation()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete storage service?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone and all data associated with this
-            service will be permanently removed.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{t('delete.title')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('delete.body')}</AlertDialogDescription>
         </AlertDialogHeader>
         <div className="space-y-2">
           <Label htmlFor="confirm-service-name">

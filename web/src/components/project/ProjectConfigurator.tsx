@@ -86,7 +86,9 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
+import { i18n } from '@/i18n'
 import { toast } from 'sonner'
 import * as z from 'zod/v4'
 import {
@@ -200,7 +202,7 @@ const slugifyPath = (path: string): string => {
 
 // Form schema definition
 const formSchema = z.object({
-  name: z.string().min(1, 'Project name is required'),
+  name: z.string().min(1, i18n.t('projects:create.nameRequired')),
   preset: z.string().min(1, 'Preset is required'),
   autoDeploy: z.boolean(),
   rootDirectory: z.string(),
@@ -264,6 +266,7 @@ function ComposeFileSelector({
     baseUrl?: string
   } | null
 }) {
+  const { t } = useTranslation('projects')
   const [isCustomPath, setIsCustomPath] = useState(false)
   const rootDirectory =
     useWatch({ control: form.control, name: 'rootDirectory' }) || './'
@@ -400,7 +403,9 @@ function ComposeFileSelector({
 
   const serviceChecklist = composeServices.length > 0 && (
     <div className="space-y-2 rounded-lg border p-3">
-      <p className="text-sm font-medium">Services in this file</p>
+      <p className="text-sm font-medium">
+        {t('create.composeContainersInFile')}
+      </p>
       <TooltipProvider>
         <div className="space-y-1.5">
           {composeServices.map((service) => {
@@ -449,7 +454,7 @@ function ComposeFileSelector({
         </div>
       </TooltipProvider>
       <p className="text-xs text-muted-foreground">
-        Unchecked services are excluded from deployment entirely.
+        {t('compose.excludedHint')}
       </p>
     </div>
   )
@@ -494,7 +499,7 @@ function ComposeFileSelector({
         {isLoadingComposeServices && (
           <p className="text-xs text-muted-foreground flex items-center gap-1.5">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Reading services from compose file…
+            {t('compose.reading')}
           </p>
         )}
         {serviceChecklist}
@@ -539,9 +544,7 @@ function ComposeFileSelector({
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              {composeFiles.length} compose file
-              {composeFiles.length !== 1 ? 's' : ''} found. Each service with
-              exposed ports gets a subdomain automatically.
+              {t('create.composeFilesFound', { count: composeFiles.length })}
             </p>
             <FormMessage />
           </FormItem>
@@ -550,7 +553,7 @@ function ComposeFileSelector({
       {isLoadingComposeServices && (
         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
           <Loader2 className="h-3 w-3 animate-spin" />
-          Reading services from compose file…
+          {t('compose.reading')}
         </p>
       )}
       {serviceChecklist}
@@ -634,6 +637,7 @@ export function ProjectConfigurator({
   className,
 }: ProjectConfiguratorProps) {
   const navigate = useNavigate()
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
 
   // State management
@@ -995,12 +999,12 @@ export function ProjectConfigurator({
   const projectMutation = useMutation({
     ...createProjectMutation(),
     meta: {
-      errorTitle: 'Failed to create project',
+      errorTitle: t('create.createFailed'),
     },
     onSuccess: async (data) => {
       await queryClient.invalidateQueries({ queryKey: ['getProjects'] })
       await queryClient.invalidateQueries({ queryKey: ['listProjects'] })
-      toast.success('Project created successfully!')
+      toast.success(t('create.createdBang'))
       navigate(`/projects/${data.slug}?new=true`)
     },
   })
@@ -1423,9 +1427,9 @@ export function ProjectConfigurator({
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Project Name</FormLabel>
+              <FormLabel>{t('create.nameLabel')}</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Enter project name" />
+                <Input {...field} placeholder={t('create.namePlaceholder')} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -1705,12 +1709,10 @@ export function ProjectConfigurator({
                 <Alert variant="destructive" className="mt-2">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    This Dockerfile exposes port {effectiveDetectedPort}, but
-                    the project is configured for port {selectedPort}. Temps
-                    routes to the exposed image port after the build, so an app
-                    that listens on the configured PORT value may fail its
-                    health check. Make these ports match unless your startup
-                    command intentionally ignores PORT.
+                    {t('create.dockerfilePortMismatch', {
+                      detected: effectiveDetectedPort,
+                      selected: selectedPort,
+                    })}
                   </AlertDescription>
                 </Alert>
               )}
@@ -1876,7 +1878,7 @@ export function ProjectConfigurator({
               ).length > 1
                 ? 's'
                 : ''}{' '}
-              will be linked to this project
+              {t('create.willBeLinked')}
             </AlertDescription>
           </Alert>
         )}
@@ -2083,7 +2085,7 @@ export function ProjectConfigurator({
                                   >
                                     <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     <div className="flex flex-col min-w-0">
-                                      <span>This project&apos;s URL</span>
+                                      <span>{t('create.thisProjectUrl')}</span>
                                       <span className="text-xs text-muted-foreground truncate">
                                         {suggestedAppUrl}
                                       </span>
@@ -2332,7 +2334,9 @@ export function ProjectConfigurator({
                                         >
                                           <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
                                           <div className="flex flex-col min-w-0">
-                                            <span>This project&apos;s URL</span>
+                                            <span>
+                                              {t('create.thisProjectUrl')}
+                                            </span>
                                             <span className="text-xs text-muted-foreground truncate">
                                               {suggestedAppUrl}
                                             </span>
@@ -2471,8 +2475,10 @@ export function ProjectConfigurator({
           {/* All sections in one view for inline/compact mode */}
           <Card>
             <CardHeader>
-              <CardTitle>Project Configuration</CardTitle>
-              <CardDescription>Configure your project settings</CardDescription>
+              <CardTitle>{t('create.configurationTitle')}</CardTitle>
+              <CardDescription>
+                {t('create.configurationDescription')}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {renderRepoConfig()}
@@ -2541,12 +2547,12 @@ export function ProjectConfigurator({
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Project...
+                  {t('create.submitting')}
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Create Project
+                  {t('create.submit')}
                 </>
               )}
             </Button>

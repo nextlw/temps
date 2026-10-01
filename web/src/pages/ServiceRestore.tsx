@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getRestoreCapabilitiesOptions,
   getRestoreRunOptions,
@@ -107,10 +108,11 @@ function enginesCompatible(
 }
 
 export function ServiceRestore() {
+  const { t } = useTranslation('storage')
   const { id } = useParams<{ id: string }>()
   const serviceId = id ? Number(id) : NaN
   const navigate = useNavigate()
-  usePageTitle('Restore service')
+  usePageTitle(t('restore.title'))
   const { setBreadcrumbs } = useBreadcrumbs()
 
   // ----- Queries ------------------------------------------------------------
@@ -271,15 +273,17 @@ export function ServiceRestore() {
       toast.success('Restore completed', {
         description:
           runRow.target_service_id != null
-            ? `New service id: ${runRow.target_service_id}`
-            : `Restored onto ${service?.name ?? 'service'}.`,
+            ? t('restore.newId', { id: runRow.target_service_id })
+            : t('restore.restoredOnto', {
+                name: service?.name ?? t('restore.fallbackName'),
+              }),
       })
     } else if (runRow.status === 'failed') {
       toast.error('Restore failed', {
         description: runRow.error_message ?? 'Unknown error',
       })
     }
-  }, [runRow?.status, runningRunId, runRow, service?.name])
+  }, [runRow?.status, runningRunId, runRow, service?.name, t])
 
   // ----- Mutations ---------------------------------------------------------
   const startMutation = useMutation({
@@ -456,7 +460,7 @@ export function ServiceRestore() {
       <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Invalid service id.</AlertDescription>
+          <AlertDescription>{t('restore.invalidId')}</AlertDescription>
         </Alert>
       </div>
     )
@@ -485,7 +489,7 @@ export function ServiceRestore() {
             }
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to service
+            {t('restore.back')}
           </Button>
           {runRow?.status === 'completed' &&
           runRow.target_service_id != null ? (
@@ -493,7 +497,7 @@ export function ServiceRestore() {
               onClick={() => navigate(`/storage/${runRow.target_service_id}`)}
             >
               <Database className="h-4 w-4 mr-2" />
-              Open restored service
+              {t('restore.openRestored')}
             </Button>
           ) : null}
         </div>
@@ -565,9 +569,7 @@ export function ServiceRestore() {
             Pick a backup
           </CardTitle>
           <CardDescription>
-            All {service.service_type} backups on this source. Backups produced
-            by a different service can be selected — useful for
-            disaster-recovery restores.
+            {t('restore.pickDescription', { type: service.service_type })}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -576,7 +578,7 @@ export function ServiceRestore() {
               <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-8"
-                placeholder="Filter by origin service, UUID, or path…"
+                placeholder={t('restore.filterPlaceholder')}
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value)
@@ -624,7 +626,7 @@ export function ServiceRestore() {
                   <TableRow>
                     <TableHead className="w-8"></TableHead>
                     <TableHead>Created</TableHead>
-                    <TableHead>Origin service</TableHead>
+                    <TableHead>{t('restore.originColumn')}</TableHead>
                     <TableHead>Format</TableHead>
                     <TableHead>Size</TableHead>
                     <TableHead>Source</TableHead>
@@ -748,8 +750,8 @@ export function ServiceRestore() {
               <AlertDescription>
                 This backup was produced by{' '}
                 <strong>{selectedBackup?.origin_service_name}</strong>, not{' '}
-                <strong>{service.name}</strong>. Make sure you intend to restore
-                foreign data onto this service.
+                <strong>{service.name}</strong>
+                {t('restore.foreignTail')}
               </AlertDescription>
             </Alert>
           ) : null}
@@ -813,7 +815,7 @@ export function ServiceRestore() {
                 className="mt-0.5"
               />
               <div className="flex-1">
-                <div className="font-medium">Clone into a new service</div>
+                <div className="font-medium">{t('restore.cloneTitle')}</div>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   Provisions a sibling of <strong>{service.name}</strong> with
                   the restored data. Original is untouched.
@@ -851,7 +853,7 @@ export function ServiceRestore() {
 
           {mode === 'new_service' ? (
             <div className="space-y-2 pt-2">
-              <Label htmlFor="new-service-name">New service name</Label>
+              <Label htmlFor="new-service-name">{t('restore.newName')}</Label>
               <Input
                 id="new-service-name"
                 value={effectiveNewServiceName}
@@ -859,9 +861,8 @@ export function ServiceRestore() {
                 className="max-w-md"
               />
               <p className="text-xs text-muted-foreground">
-                Suggested: {capabilities?.suggested_new_service_name}. The new
-                service uses the same image and credentials as{' '}
-                <strong>{service.name}</strong>.
+                Suggested: {capabilities?.suggested_new_service_name}.{' '}
+                {t('restore.suggestedTail')} <strong>{service.name}</strong>.
               </p>
             </div>
           ) : null}
@@ -892,12 +893,12 @@ export function ServiceRestore() {
                   }
                 />
                 <Label htmlFor="pitr-new" className="cursor-pointer">
-                  Restore into a new service (leaves {service.name} untouched)
+                  {t('restore.pitrNew', { name: service.name })}
                 </Label>
               </div>
               {pitrToNewService ? (
                 <div className="space-y-2">
-                  <Label htmlFor="pitr-new-name">New service name</Label>
+                  <Label htmlFor="pitr-new-name">{t('restore.newName')}</Label>
                   <Input
                     id="pitr-new-name"
                     value={effectiveNewServiceName}
@@ -914,8 +915,8 @@ export function ServiceRestore() {
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 This will <strong>OVERWRITE</strong> data on{' '}
-                <strong>{service.name}</strong>. The service will be briefly
-                unavailable. Type the service name to confirm.
+                <strong>{service.name}</strong>
+                {t('restore.overwriteTail')}
               </AlertDescription>
             </Alert>
           ) : null}
@@ -1067,10 +1068,10 @@ export function ServiceRestore() {
             <AlertDialogTitle>Overwrite live database?</AlertDialogTitle>
             <AlertDialogDescription>
               This restore will stop{' '}
-              <strong>{service?.name ?? 'the service'}</strong> and replace its
-              entire dataset with the selected backup. All data written since
-              the backup was taken will be permanently lost. This action cannot
-              be undone.
+              <strong>{service?.name ?? t('restore.theDatabase')}</strong> and
+              replace its entire dataset with the selected backup. All data
+              written since the backup was taken will be permanently lost. This
+              action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1105,11 +1106,12 @@ function PageHeader({
 }: {
   service: { name: string; service_type: string }
 }) {
+  const { t } = useTranslation('storage')
   return (
     <div className="space-y-1">
       <div className="flex items-center gap-2">
         <RotateCcw className="h-5 w-5 text-muted-foreground" />
-        <h1 className="text-2xl font-semibold">Restore service</h1>
+        <h1 className="text-2xl font-semibold">{t('restore.title')}</h1>
       </div>
       <p className="text-sm text-muted-foreground">
         Target: <strong>{service.name}</strong>{' '}

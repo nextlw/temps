@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import {
   type GlobalConversationResponse,
   type ProjectResponse,
@@ -83,7 +85,7 @@ const CONTEXT_META: Record<string, { label: string; Icon: typeof GitBranch }> =
   {
     deployment: { label: 'Deployment', Icon: GitBranch },
     alert: { label: 'Alert', Icon: Bell },
-    project: { label: 'Project', Icon: FolderGit2 },
+    project: { label: i18n.t('ai:dock.contextProject'), Icon: FolderGit2 },
   }
 
 function metaFor(contextType: string) {
@@ -242,6 +244,7 @@ export function DockBody({
   onClose: () => void
   layout?: 'dock' | 'page'
 }) {
+  const { t } = useTranslation('ai')
   const navigate = useNavigate()
   const {
     projectId: openedProjectId,
@@ -655,7 +658,7 @@ export function DockBody({
                 {inConversation
                   ? (active?.title ?? 'AI chat')
                   : picking
-                    ? 'New project chat'
+                    ? t('dock.newProjectChat')
                     : 'AI assistant'}
               </h2>
             </div>
@@ -675,13 +678,10 @@ export function DockBody({
               </p>
             ) : picking ? (
               <p className="text-sm text-muted-foreground">
-                Choose a project to start a general chat about it.
+                {t('dock.pickHint')}
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                Resume any AI conversation across your projects, or start a new
-                chat for a project.
-              </p>
+              <p className="text-sm text-muted-foreground">{t('dock.intro')}</p>
             )}
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
@@ -706,8 +706,8 @@ export function DockBody({
                     variant="outline"
                     onClick={() => setPicking(true)}
                     className="h-8 rounded-l-none px-1.5"
-                    title="New chat in another project"
-                    aria-label="New chat in another project"
+                    title={t('dock.newInOther')}
+                    aria-label={t('dock.newInOther')}
                   >
                     <ChevronDown className="h-4 w-4" />
                   </Button>
@@ -741,7 +741,7 @@ export function DockBody({
                   startProjectChat({
                     id: active.projectId,
                     slug: active.projectSlug,
-                    name: active.projectName ?? 'Project',
+                    name: active.projectName ?? t('dock.projectFallback'),
                   })
                 }
                 className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
@@ -804,10 +804,10 @@ export function DockBody({
               }
               autoStart={active!.autoStart}
               lazyCreate={active!.contextType === 'project'}
-              emptyHint="Ask anything about this project — deployments, logs, traces, and errors."
+              emptyHint={t('dock.emptyHint')}
               placeholder={
                 active!.contextType === 'project'
-                  ? 'Ask about this project…'
+                  ? t('dock.askProject')
                   : 'Ask a follow-up…'
               }
               onConversationChange={handleConversationChange}
@@ -820,8 +820,7 @@ export function DockBody({
               <div>
                 <p className="font-medium">No AI conversations yet</p>
                 <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Start a project chat to investigate deployments, logs, traces,
-                  and errors with context.
+                  {t('dock.startHint')}
                 </p>
               </div>
               <Button size="sm" onClick={() => setPicking(true)}>
@@ -948,6 +947,7 @@ function ConversationList({
   onDelete: (c: ProjectConversation) => void
   compactEmpty?: boolean
 }) {
+  const { t } = useTranslation('ai')
   if (loading) {
     return (
       <div className="space-y-2">
@@ -968,8 +968,7 @@ function ConversationList({
         <MessageSquare className="h-7 w-7 text-muted-foreground" />
         <p className="text-sm font-medium">No AI conversations yet</p>
         <p className="max-w-xs text-sm text-muted-foreground">
-          Click “New chat” to start one for a project, or open a failed
-          deployment / firing alert and choose “Debug with AI”.
+          {t('dock.listEmptyHint')}
         </p>
       </div>
     )
@@ -1074,6 +1073,7 @@ function ProjectPicker({
 }: {
   onSelect: (p: ProjectResponse) => void
 }) {
+  const { t } = useTranslation('ai')
   const [projects, setProjects] = useState<ProjectResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [q, setQ] = useState('')
@@ -1116,7 +1116,7 @@ function ProjectPicker({
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search projects…"
+          placeholder={t('dock.searchProjects')}
           className="pl-8"
         />
       </div>
@@ -1129,14 +1129,14 @@ function ProjectPicker({
       ) : projects.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
           <FolderGit2 className="h-7 w-7 text-muted-foreground" />
-          <p className="text-sm font-medium">No projects yet</p>
+          <p className="text-sm font-medium">{t('dock.noProjects')}</p>
           <p className="max-w-xs text-sm text-muted-foreground">
-            Create a project to start an AI chat for it.
+            {t('dock.noProjectsHint')}
           </p>
         </div>
       ) : filtered.length === 0 ? (
         <p className="px-1 text-sm text-muted-foreground">
-          No projects match “{q}”.
+          {t('dock.noMatch', { query: q })}
         </p>
       ) : (
         <div className="h-full space-y-1 overflow-y-auto pr-1">
@@ -1165,8 +1165,7 @@ function ProjectPicker({
           ))}
           {truncated && (
             <p className="px-2 pt-1 text-xs text-muted-foreground">
-              Showing the 100 most recent projects. If you don&apos;t see yours,
-              open it and start the chat from there.
+              {t('dock.truncated')}
             </p>
           )}
         </div>

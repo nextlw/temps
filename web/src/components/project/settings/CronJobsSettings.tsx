@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getEnvironmentCronsOptions,
   getEnvironmentsOptions,
@@ -117,6 +118,7 @@ function InstructionsContent() {
 }
 
 export function CronJobsSettings({ project }: CronJobsSettingsProps) {
+  const { t } = useTranslation('projects')
   const [selectedEnvironment, setSelectedEnvironment] = useState<string>('')
   const navigate = useNavigate()
   const [showInstructions, setShowInstructions] = useState(false)
@@ -185,7 +187,7 @@ export function CronJobsSettings({ project }: CronJobsSettingsProps) {
           <DialogHeader>
             <DialogTitle>Add Cron Jobs</DialogTitle>
             <DialogDescription>
-              Follow these steps to add cron jobs to your project
+              {t('settings.cronJobs.addDescription')}
             </DialogDescription>
           </DialogHeader>
           <InstructionsContent />

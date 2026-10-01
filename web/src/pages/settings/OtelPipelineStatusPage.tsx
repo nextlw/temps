@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { TimeRangeFilter } from '@/components/ui/time-range-filter'
 import { resolveTimeRange } from '@/lib/time-range-filter'
 
@@ -553,6 +554,7 @@ function ActivationJumpLink({
 }: {
   job: BulkActivationJobResponse | null | undefined
 }) {
+  const { t } = useTranslation('observability')
   if (!job) return null
   return (
     <Alert>
@@ -562,9 +564,10 @@ function ActivationJumpLink({
         {JOB_STATUS_LABELS[job.status].toLowerCase()}
       </AlertTitle>
       <AlertDescription>
-        {job.projects_done} of {job.projects_total} project
-        {job.projects_total === 1 ? '' : 's'} switched so far. Spans for those
-        projects are no longer counted in the throughput figures below.{' '}
+        {t('pipeline.switched', {
+          done: job.projects_done,
+          count: job.projects_total,
+        })}{' '}
         <a
           href={`#${ACTIVATION_SECTION_ANCHOR}`}
           onClick={scrollToActivation}
@@ -579,6 +582,7 @@ function ActivationJumpLink({
 }
 
 export function OtelPipelineStatusPage() {
+  const { t } = useTranslation('observability')
   const { setBreadcrumbs } = useBreadcrumbs()
 
   useEffect(() => {
@@ -753,8 +757,7 @@ export function OtelPipelineStatusPage() {
             )}
           </div>
           <CardDescription>
-            Ingest requests turned away since the server started. Non-zero
-            values mean projects are hitting their quotas or rate limits.
+            {t('pipeline.rejectionsDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -778,8 +781,7 @@ export function OtelPipelineStatusPage() {
               <AlertTriangle className="h-4 w-4 text-amber-500" />
               <AlertTitle>Rejections detected</AlertTitle>
               <AlertDescription className="flex items-center gap-2">
-                Projects are being rate-limited or have exceeded their storage
-                quota. Check the{' '}
+                {t('pipeline.rejectionsBody')}{' '}
                 <Link
                   to="/monitoring/alarms"
                   className="inline-flex items-center gap-1 font-medium underline underline-offset-2"

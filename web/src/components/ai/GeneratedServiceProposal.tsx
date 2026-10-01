@@ -3,6 +3,8 @@
 
 /* eslint-disable react-refresh/only-export-components -- deterministic proposal parsers are shared by persisted and live approval renderers */
 
+import { i18n } from '@/i18n'
+import { useTranslation } from 'react-i18next'
 import type { ServiceTypeRoute } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { ServiceLogo } from '@/components/ui/service-logo'
@@ -236,7 +238,7 @@ export function serviceProposalViewModel(
 
   return {
     serviceType: params.service_type,
-    serviceName: displayValue(params.name) ?? 'Untitled service',
+    serviceName: displayValue(params.name) ?? i18n.t('storage:misc.untitled'),
     displayName: presentation.displayName,
     accentClassName: presentation.accentClassName,
     version: displayValue(params.version),
@@ -263,6 +265,8 @@ export function GeneratedServiceProposal({
   serviceId?: number | null
   projectId?: number | null
 }) {
+  const { t: ts } = useTranslation('storage')
+  const { t } = useTranslation('ai')
   return (
     <div className="@container min-w-0">
       <div className="flex min-w-0 items-start gap-3 px-3 py-3 sm:px-4">
@@ -312,8 +316,8 @@ export function GeneratedServiceProposal({
         <ProposalValue label="Placement" value={proposal.placement} />
         {projectId != null && (
           <ProposalValue
-            label="Target project"
-            value={`Project ${projectId}`}
+            label={t('proposal.targetProject')}
+            value={t('proposal.projectValue', { id: projectId })}
             mono
           />
         )}
@@ -338,7 +342,7 @@ export function GeneratedServiceProposal({
         <div className="flex items-center border-t px-3 py-2.5 sm:px-4">
           <Button asChild size="sm" variant="outline" className="h-8">
             <Link to={`/storage/${serviceId}`}>
-              View service
+              {ts('misc.view')}
               <ArrowRight aria-hidden="true" />
             </Link>
           </Button>
@@ -378,6 +382,7 @@ export function GeneratedServiceLinkProposal({
 }: {
   proposal: ServiceLinkProposalViewModel
 }) {
+  const { t } = useTranslation('ai')
   return (
     <div className="@container min-w-0">
       <div className="flex min-w-0 items-start gap-3 px-3 py-3 sm:px-4">
@@ -389,8 +394,7 @@ export function GeneratedServiceLinkProposal({
             Link existing database
           </h3>
           <p className="mt-1 text-sm text-muted-foreground sm:text-xs">
-            Make this database available to the selected project and its
-            application workspace.
+            {t('proposal.linkHint')}
           </p>
           <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
             <ShieldCheck className="size-4 shrink-0" />
@@ -400,22 +404,19 @@ export function GeneratedServiceLinkProposal({
       </div>
       <dl className="grid min-w-0 grid-cols-1 border-t bg-background/40 @sm:grid-cols-2">
         <ProposalValue
-          label="Database service"
-          value={`Service ${proposal.serviceId}`}
+          label={t('proposal.databaseLabel')}
+          value={t('proposal.databaseValue', { id: proposal.serviceId })}
           mono
         />
         <ProposalValue
-          label="Target project"
-          value={`Project ${proposal.projectId}`}
+          label={t('proposal.targetProject')}
+          value={t('proposal.projectValue', { id: proposal.projectId })}
           mono
         />
       </dl>
       <div className="flex items-start gap-2 border-t px-3 py-2.5 text-sm text-muted-foreground sm:px-4 sm:text-xs">
         <Link2 className="mt-0.5 size-4 shrink-0 text-green-600 dark:text-green-400" />
-        <span>
-          Temps will refresh workspace networking and project context after the
-          link is created.
-        </span>
+        <span>{t('proposal.refreshHint')}</span>
       </div>
     </div>
   )

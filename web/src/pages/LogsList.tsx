@@ -77,11 +77,12 @@ function severityBadge(severity: LogSeverity, text?: string) {
 }
 
 export default function LogsList({ project }: LogsListProps) {
+  const { t: to } = useTranslation('observability')
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
-  usePageTitle(`Logs - ${project.name}`)
+  usePageTitle(t('titles.logs', { name: project.name }))
 
   const [timeRange, setTimeRange] = useState<TimeRange>(
     () => (searchParams.get('range') as TimeRange) || '24h'
@@ -105,7 +106,7 @@ export default function LogsList({ project }: LogsListProps) {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
-      { label: 'Logs' },
+      { label: t('crumbs.logs') },
     ])
   }, [project.name, project.slug, setBreadcrumbs, t])
 
@@ -269,7 +270,7 @@ export default function LogsList({ project }: LogsListProps) {
             </Select>
 
             <Input
-              placeholder="Service name…"
+              placeholder={to('misc.otelServiceName')}
               value={service}
               onChange={(e) => setService(e.target.value)}
               className="h-9 w-full sm:w-[180px]"
@@ -341,7 +342,9 @@ export default function LogsList({ project }: LogsListProps) {
                       </pre>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
                         <span>
-                          service: {log.resource?.service_name || '—'}
+                          {to('misc.otelServiceAttr', {
+                            name: log.resource?.service_name || '—',
+                          })}
                         </span>
                         {log.resource?.deployment_environment && (
                           <span>

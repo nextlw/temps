@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 
 import {
@@ -42,6 +43,7 @@ import {
 import { revealGlobalMcpConfig } from '@/api/client/sdk.gen'
 
 export function GlobalMcpServerDetail() {
+  const { t } = useTranslation('projects')
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -206,7 +208,7 @@ export function GlobalMcpServerDetail() {
               <Badge variant="outline" className="text-xs">
                 {mcp.project_id === null
                   ? 'Global'
-                  : `Project ${mcp.project_id}`}
+                  : t('globalAi.scopeProject', { id: mcp.project_id })}
               </Badge>
             </div>
             {mcp.description && (
@@ -377,8 +379,7 @@ export function GlobalMcpServerDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete global MCP server?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this MCP server. All projects that
-              reference it will lose access.
+              {t('globalAi.mcpDelete')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

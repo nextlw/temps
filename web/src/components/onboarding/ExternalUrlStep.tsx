@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +26,7 @@ export function ExternalUrlStep({
   onSuccess,
   onBack,
 }: ExternalUrlStepProps) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [externalUrl, setExternalUrl] = useState(`https://temps.${baseDomain}`)
   // Preview domain should be the base domain without the wildcard prefix
@@ -134,9 +136,9 @@ export function ExternalUrlStep({
                   </code>
                 </li>
                 <li>
-                  • Project deployments:{' '}
+                  {t('onboarding.projectDeployments')}{' '}
                   <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">
-                    project-name.{baseDomain}
+                    {t('onboarding.projectSubdomain')}.{baseDomain}
                   </code>
                 </li>
                 <li>

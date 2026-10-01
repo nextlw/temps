@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { CircleAlert, Folder, Loader2, MessageSquare } from 'lucide-react'
 import type { WorkspaceHarnessActivity } from '@/api/client'
 import { AiHarnessLogo } from '@/components/ui/ai-harness-logo'
@@ -21,6 +22,7 @@ export function WorkspaceActivity({
   loading?: boolean
   error?: boolean
 }) {
+  const { t } = useTranslation('ai')
   return (
     <p
       data-workspace-activity
@@ -32,8 +34,8 @@ export function WorkspaceActivity({
       {projectCount !== undefined && (
         <span
           className="inline-flex shrink-0 items-center gap-1"
-          title={`${projectCount} project${projectCount === 1 ? '' : 's'}`}
-          aria-label={`${projectCount} project${projectCount === 1 ? '' : 's'}`}
+          title={t('workspace.projectCount', { count: projectCount })}
+          aria-label={t('workspace.projectCount', { count: projectCount })}
         >
           <Folder className="size-3.5 shrink-0" aria-hidden="true" />
           <span aria-hidden="true">{projectCount}</span>

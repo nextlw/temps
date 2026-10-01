@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import {
   Activity,
   BarChart3,
@@ -52,7 +53,7 @@ export const platformToolGroups: PlatformToolGroup[] = [
     icon: Rocket,
     items: [
       {
-        title: 'Projects',
+        title: i18n.t('nav:tools.projects'),
         description: 'Deploy and operate applications.',
         url: '/projects',
         icon: Folder,
@@ -84,12 +85,12 @@ export const platformToolGroups: PlatformToolGroup[] = [
   },
   {
     label: 'Data and delivery',
-    description: 'Manage persistent services, backups, email, and domains.',
+    description: i18n.t('nav:tools.dataDescription'),
     icon: PackageOpen,
     items: [
       {
         title: 'Databases',
-        description: 'Create and operate managed data services.',
+        description: i18n.t('nav:tools.databasesDescription'),
         url: '/storage',
         icon: Database,
         keywords: ['postgres', 'mysql', 'redis', 'storage'],
@@ -110,7 +111,7 @@ export const platformToolGroups: PlatformToolGroup[] = [
       },
       {
         title: 'Domains',
-        description: 'Attach domains to projects and services.',
+        description: i18n.t('nav:tools.domainsDescription'),
         url: '/domains',
         icon: Globe,
         keywords: ['hostname', 'dns'],
@@ -154,13 +155,13 @@ export const platformToolGroups: PlatformToolGroup[] = [
       },
       {
         title: 'Analytics',
-        description: 'Compare traffic across projects.',
+        description: i18n.t('nav:tools.analyticsDescription'),
         url: '/analytics',
         icon: BarChart3,
       },
       {
         title: 'Traces',
-        description: 'Follow requests across projects and services.',
+        description: i18n.t('nav:tools.tracesDescription'),
         url: '/traces',
         icon: Workflow,
       },
@@ -172,7 +173,7 @@ export const platformToolGroups: PlatformToolGroup[] = [
       },
       {
         title: 'Errors',
-        description: 'Review application issues across projects.',
+        description: i18n.t('nav:tools.errorsDescription'),
         url: '/errors',
         icon: Bug,
       },
@@ -276,14 +277,14 @@ export const extensionToolGroupIcon = Puzzle
 
 export const platformToolShortcuts: PlatformToolItem[] = [
   {
-    title: 'Create a project',
+    title: i18n.t('nav:tools.createProject'),
     description: 'Deploy an application from Git, an image, or files.',
     url: '/projects/new',
     icon: Folder,
   },
   {
     title: 'Add a database',
-    description: 'Provision a persistent service.',
+    description: i18n.t('nav:tools.addDatabaseDescription'),
     url: '/storage/create',
     icon: Database,
   },

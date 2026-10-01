@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import type {
   ApiRouteEntry,
   DeploymentResponse,
@@ -48,6 +49,7 @@ export function ProjectOverview({
   project,
   lastDeployment,
 }: ProjectOverviewProps) {
+  const { t } = useTranslation('projects')
   const { startDate, endDate } = useMemo(
     () => ({
       startDate: subDays(new Date(), 1),
@@ -365,7 +367,7 @@ export function ProjectOverview({
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <Sparkles className="size-4 shrink-0" />
-          Take a tour of your project
+          {t('overview.tour')}
         </button>
       </div>
     </>
@@ -397,6 +399,7 @@ function VisitorAnalyticsCard({
   loading: boolean
   error: boolean
 }) {
+  const { t } = useTranslation('projects')
   return (
     <Card className="@5xl/overview:col-span-2">
       <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
@@ -427,8 +430,7 @@ function VisitorAnalyticsCard({
             <div>
               <p className="font-medium">Add browser analytics</p>
               <p className="mt-1 text-base text-pretty text-muted-foreground sm:text-sm">
-                Track visitors, page views, and returning activity from this
-                project.
+                {t('overview.analyticsHint')}
               </p>
             </div>
             <Button variant="outline" size="sm" asChild>
@@ -474,6 +476,7 @@ function VisitorAnalyticsCard({
 }
 
 function EnvironmentHealthCard({ project }: { project: ProjectResponse }) {
+  const { t } = useTranslation('projects')
   const environmentsQuery = useQuery({
     ...getEnvironmentsOptions({ path: { project_id: project.id } }),
     enabled: !!project.id,
@@ -574,7 +577,7 @@ function EnvironmentHealthCard({ project }: { project: ProjectResponse }) {
         {isLoading ? (
           <Skeleton className="h-52 w-full" />
         ) : !environment ? (
-          <SignalError message="No environments found for this project." />
+          <SignalError message={t('overview.noEnvironments')} />
         ) : notConfigured ? (
           <div className="flex h-52 flex-col items-start justify-center gap-3 rounded-md border border-dashed p-5">
             <div>
@@ -659,6 +662,7 @@ function TopRoutesCard({
   loading: boolean
   error: boolean
 }) {
+  const { t } = useTranslation('projects')
   return (
     <Card className="@5xl/overview:col-span-3">
       <CardHeader className="flex flex-row items-start justify-between gap-4 pb-2">
@@ -691,7 +695,7 @@ function TopRoutesCard({
         ) : routes.length === 0 ? (
           <CompactListEmpty
             title="No paths recorded"
-            detail="Routes appear here as soon as the project receives traffic."
+            detail={t('overview.noRoutes')}
           />
         ) : (
           <div>

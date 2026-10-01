@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import { DateTimeRange } from '@/components/ui/date-time-range'
 
 /**
@@ -157,13 +159,12 @@ const NODE_PANELS: NodePanelDef[] = [
   },
   {
     title: 'Requests by destination',
-    description:
-      'Per-interval request count, split by destination: project routes, console fallback, or handled by the proxy itself',
+    description: i18n.t('observability:proxy.destinationDescription'),
     series: [
       {
         metric: 'proxy.requests_project',
         dataKey: 'proxy.requests_project',
-        label: 'Project',
+        label: i18n.t('observability:proxy.destinationProject'),
         color: '#2563eb',
       },
       {
@@ -783,6 +784,7 @@ function StatCard({ title, value, isPending, sub }: StatCardProps) {
 
 /** Unfiltered stats — computed from the process-wide node metric series. */
 function NodeSummaryStats({ window }: { window: ResolvedProxyWindow }) {
+  const { t } = useTranslation('observability')
   // Same query keys the chart panels use — React Query dedupes the fetches.
   const [requests, errors5xx, p95, destProject, destConsole, destOther] =
     useQueries({
@@ -824,7 +826,11 @@ function NodeSummaryStats({ window }: { window: ResolvedProxyWindow }) {
     hasRequests && destsReady && totalRequests > 0
       ? (() => {
           const pct = (n: number) => Math.round((n / totalRequests) * 100)
-          return `${pct(sumSeries(destProject))}% project · ${pct(sumSeries(destConsole))}% console · ${pct(sumSeries(destOther))}% other`
+          return t('proxy.destinationSplit', {
+            project: pct(sumSeries(destProject)),
+            console: pct(sumSeries(destConsole)),
+            other: pct(sumSeries(destOther)),
+          })
         })()
       : null
 
@@ -1005,7 +1011,12 @@ const TRAFFIC_COLUMNS: {
   numeric: boolean
   secondary: boolean
 }[] = [
-  { key: 'project_name', label: 'Project', numeric: false, secondary: false },
+  {
+    key: 'project_name',
+    label: i18n.t('observability:proxy.projectColumn'),
+    numeric: false,
+    secondary: false,
+  },
   { key: 'total_requests', label: 'Requests', numeric: true, secondary: false },
   { key: 'total_errors', label: 'Errors', numeric: true, secondary: true },
   { key: 'error_rate', label: 'Error rate', numeric: true, secondary: false },
@@ -1044,6 +1055,7 @@ function TrafficByProject({
   window: ResolvedProxyWindow
   filter: ProxyFilter
 }) {
+  const { t } = useTranslation('observability')
   const [sortKey, setSortKey] = useState<TrafficSortKey>('total_requests')
   const [sortDesc, setSortDesc] = useState(true)
   const [page, setPage] = useState(1)
@@ -1162,10 +1174,8 @@ function TrafficByProject({
   return (
     <Card ref={containerRef}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">Traffic by project</CardTitle>
-        <CardDescription>
-          Requests per project from proxy logs over the selected window
-        </CardDescription>
+        <CardTitle className="text-base">{t('proxy.trafficTitle')}</CardTitle>
+        <CardDescription>{t('proxy.trafficDescription')}</CardDescription>
       </CardHeader>
       <CardContent>
         {isPending ? (
@@ -1176,11 +1186,11 @@ function TrafficByProject({
           </div>
         ) : hasError ? (
           <div className="py-8 text-center text-sm text-rose-500">
-            Failed to load project traffic
+            {t('proxy.trafficFailed')}
           </div>
         ) : sorted.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground">
-            No projects yet
+            {t('proxy.trafficEmpty')}
           </div>
         ) : (
           <>
@@ -1276,6 +1286,7 @@ function TrafficByProject({
 // ---------------------------------------------------------------------------
 
 export default function ProxyMetrics() {
+  const { t } = useTranslation('observability')
   const { setBreadcrumbs } = useBreadcrumbs()
   const [range, setRange] = useState<ProxyRangeValue>('1h')
   const [customRange, setCustomRange] = useState<DateRange | undefined>()
@@ -1326,9 +1337,9 @@ export default function ProxyMetrics() {
 
         {tooWide ? (
           <p className="rounded-md border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-            Custom range exceeds the {maxDays}-day maximum
-            {isFiltered ? ' for a project' : ''}. Narrow the window, or request
-            older data {maxDays} days at a time.
+            {isFiltered
+              ? t('proxy.rangeTooWideFiltered', { max: maxDays })
+              : t('proxy.rangeTooWide', { max: maxDays })}
           </p>
         ) : isFiltered ? (
           <>

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Input } from '@/components/ui/input'
 import { usePluginsContext } from '@/contexts/PluginsContext'
 import { useCanViewAuditLogs } from '@/hooks/useAuditAccess'
@@ -18,6 +19,7 @@ import { FeatureMaturityBadge } from '@/components/feature-maturity/FeatureMatur
 import { PageContainer, PageHeader } from '@/components/layout/PageContainer'
 
 export function PlatformTools() {
+  const { t } = useTranslation('nav')
   const [query, setQuery] = useState('')
   const { platformNavEntries } = usePluginsContext()
   const canViewAuditLogs = useCanViewAuditLogs()
@@ -178,7 +180,7 @@ export function PlatformTools() {
           <kbd className="rounded border bg-background px-1.5 py-0.5 font-mono text-[10px]">
             ⌘K
           </kbd>{' '}
-          and search across projects, services, settings, and tools.
+          {t('tools.paletteHint')}
         </p>
       </div>
     </PageContainer>

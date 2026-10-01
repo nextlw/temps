@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import type { DeploymentResponse, ProjectResponse } from '@/api/client'
 import { getEnvironmentsOptions } from '@/api/client/@tanstack/react-query.gen'
 import { useQuery } from '@tanstack/react-query'
@@ -79,6 +80,7 @@ export function ProjectDetailHeader({
   isLoadingLastDeployment = false,
   onDeploy,
 }: ProjectDetailHeaderProps) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const healthQuery = useDashboardHealth([project.id])
   const monitorQuery = useProjectsMonitorHealth([project.id])
@@ -131,7 +133,7 @@ export function ProjectDetailHeader({
                     ? screenshotLocation
                     : '/' + screenshotLocation
                 }`}
-                alt={`${project.slug} preview`}
+                alt={t('detail.previewAlt', { name: project.name })}
                 className="h-full w-full object-cover object-top"
               />
             </div>
@@ -139,8 +141,11 @@ export function ProjectDetailHeader({
             <ProjectAvatar name={project.name} className="size-8" />
           )}
           <div className="flex items-center gap-2 min-w-0">
-            <h1 className="text-base sm:text-lg font-semibold truncate">
-              {project.slug}
+            <h1
+              className="text-base sm:text-lg font-semibold truncate"
+              title={project.slug}
+            >
+              {project.name}
             </h1>
             <Badge
               variant={deploymentStatus === 'Deployed' ? 'default' : 'outline'}

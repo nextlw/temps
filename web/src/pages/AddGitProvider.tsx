@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
@@ -12,6 +13,7 @@ import { useFeedback } from '@/hooks/useFeedback'
 import { FeedbackAlert } from '@/components/ui/feedback-alert'
 
 export function AddGitProvider() {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
   const { feedback, showSuccess, clearFeedback } = useFeedback()
@@ -51,7 +53,7 @@ export function AddGitProvider() {
           <div>
             <h1 className="text-xl sm:text-2xl font-bold">Add Git Provider</h1>
             <p className="text-sm sm:text-base text-muted-foreground">
-              Connect a Git provider to deploy and manage your projects
+              {t('serviceMentions.gitProviderHint')}
             </p>
           </div>
         </div>

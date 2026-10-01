@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { type ComponentType, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -43,6 +44,7 @@ export function NewProjectShell({
   onSelectSource: (source: ProjectSource) => void
   children: ReactNode
 }) {
+  const { t } = useTranslation('projects')
   const { data: connections } = useQuery({ ...listConnectionsOptions() })
   const { data: gitProviders } = useQuery({ ...listGitProvidersOptions() })
 
@@ -93,7 +95,7 @@ export function NewProjectShell({
     {
       key: 'services',
       icon: Boxes,
-      title: 'Services',
+      title: t('templates.sourceTitle'),
       featureKey: 'service-template-catalog',
     },
     { key: 'git-url', icon: LinkIcon, title: 'Git URL' },
@@ -105,7 +107,9 @@ export function NewProjectShell({
     <div className="flex-1 min-w-0">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">New Project</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {t('create.newProject')}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Import a repository, paste a URL, or start from a template
           </p>

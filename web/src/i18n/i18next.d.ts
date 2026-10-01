@@ -8,6 +8,12 @@ import 'i18next'
 import type common from './locales/en/common.json'
 import type nav from './locales/en/nav.json'
 import type terms from './locales/en/terms.json'
+import type command from './locales/en/command.json'
+import type projects from './locales/en/projects.json'
+import type observability from './locales/en/observability.json'
+import type audit from './locales/en/audit.json'
+import type storage from './locales/en/storage.json'
+import type ai from './locales/en/ai.json'
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -16,6 +22,12 @@ declare module 'i18next' {
       common: typeof common
       nav: typeof nav
       terms: typeof terms
+      command: typeof command
+      projects: typeof projects
+      observability: typeof observability
+      audit: typeof audit
+      storage: typeof storage
+      ai: typeof ai
     }
   }
 }

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -27,6 +28,7 @@ export function SessionDiagnostics({ publicId }: { publicId: string }) {
 
 /** Unmounted outside debug mode, so no diagnostics query can run there. */
 function SessionDiagnosticsDialog({ publicId }: { publicId: string }) {
+  const { t } = useTranslation('projects')
   const [open, setOpen] = useState(false)
   const query = useQuery({
     queryKey: ['conversation-diagnostics', publicId],
@@ -58,11 +60,7 @@ function SessionDiagnosticsDialog({ publicId }: { publicId: string }) {
       <DialogContent className="flex max-h-[85vh] max-w-4xl flex-col overflow-hidden">
         <DialogTitle>Session diagnostics</DialogTitle>
         <DialogDescription>
-          Inspect stored chat events and the native harness session when
-          available. Credentials are redacted and export limits are reported in
-          the JSON. Messages and project details may still be private; review
-          before sharing. This is a snapshot, not a live feed. Refresh to
-          inspect pending tools.
+          {t('serviceMentions.sessionDiagnostics')}
         </DialogDescription>
         <div className="flex items-center gap-2">
           <Button

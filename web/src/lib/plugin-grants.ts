@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { i18n } from '@/i18n'
 import { z } from 'zod'
 
 export const pluginPermissionValues = [
@@ -37,8 +38,8 @@ export const pluginPermissionLabels = {
       'Send plugin content to the host’s configured AI provider. Subject to the limits below.',
   },
   projects_read: {
-    label: 'Read projects',
-    description: 'Read project metadata across this instance.',
+    label: i18n.t('projects:serviceMentions.readProjects'),
+    description: i18n.t('projects:serviceMentions.readProjectsDescription'),
   },
   environments_read: {
     label: 'Read environments',
@@ -55,8 +56,7 @@ export const pluginPermissionLabels = {
   },
   events_read: {
     label: 'Receive platform events',
-    description:
-      'Receive subscribed project, deployment, and domain events across this instance.',
+    description: i18n.t('projects:serviceMentions.eventsDescription'),
   },
   api_write: {
     label: 'Change supported API resources',

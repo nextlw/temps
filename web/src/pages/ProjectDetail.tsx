@@ -101,6 +101,7 @@ export function ProjectDetail() {
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
+  const { t: tp } = useTranslation('projects')
   const variableRoute = useMatch('/projects/:slug/environment-variables/*')
   const variableSubpath = variableRoute?.params['*'] ?? ''
   const [breadcrumbVariableId, breadcrumbSection] = variableSubpath.split('/')
@@ -142,10 +143,10 @@ export function ProjectDetail() {
   const variableBreadcrumbLabel =
     breadcrumbVariable?.key ||
     (breadcrumbVariables.isFetching
-      ? 'Loading variable…'
+      ? t('crumbs.variableLoading')
       : breadcrumbVariables.isError
-        ? 'Variable unavailable'
-        : 'Variable not found')
+        ? t('crumbs.variableUnavailable')
+        : t('crumbs.variableNotFound'))
   const isVariableRoute = !!variableRoute
 
   const { data: lastDeployment, isLoading: isLoadingLastDeployment } = useQuery(
@@ -284,7 +285,7 @@ export function ProjectDetail() {
         savedRuntime.image_ref ||
         lastDeployment?.metadata?.externalImageRef
       if (!imageRef) {
-        toast.error('No image reference found for this project')
+        toast.error(tp('deployments.noImageRef'))
         return
       }
       await deployImage.mutateAsync({
@@ -311,7 +312,7 @@ export function ProjectDetail() {
       { label: project?.name || t('projectDetails'), href: projectPath },
       ...(isVariableRoute
         ? [
-            { label: 'Environment variables', href: variablesPath },
+            { label: t('crumbs.environmentVariables'), href: variablesPath },
             ...(breadcrumbVariableId
               ? [
                   {
@@ -319,7 +320,7 @@ export function ProjectDetail() {
                     href: `${variablesPath}/${breadcrumbVariableId}`,
                   },
                   ...(breadcrumbSection === 'checks'
-                    ? [{ label: 'Check configuration' }]
+                    ? [{ label: t('crumbs.checkConfiguration') }]
                     : []),
                 ]
               : []),
@@ -349,7 +350,7 @@ export function ProjectDetail() {
     }
   }, [showConfetti, searchParams, setSearchParams])
 
-  usePageTitle(project?.slug ? `${project.slug}` : '')
+  usePageTitle(project?.name ?? '')
 
   if (error?.message?.includes('404') || (!isLoading && !project)) {
     return <NotFound />
@@ -359,11 +360,11 @@ export function ProjectDetail() {
     return (
       <div className="p-4 sm:p-6">
         <ErrorAlert
-          title="Failed to load project"
+          title={tp('detail.loadFailed')}
           description={
             error instanceof Error
               ? error.message
-              : 'An unexpected error occurred'
+              : tp('detail.unexpectedError')
           }
           retry={() => refetch()}
         />
@@ -484,7 +485,7 @@ export function ProjectDetail() {
               <ShieldAlert className="h-4 w-4 text-primary" />
               <AlertDescription className="flex items-center justify-between">
                 <span className="text-foreground">
-                  Attack Mode is enabled for this project
+                  {tp('detail.attackMode')}
                 </span>
                 <Button
                   variant="ghost"

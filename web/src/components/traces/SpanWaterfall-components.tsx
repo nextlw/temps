@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useMemo, useState, type ReactNode } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -61,6 +62,7 @@ export function SpanWaterfall({
   rowClassName?: (span: SpanTreeNode['span']) => string | undefined
   className?: string
 }) {
+  const { t } = useTranslation('observability')
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
   const toggleCollapse = (spanId: string) => {
     setCollapsedIds((prev) => {
@@ -223,7 +225,11 @@ export function SpanWaterfall({
               <TooltipContent side="top" className="max-w-xs">
                 <div className="space-y-1">
                   <p className="font-medium">{node.span.name}</p>
-                  {svc && <p className="text-xs">Service: {svc}</p>}
+                  {svc && (
+                    <p className="text-xs">
+                      {t('traces.serviceTooltip', { name: svc })}
+                    </p>
+                  )}
                   <p className="text-xs">
                     Duration: {formatDuration(spanDuration)}
                   </p>

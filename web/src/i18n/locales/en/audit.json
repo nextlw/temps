@@ -1,0 +1,48 @@
+{
+  "groups": {
+    "projects": "$t(terms:project.plural) & Environments",
+    "externalServices": "$t(terms:externalServices)"
+  },
+  "ops": {
+    "projectCreated": "$t(terms:project.singular) Created",
+    "projectUpdated": "$t(terms:project.singular) Updated",
+    "projectDeleted": "$t(terms:project.singular) Deleted",
+    "projectSettingsUpdated": "$t(terms:project.singular) Settings Updated",
+    "externalServiceCreated": "$t(terms:externalService.singular) Created",
+    "externalServiceUpdated": "$t(terms:externalService.singular) Updated",
+    "externalServiceDeleted": "$t(terms:externalService.singular) Deleted",
+    "externalServiceStatusChanged": "$t(terms:externalService.singular) Status Changed",
+    "externalServiceLinked": "$t(terms:externalService.singular) Linked to $t(terms:project.singular)",
+    "externalServiceUnlinked": "$t(terms:externalService.singular) Unlinked from $t(terms:project.singular)",
+    "externalServiceBackupRun": "$t(terms:externalService.singular) Backup Run",
+    "blobEnabled": "Blob Storage Enabled",
+    "blobUpdated": "Blob Storage Updated",
+    "blobDisabled": "Blob Storage Disabled",
+    "kvEnabled": "KV Store Enabled",
+    "kvUpdated": "KV Store Updated",
+    "kvDisabled": "KV Store Disabled"
+  },
+  "categories": {
+    "project": "$t(terms:project.singular)",
+    "externalService": "$t(terms:externalService.singular)"
+  },
+  "describe": {
+    "externalServiceCreated": "Created $t(terms:externalService.singularLower){{name}}",
+    "externalServiceUpdated": "Updated $t(terms:externalService.singularLower){{name}}",
+    "externalServiceDeleted": "Deleted $t(terms:externalService.singularLower){{name}}",
+    "externalServiceStatusChanged": "Changed status of $t(terms:externalService.singularLower){{name}} to {{status}}",
+    "linkedTo": "Linked $t(terms:externalService.singularLower) to $t(terms:project.singularLower)",
+    "linkedToUnknown": "Linked $t(terms:externalService.singularLower) to a $t(terms:project.singularLower)",
+    "unlinkedFrom": "Unlinked $t(terms:externalService.singularLower) from $t(terms:project.singularLower)",
+    "unlinkedFromUnknown": "Unlinked $t(terms:externalService.singularLower) from a $t(terms:project.singularLower)",
+    "projectCreated": "Created $t(terms:project.singularLower)",
+    "projectCreatedUnknown": "Created a new $t(terms:project.singularLower)",
+    "projectUpdated": "Updated $t(terms:project.singularLower)",
+    "projectUpdatedUnknown": "Updated a $t(terms:project.singularLower)",
+    "projectDeleted": "Deleted $t(terms:project.singularLower) {{slug}}",
+    "unknown": "unknown",
+    "githubUpdatedUnknown": "Updated $t(terms:project.singularLower) GitHub settings",
+    "settingsUpdatedUnknown": "Updated $t(terms:project.singularLower) settings"
+  },
+  "pageDescription": "Activity across the platform — authentication, $t(terms:project.singularLower) changes, skills, MCP servers, and more."
+}

@@ -18,6 +18,7 @@
  * The `excludeIds` prop hides already-attached services on the detail page.
  */
 
+import { useTranslation } from 'react-i18next'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listServicesOptions } from '@/api/client/@tanstack/react-query.gen'
@@ -41,6 +42,7 @@ export function ScheduleServicesSelector({
   excludeIds = [],
   disabled = false,
 }: Props) {
+  const { t } = useTranslation('storage')
   const { data: services, isPending } = useQuery({
     ...listServicesOptions({ query: { page_size: 100 } }),
   })
@@ -81,8 +83,7 @@ export function ScheduleServicesSelector({
   if (visible.length === 0) {
     return (
       <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
-        No external services found. Add a Postgres, Redis, MongoDB, or RustFS
-        service first and they&apos;ll appear here.
+        {t('backups.selectorEmpty')}
       </div>
     )
   }
@@ -94,7 +95,7 @@ export function ScheduleServicesSelector({
           checked={allSelected ? true : someSelected ? 'indeterminate' : false}
           onCheckedChange={toggleAll}
           disabled={disabled}
-          aria-label="Select all services"
+          aria-label={t('backups.selectAll')}
         />
         <span>Select all ({visible.length})</span>
       </label>

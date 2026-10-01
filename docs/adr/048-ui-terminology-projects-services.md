@@ -40,10 +40,11 @@ across hundreds of files that touch `project`.
 |---|---|
 | `project` | **Service** / Services |
 | `project_group` (new entity, added later) | **Project** / Projects |
-| external service | Databases |
+| external service | Database / Databases (`terms.externalService`) |
 | KV / Blob under `/projects/:slug/services/*` | Platform resources |
-| compose `service_name` | Containers |
-| OTel `service.name` | OTel service |
+| compose `service_name` | Compose container / Containers (`terms.composeService`) |
+| OTel `service.name` | OTel service (`terms.otelService`) |
+| `service` field of collected log lines | Container |
 
 Rules that follow:
 
@@ -60,7 +61,14 @@ Rules that follow:
 4. The other "service" usages above are always shown with their
    disambiguated label, so "Service" on screen only ever means a deployable
    unit.
-5. The AI workspace (`ai_applications`) stays a separate entity. It shows
+5. The `service` field of a collected log line (log explorer, runtime and
+   history log viewers) is the Docker label the container was started with
+   (`sh.temps.service`, read in
+   `crates/temps-log-aggregator/src/services/collector.rs`), not
+   the OTel `service.name`. It names the container a line came from, so it
+   reads "Container"; "OTel service" is kept for telemetry that really carries
+   `service.name` (traces, spans, OpenTelemetry logs and metrics).
+6. The AI workspace (`ai_applications`) stays a separate entity. It shows
    which Project a linked service belongs to, but it is neither a Project nor
    a Service.
 

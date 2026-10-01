@@ -100,6 +100,7 @@ interface ProjectRevenueProps {
 export function ProjectRevenue({ project }: ProjectRevenueProps) {
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
+  const { t: tp } = useTranslation('projects')
   const [currency] = useState('usd')
   const [connectOpen, setConnectOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
@@ -111,7 +112,7 @@ export function ProjectRevenue({ project }: ProjectRevenueProps) {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}/project` },
-      { label: 'Revenue' },
+      { label: t('crumbs.revenue') },
     ])
   }, [project.name, project.slug, setBreadcrumbs, t])
 
@@ -160,9 +161,9 @@ export function ProjectRevenue({ project }: ProjectRevenueProps) {
     <div className="flex w-full flex-col gap-6 p-2 sm:p-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold">Revenue</h1>
+          <h1 className="text-xl font-semibold">{tp('revenue.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Track MRR, ARR, churn, and active customers for this project.
+            {tp('revenue.subtitle')}
           </p>
         </div>
         {hasIntegrations && (

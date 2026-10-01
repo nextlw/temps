@@ -27,14 +27,17 @@ export function CreateFunnel({ project }: CreateFunnelProps) {
     message: string
   } | null>(null)
 
-  usePageTitle(`Create Funnel - ${project.slug}`)
+  usePageTitle(t('titles.createFunnel', { name: project.name }))
 
   React.useEffect(() => {
     setBreadcrumbs([
       { label: t('projects'), href: '/projects' },
       { label: project.name, href: `/projects/${project.slug}` },
-      { label: 'Analytics', href: `/projects/${project.slug}/analytics` },
-      { label: 'Create Funnel' },
+      {
+        label: t('crumbs.analytics'),
+        href: `/projects/${project.slug}/analytics`,
+      },
+      { label: t('crumbs.createFunnel') },
     ])
   }, [project, setBreadcrumbs, t])
 

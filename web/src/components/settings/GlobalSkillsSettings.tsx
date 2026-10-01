@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +55,7 @@ import {
 import type { SkillDefinitionResponse as SkillDefinition } from '@/api/client/types.gen'
 
 export function GlobalSkillsSettings() {
+  const { t } = useTranslation('projects')
   usePageTitle('Skills')
   const navigate = useNavigate()
 
@@ -95,8 +97,7 @@ export function GlobalSkillsSettings() {
         <div>
           <h2 className="text-lg font-semibold">Global Skills</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Platform-wide skill definitions available to all projects. Skills
-            are injected as{' '}
+            {t('globalAi.skillsIntro')}{' '}
             <code className="text-xs bg-muted px-1 rounded">
               .claude/skills/
             </code>{' '}
@@ -143,8 +144,7 @@ export function GlobalSkillsSettings() {
             <FileCode className="h-12 w-12 text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-semibold mb-2">No global skills</h3>
             <p className="text-sm text-muted-foreground text-center mb-4 max-w-md">
-              Global skills are available to all projects. Define common
-              patterns, coding standards, or reusable instructions here.
+              {t('globalAi.skillsEmpty')}
             </p>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" />
@@ -172,8 +172,7 @@ export function GlobalSkillsSettings() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete global skill?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this skill. All projects that
-              reference it will lose access.
+              {t('globalAi.skillDelete')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -327,6 +326,7 @@ function GlobalSkillDialog({
   skill,
   onSuccess,
 }: GlobalSkillDialogProps) {
+  const { t } = useTranslation('projects')
   const isEdit = !!skill
   const [slug, setSlug] = useState('')
   const [name, setName] = useState('')
@@ -412,7 +412,7 @@ function GlobalSkillDialog({
           <DialogDescription>
             {isEdit
               ? 'Update this global skill definition.'
-              : 'Define a new global skill available to all projects.'}
+              : t('globalAi.skillCreate')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

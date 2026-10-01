@@ -1,5 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import { HighlightedCode } from '@/components/ui/code-block'
 
 /**
@@ -32,6 +34,7 @@ interface Props {
 }
 
 export function WalHealthPanel({ serviceId, serviceType, onUpgrade }: Props) {
+  const { t } = useTranslation('storage')
   // Only Postgres services produce WAL health snapshots. Bail out early so
   // we don't spam the API with 404s for Redis / Mongo / S3 services.
   const enabled = serviceType === 'postgres'
@@ -73,10 +76,7 @@ export function WalHealthPanel({ serviceId, serviceType, onUpgrade }: Props) {
             <div>
               <p className="font-medium">Backup compatibility unavailable</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {getErrorMessage(
-                  backupCapability.error,
-                  'The server could not check whether this service supports Cloud backups.'
-                )}
+                {getErrorMessage(backupCapability.error, t('deep.walUnknown'))}
               </p>
             </div>
             <Button
@@ -214,7 +214,7 @@ function describeWarning(w: WalWarning): WarningView {
     case 'archive_mode_without_command':
       return {
         title: 'archive_mode is on, but archive_command is empty',
-        body: 'WAL is being held forever waiting for a destination that never accepts it. Stop and start this service from the actions menu — Temps reconciles archive_mode on start and the container will come back up with archive_mode=off (or =on if you’ve since configured WAL-G).',
+        body: i18n.t('storage:deep.walHeld'),
       }
     case 'wal_not_recycled':
       return {

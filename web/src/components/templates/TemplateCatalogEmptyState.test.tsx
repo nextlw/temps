@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { expect, test } from 'bun:test'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToStaticMarkup } from '@/i18n/testing'
 import { TemplateCatalogEmptyState } from './TemplateCatalogEmptyState'
 
 test('offers both project creation handoffs when the starter catalog is empty', () => {

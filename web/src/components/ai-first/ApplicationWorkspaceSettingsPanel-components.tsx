@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 import {
   Activity,
@@ -62,6 +63,7 @@ export function ApplicationWorkspaceSettingsPanel({
   onWorkspaceChange,
   waking = false,
 }: Props) {
+  const { t } = useTranslation('storage')
   const [workspace, setWorkspace] =
     useState<ApplicationWorkspaceResponse | null>(initialWorkspace)
   const [loading, setLoading] = useState(initialWorkspace == null)
@@ -300,7 +302,7 @@ export function ApplicationWorkspaceSettingsPanel({
               />
               <StatusLine
                 icon={<Database className="size-3.5" />}
-                label="Reachable data services"
+                label={t('misc.reachable')}
                 value={String(workspace.data_network_service_count)}
               />
               <StatusLine

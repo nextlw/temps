@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { SearchX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +13,7 @@ export function TraceUnavailableState({
   traceId: string
   onBack: () => void
 }) {
+  const { t } = useTranslation('observability')
   return (
     <div>
       <Card>
@@ -19,8 +21,7 @@ export function TraceUnavailableState({
           <SearchX className="mb-3 size-8 text-muted-foreground" />
           <p className="font-medium">Trace data is unavailable</p>
           <p className="mt-1 max-w-md text-sm text-muted-foreground">
-            Its spans may have expired under your retention policy or may not
-            have reached this project.
+            {t('traceUnavailable')}
           </p>
           <code className="mt-4 max-w-full break-all rounded bg-muted px-3 py-1.5 text-xs">
             {traceId}

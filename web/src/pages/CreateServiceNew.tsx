@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   adminListNodesOptions,
   createServiceMutation,
@@ -280,6 +281,7 @@ function ClusterMemberConfig({
 }
 
 export function CreateService() {
+  const { t } = useTranslation('storage')
   usePageTitle('Create database')
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -395,13 +397,13 @@ export function CreateService() {
   const createServiceMut = useMutation({
     ...createServiceMutation(),
     meta: {
-      errorTitle: 'Failed to create service',
+      errorTitle: t('create.failed'),
     },
     onSuccess: (data) => {
       if (data.status === 'creating') {
         toast.success('Cluster creation started — tracking progress...')
       } else {
-        toast.success('Service created successfully')
+        toast.success(t('create.created'))
       }
       navigate(`/storage/${data.id}`)
     },
@@ -411,11 +413,11 @@ export function CreateService() {
     parameterValues: Record<string, string | null | number>
   ) => {
     if (!serviceName.trim()) {
-      toast.error('Service name is required')
+      toast.error(t('create.nameRequired'))
       return
     }
     if (!serviceType) {
-      toast.error('Select a supported service type')
+      toast.error(t('create.selectType'))
       return
     }
 
@@ -474,9 +476,7 @@ export function CreateService() {
               </Button>
             </Link>
             <h1 className="text-2xl font-semibold">Create database</h1>
-            <p className="text-muted-foreground">
-              Choose a service type to get started.
-            </p>
+            <p className="text-muted-foreground">{t('create.chooseType')}</p>
           </div>
           {isLoadingProviders ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -579,7 +579,7 @@ export function CreateService() {
               </div>
               <div>
                 <h1 className="text-2xl font-semibold">
-                  Create {providerMetadata.display_name} Service
+                  {t('create.title', { type: providerMetadata.display_name })}
                 </h1>
                 <p className="text-muted-foreground">
                   {providerMetadata.description}
@@ -594,20 +594,17 @@ export function CreateService() {
             <Link2 className="size-4" />
             <AlertTitle>
               Create and link to{' '}
-              {projectQuery.data?.name ?? `project ${projectId}`}
+              {projectQuery.data?.name ??
+                t('create.linkTargetFallback', { id: projectId })}
             </AlertTitle>
-            <AlertDescription>
-              Temps will create the service, provision this project&apos;s
-              database and runtime variables, and update its application sandbox
-              network as one operation.
-            </AlertDescription>
+            <AlertDescription>{t('create.linkHint')}</AlertDescription>
           </Alert>
         )}
 
         {/* Service Name Field */}
         <div className="space-y-2">
           <Label htmlFor="serviceName">
-            Service Name
+            {t('create.nameLabel')}
             <span className="text-destructive ml-1">*</span>
           </Label>
           <Input
@@ -623,14 +620,14 @@ export function CreateService() {
               id="serviceName-description"
               className="text-sm text-muted-foreground"
             >
-              A unique name to identify this service
+              {t('create.nameHint')}
             </p>
           ) : (
             <p
               id="serviceName-description"
               className="text-sm text-destructive"
             >
-              Service name is required
+              {t('create.nameRequired')}
             </p>
           )}
         </div>
@@ -701,7 +698,7 @@ export function CreateService() {
           <div className="space-y-2">
             <Label>Deployment node</Label>
             <p className="text-sm text-muted-foreground">
-              Choose the machine whose Docker daemon will run this service.
+              {t('create.nodeHint')}
             </p>
             <Select
               value={standaloneNodeId}

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   Button,
   Callout,
@@ -37,6 +38,7 @@ import { Navigate } from 'react-router'
 const ITEMS_PER_PAGE = 20
 
 export function AuditLogs() {
+  const { t } = useTranslation('audit')
   const canViewAuditLogs = useCanViewAuditLogs()
   const { setBreadcrumbs } = useBreadcrumbs()
   const { get, patch } = useUrlState<'range' | 'operation' | 'user' | 'page'>()
@@ -153,10 +155,7 @@ export function AuditLogs() {
 
   return (
     <PageContainer innerClassName="space-y-6">
-      <PageHeader
-        title="Audit Logs"
-        description="Activity across the platform — authentication, project changes, skills, MCP servers, and more."
-      />
+      <PageHeader title="Audit Logs" description={t('pageDescription')} />
 
       <div
         className="flex flex-wrap items-center gap-2"

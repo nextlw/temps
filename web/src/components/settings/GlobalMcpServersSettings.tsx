@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,6 +59,7 @@ import {
 import type { McpDefinitionResponse as McpDefinition } from '@/api/client/types.gen'
 
 export function GlobalMcpServersSettings() {
+  const { t } = useTranslation('projects')
   usePageTitle('MCP Servers')
   const navigate = useNavigate()
 
@@ -99,8 +101,7 @@ export function GlobalMcpServersSettings() {
         <div>
           <h2 className="text-lg font-semibold">Global MCP Servers</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Platform-wide MCP server configurations available to all projects.
-            Configs are merged into{' '}
+            {t('globalAi.mcpIntro')}{' '}
             <code className="text-xs bg-muted px-1 rounded">
               .claude/settings.json
             </code>{' '}
@@ -149,9 +150,7 @@ export function GlobalMcpServersSettings() {
               No global MCP servers
             </h3>
             <p className="text-sm text-muted-foreground text-center mb-4 max-w-md">
-              Global MCP servers are available to all projects. Define common
-              tools like browser automation, database access, or file system
-              servers here.
+              {t('globalAi.mcpEmpty')}
             </p>
             <Button onClick={openCreate}>
               <Plus className="h-4 w-4 mr-2" />
@@ -179,8 +178,7 @@ export function GlobalMcpServersSettings() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete global MCP server?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this MCP server. All projects that
-              reference it will lose access.
+              {t('globalAi.mcpDelete')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -338,6 +336,7 @@ function GlobalMcpDialog({
   mcp,
   onSuccess,
 }: GlobalMcpDialogProps) {
+  const { t } = useTranslation('projects')
   const isEdit = !!mcp
   const [slug, setSlug] = useState('')
   const [name, setName] = useState('')
@@ -454,7 +453,7 @@ function GlobalMcpDialog({
           <DialogDescription>
             {isEdit
               ? 'Update this global MCP server configuration.'
-              : 'Define a new global MCP server available to all projects.'}
+              : t('globalAi.mcpCreate')}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

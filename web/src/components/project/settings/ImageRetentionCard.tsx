@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import { updateProjectSettingsMutation } from '@/api/client/@tanstack/react-query.gen'
 import { Button } from '@/components/ui/button'
@@ -53,6 +54,7 @@ export function ImageRetentionCard({
   project: ProjectResponse
   refetch: () => void
 }) {
+  const { t } = useTranslation('projects')
   const updateProjectSettings = useMutation({
     ...updateProjectSettingsMutation(),
     meta: { errorTitle: 'Failed to update image retention' },
@@ -102,10 +104,7 @@ export function ImageRetentionCard({
           <CardHeader>
             <CardTitle>Built Image Retention</CardTitle>
             <CardDescription>
-              How long this project&apos;s built Docker images are kept before
-              the nightly cleanup removes them. Rolling back or promoting a
-              deployment requires its image, so this is effectively the
-              project&apos;s rollback window.
+              {t('settings.imageRetention.description')}
             </CardDescription>
           </CardHeader>
           <CardContent>

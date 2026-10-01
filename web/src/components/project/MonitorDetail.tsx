@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { DateRangePicker } from '@/components/ui/date-range-picker'
 import { MonitorPathForm } from './MonitorPathForm'
 
@@ -182,6 +183,7 @@ function intervalForSpan(startDate?: Date, endDate?: Date): BucketInterval {
 }
 
 export function MonitorDetail({ project }: MonitorDetailProps) {
+  const { t } = useTranslation('projects')
   const { monitorId } = useParams()
   const [activeFilter, setActiveFilter] = useState<QuickFilter>('24hours')
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
@@ -587,7 +589,7 @@ export function MonitorDetail({ project }: MonitorDetailProps) {
             </div>
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">
-                Project ID
+                {t('monitors.idLabel')}
               </p>
               <p className="text-sm">{monitor.project_id}</p>
             </div>

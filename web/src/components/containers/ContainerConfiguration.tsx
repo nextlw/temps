@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   ContainerDetailResponse,
   getContainerEnvironmentVariable,
@@ -30,6 +31,7 @@ export function ContainerConfiguration({
   environmentId,
   containerId,
 }: ContainerConfigurationProps) {
+  const { t } = useTranslation('projects')
   const envVars = normalizeEnvVars(container.environment_variables)
   const hasPorts = !!(container.container_port || container.host_port)
   // Configured limits (from project/env deployment_config). cpu_limit and
@@ -78,7 +80,11 @@ export function ContainerConfiguration({
             value={formatUptimeFromTimestamp(startedAt || container.created_at)}
           />
           {container.service_name && (
-            <Field label="Service" mono value={container.service_name} />
+            <Field
+              label={t('compose.containerField')}
+              mono
+              value={container.service_name}
+            />
           )}
           {container.restart_count != null && container.restart_count > 0 && (
             <Field

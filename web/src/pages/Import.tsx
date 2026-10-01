@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ImportWizard } from '@/components/imports/ImportWizard'
 import { useNavigate, useSearchParams } from 'react-router'
 import { usePageTitle } from '@/hooks/usePageTitle'
@@ -8,7 +9,8 @@ import { usePlatformFeatures } from '@/hooks/usePlatformFeatures'
 import { PlatformFeatureNotice } from '@/components/platform/PlatformFeatureNotice'
 
 export default function Import() {
-  usePageTitle('Import Project')
+  const { t } = useTranslation('projects')
+  usePageTitle(t('importWizard.pageTitle'))
   const navigate = useNavigate()
   const platformFeatures = usePlatformFeatures()
   // Deep links (onboarding tiles, docs) preselect the platform via ?source=

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Card,
@@ -48,6 +49,7 @@ export function FlagsSetupGuide({
   environmentName,
   sampleFlagKey,
 }: FlagsSetupGuideProps) {
+  const { t } = useTranslation('projects')
   const flagKey = sampleFlagKey ?? 'checkout.v2'
   // A deployment token is normally pinned to one environment and the query
   // parameter is ignored. Project-wide tokens must say which environment they
@@ -60,12 +62,7 @@ export function FlagsSetupGuide({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">1. Credentials</CardTitle>
-          <CardDescription>
-            Apps deployed on this instance already have these. Set them yourself
-            only when running locally or somewhere else — a deployment token
-            pins the project and environment, so no app can read another
-            project&apos;s flags.
-          </CardDescription>
+          <CardDescription>{t('flags.credentialsHint')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <CodeBlock

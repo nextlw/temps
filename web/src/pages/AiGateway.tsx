@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import {
   getGenaiTraceOptions,
   queryGenaiTracesOptions,
@@ -3231,6 +3232,8 @@ function TraceDetailView({
 // ── AgentActivity ───────────────────────────────────────────────────
 
 export function AgentActivity() {
+  const { t: to } = useTranslation('observability')
+  const { t } = useTranslation('ai')
   const { projects } = useProjects()
   const [selectedProjectId, setSelectedProjectId] = useState<
     number | undefined
@@ -3311,7 +3314,7 @@ export function AgentActivity() {
               onValueChange={(v) => setSelectedProjectId(Number(v))}
             >
               <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Select project" />
+                <SelectValue placeholder={t('gateway.selectProject')} />
               </SelectTrigger>
               <SelectContent>
                 {projects.map((p) => (
@@ -3351,8 +3354,8 @@ export function AgentActivity() {
       {!projectId ? (
         <EmptyState
           icon={Bot}
-          title="No project selected"
-          description="Select a project to view AI agent activity traces."
+          title={t('gateway.noProject')}
+          description={t('gateway.noProjectDescription')}
         />
       ) : tracesLoading ? (
         <div className="space-y-2">
@@ -3379,7 +3382,7 @@ export function AgentActivity() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Trace</TableHead>
-                    <TableHead>Service</TableHead>
+                    <TableHead>{to('misc.otelService')}</TableHead>
                     <TableHead>Provider</TableHead>
                     <TableHead>Model</TableHead>
                     <TableHead className="hidden md:table-cell">
@@ -3550,6 +3553,7 @@ export function ProjectAgentActivity({
   projectId: number
   projectSlug: string
 }) {
+  const { t: to } = useTranslation('observability')
   const [{ range: timeRange, endMs }, selectTimeRange] = useTimeRangeSelection()
   const [systemFilter, setSystemFilter] = useState<string>('')
   const [searchParams, setSearchParams] = useSearchParams()
@@ -3672,7 +3676,7 @@ export function ProjectAgentActivity({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Trace</TableHead>
-                    <TableHead>Service</TableHead>
+                    <TableHead>{to('misc.otelService')}</TableHead>
                     <TableHead>Provider</TableHead>
                     <TableHead>Model</TableHead>
                     <TableHead className="hidden md:table-cell">

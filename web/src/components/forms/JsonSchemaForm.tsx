@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -241,6 +242,7 @@ export function JsonSchemaForm({
   fieldOverrides,
   presetOwnedFields,
 }: JsonSchemaFormProps) {
+  const { t } = useTranslation('storage')
   const ownedFields = useMemo(
     () => presetOwnedFields ?? Object.keys(fieldOverrides ?? {}),
     [presetOwnedFields, fieldOverrides]
@@ -382,7 +384,7 @@ export function JsonSchemaForm({
     if (hiddenFailures.length > 0) {
       // The field can't be fixed by the user -- it isn't on screen -- so this
       // is a form/schema bug, not a validation message to act on.
-      toast.error('Unable to create service', {
+      toast.error(t('create.invalid'), {
         description: `Internal form error: ${hiddenFailures
           .map(humanizeLabel)
           .join(', ')} failed validation but ${
@@ -392,7 +394,7 @@ export function JsonSchemaForm({
       return
     }
 
-    toast.error('Check the highlighted fields before creating this service')
+    toast.error(t('create.checkFields'))
   }
 
   const isPairedField = (fieldName: string, nextFieldName?: string) => {

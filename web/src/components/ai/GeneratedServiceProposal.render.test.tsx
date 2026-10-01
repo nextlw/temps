@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { describe, expect, test } from 'bun:test'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToStaticMarkup } from '@/i18n/testing'
 import { MemoryRouter } from 'react-router'
 
 import {
@@ -69,6 +69,6 @@ describe('GeneratedServiceProposal', () => {
 
     expect(markup).toContain('Redis created')
     expect(markup).toContain('href="/storage/42"')
-    expect(markup).toContain('View service')
+    expect(markup).toContain('View database')
   })
 })

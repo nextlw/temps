@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 import { Checkbox } from '@/components/ui/checkbox'
 
@@ -156,6 +157,7 @@ interface TreeNode {
 }
 
 export function ServiceDataBrowser() {
+  const { t } = useTranslation('storage')
   const { id } = useParams<{ id: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -1048,7 +1050,7 @@ export function ServiceDataBrowser() {
     const crumbs = [
       { label: 'Databases', href: '/storage' },
       {
-        label: service?.service?.name || 'Service',
+        label: service?.service?.name || t('deep.fallbackName'),
         href: `/storage/${id}`,
       },
       { label: 'Browse Data', href: `/storage/${id}/browse` },
@@ -1077,7 +1079,7 @@ export function ServiceDataBrowser() {
     }
 
     setBreadcrumbs(crumbs)
-  }, [setBreadcrumbs, id, service, selectedPath, selectedEntity])
+  }, [setBreadcrumbs, id, service, selectedPath, selectedEntity, t])
 
   usePageTitle(
     `${service?.service?.name || 'Service'} - ${selectedEntity || selectedPath || 'Browse Data'}`
@@ -1693,9 +1695,7 @@ export function ServiceDataBrowser() {
         <div className="p-6">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load service details. Please try again.
-            </AlertDescription>
+            <AlertDescription>{t('deep.loadFailed')}</AlertDescription>
           </Alert>
         </div>
       </div>
@@ -1706,9 +1706,7 @@ export function ServiceDataBrowser() {
   if (rootContainersError) {
     const error = rootContainersError as any
     const errorTitle = error?.title || 'Connection Error'
-    const errorDetail =
-      error?.detail ||
-      'Failed to connect to the service. Please check the service status and try again.'
+    const errorDetail = error?.detail || t('deep.connectFailed')
 
     return (
       <div className="flex-1 overflow-hidden flex flex-col">
@@ -1767,7 +1765,7 @@ export function ServiceDataBrowser() {
                   className="gap-2"
                 >
                   <ArrowLeft className="h-4 w-4" />
-                  Back to Service
+                  {t('deep.back')}
                 </Button>
               </div>
             </CardContent>
@@ -1821,7 +1819,7 @@ export function ServiceDataBrowser() {
                 <span className="font-semibold">
                   {explorerSupport.service_type}
                 </span>{' '}
-                services.
+                {t('deep.explorerUnsupportedTail')}
               </CardDescription>
             </CardHeader>
             {explorerSupport.reason && (
@@ -1839,7 +1837,7 @@ export function ServiceDataBrowser() {
                 className="gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Back to Service
+                {t('deep.back')}
               </Button>
             </CardContent>
           </Card>

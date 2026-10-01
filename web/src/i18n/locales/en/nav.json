@@ -65,5 +65,58 @@
     "toPlatformTools": "Back to platform tools",
     "deployments": "Deployments",
     "toDeployments": "Back to deployments"
+  },
+  "switcher": {
+    "switch": "Switch $t(terms:project.singularLower)",
+    "find": "Find $t(terms:project.singular)…",
+    "empty": "No $t(terms:project.pluralLower) found.",
+    "create": "Create $t(terms:project.singular)"
+  },
+  "crumbs": {
+    "revenue": "Revenue",
+    "analytics": "Analytics",
+    "createFunnel": "Create Funnel",
+    "editFunnel": "Edit Funnel",
+    "deployments": "Deployments",
+    "deployment": "Deployment {{id}}",
+    "drop": "Drop",
+    "errorTracking": "Error Tracking",
+    "errorGroup": "Error Group",
+    "errorDetails": "Error Details",
+    "eventDetails": "Event Details",
+    "logs": "Logs",
+    "traces": "Traces",
+    "operations": "Operations",
+    "environmentVariables": "Environment variables",
+    "checkConfiguration": "Check configuration",
+    "variableLoading": "Loading variable…",
+    "variableUnavailable": "Variable unavailable",
+    "variableNotFound": "Variable not found"
+  },
+  "titles": {
+    "createFunnel": "Create Funnel - {{name}}",
+    "editFunnel": "Edit Funnel - {{name}}",
+    "deployment": "{{name}} - Deployment {{id}}",
+    "drop": "Drop",
+    "event": "Event: {{type}}",
+    "eventFallback": "Event",
+    "error": "Error: {{title}}",
+    "logs": "Logs - {{name}}",
+    "operations": "Operations - {{name}}",
+    "traces": "Traces - {{name}}",
+    "importRepository": "Import {{name}}",
+    "repositoryFallback": "Repository"
+  },
+  "tools": {
+    "projects": "$t(terms:project.plural)",
+    "domainsDescription": "Attach domains to $t(terms:project.pluralLower) and compose containers.",
+    "dataDescription": "Manage databases, backups, email, and domains.",
+    "databasesDescription": "Create and operate managed databases.",
+    "analyticsDescription": "Compare traffic across $t(terms:project.pluralLower).",
+    "tracesDescription": "Follow requests across $t(terms:project.pluralLower) and $t(terms:otelService.pluralLower).",
+    "errorsDescription": "Review application issues across $t(terms:project.pluralLower).",
+    "createProject": "Create a $t(terms:project.singularLower)",
+    "addDatabaseDescription": "Provision a $t(terms:externalService.singularLower).",
+    "paletteHint": "and search across $t(terms:project.pluralLower), $t(terms:externalService.pluralLower), settings, and tools."
   }
 }

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   type CustomDomainResponse,
   type DomainEnvironmentResponse,
@@ -86,6 +87,7 @@ export function DomainForm({
   initialData,
   preset,
 }: DomainFormProps) {
+  const { t } = useTranslation('projects')
   const isDockerCompose =
     preset === 'docker-compose' || preset === 'dockercompose'
   // Fetch wildcard domains for initial state matching when editing
@@ -317,7 +319,7 @@ export function DomainForm({
             name="serviceName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Compose Service</FormLabel>
+                <FormLabel>{t('compose.domainLabel')}</FormLabel>
                 <Select
                   onValueChange={(val) =>
                     field.onChange(val === '_all_' ? '' : val)
@@ -326,11 +328,13 @@ export function DomainForm({
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="All services" />
+                      <SelectValue placeholder={t('compose.allContainers')} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="_all_">All services</SelectItem>
+                    <SelectItem value="_all_">
+                      {t('compose.allContainers')}
+                    </SelectItem>
                     {serviceNames.map((name) => (
                       <SelectItem key={name} value={name}>
                         {name}
@@ -339,7 +343,7 @@ export function DomainForm({
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Route this domain to a specific Docker Compose service
+                  {t('compose.domainHint')}
                 </p>
               </FormItem>
             )}

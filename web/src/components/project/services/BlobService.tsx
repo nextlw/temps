@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { CodeBlock, HighlightedCode } from '@/components/ui/code-block'
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
@@ -40,6 +41,7 @@ interface BlobServiceProps {
 }
 
 export function BlobService({ project: _project }: BlobServiceProps) {
+  const { t } = useTranslation('storage')
   const { setBreadcrumbs } = useBreadcrumbs()
 
   const { data: status, isLoading } = useQuery({
@@ -140,11 +142,8 @@ export function BlobService({ project: _project }: BlobServiceProps) {
         <TabsContent value="overview" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Service Status</CardTitle>
-              <CardDescription>
-                Cluster-wide status of Blob Storage. Once enabled, every project
-                on this instance can store files through the SDK below.
-              </CardDescription>
+              <CardTitle>{t('platform.statusTitle')}</CardTitle>
+              <CardDescription>{t('platform.blobStatus')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {isEnabled ? (
@@ -191,10 +190,9 @@ export function BlobService({ project: _project }: BlobServiceProps) {
                     <Info className="h-4 w-4" />
                     <AlertTitle>Blob Storage is not enabled</AlertTitle>
                     <AlertDescription>
-                      An administrator must enable the Blob service from{' '}
-                      <strong>Storage Settings → Platform Services</strong>.
-                      Once enabled, the SDK on the Documentation tab works out
-                      of the box — no further per-project setup needed.
+                      {t('platform.blobEnableHint')}{' '}
+                      <strong>{t('platform.settingsPath')}</strong>.{' '}
+                      {t('platform.enableTail')}
                     </AlertDescription>
                   </Alert>
                   <Button asChild>
@@ -305,8 +303,7 @@ TEMPS_PROJECT_ID=42`}
                   language="bash"
                 />
                 <p className="text-sm text-muted-foreground">
-                  Need an isolated client (multiple projects, custom timeouts,
-                  testing)? Use{' '}
+                  {t('platform.isolatedClient')}{' '}
                   <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
                     createClient
                   </code>

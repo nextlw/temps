@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
 import { projectCardMediaSources } from './project-card-media'
@@ -39,6 +40,7 @@ function ProjectCardMediaContent({
   templateImageUrl,
   className,
 }: ProjectCardMediaProps) {
+  const { t } = useTranslation('projects')
   const sources = projectCardMediaSources(
     deploymentUrl,
     screenshotLocation,
@@ -53,7 +55,7 @@ function ProjectCardMediaContent({
         'relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-muted/55',
         className
       )}
-      aria-label={`${name} project image`}
+      aria-label={t('card.imageLabel', { name })}
     >
       {source ? (
         <img

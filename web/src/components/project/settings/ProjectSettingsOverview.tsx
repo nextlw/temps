@@ -21,7 +21,9 @@ import {
   Webhook,
   type LucideIcon,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { i18n } from '@/i18n'
 
 interface SettingsItem {
   title: string
@@ -61,37 +63,37 @@ const settingsGroups: SettingsGroup[] = [
       },
       {
         title: 'Domains',
-        description: 'Attach and manage project domains.',
+        description: i18n.t('projects:settings.overview.domains'),
         url: 'settings/domains',
         icon: Globe,
       },
     ],
   },
   {
-    label: 'Project',
+    label: i18n.t('projects:settings.overview.groupProject'),
     description: 'Defaults and access that apply across every environment.',
     items: [
       {
         title: 'General',
-        description: 'Project identity and default deployment behavior.',
+        description: i18n.t('projects:settings.overview.general'),
         url: 'settings/general',
         icon: Settings2,
       },
       {
         title: 'Secrets',
-        description: 'Store encrypted project credentials.',
+        description: i18n.t('projects:settings.overview.secrets'),
         url: 'settings/secrets',
         icon: KeyRound,
       },
       {
         title: 'Security',
-        description: 'Headers and project security controls.',
+        description: i18n.t('projects:settings.overview.security'),
         url: 'settings/security',
         icon: Shield,
       },
       {
         title: 'Access',
-        description: 'Control who can view and change this project.',
+        description: i18n.t('projects:settings.overview.access'),
         url: 'settings/access',
         icon: Users,
       },
@@ -103,8 +105,7 @@ const settingsGroups: SettingsGroup[] = [
       },
       {
         title: 'Telemetry storage',
-        description:
-          'Where this project’s spans are stored, and what leaves this instance.',
+        description: i18n.t('projects:settings.overview.telemetry'),
         url: 'settings/telemetry',
         icon: HardDrive,
       },
@@ -142,7 +143,7 @@ const settingsGroups: SettingsGroup[] = [
   },
   {
     label: 'Automation',
-    description: 'Scheduled work and programmable project extensions.',
+    description: i18n.t('projects:settings.overview.automation'),
     items: [
       {
         title: 'Cron jobs',
@@ -152,25 +153,25 @@ const settingsGroups: SettingsGroup[] = [
       },
       {
         title: 'Webhooks',
-        description: 'Notify external systems about project events.',
+        description: i18n.t('projects:settings.overview.webhooks'),
         url: 'settings/webhooks',
         icon: Webhook,
       },
       {
         title: 'AI workflows',
-        description: 'Automate project work with agents.',
+        description: i18n.t('projects:settings.overview.aiWorkflows'),
         url: 'agents',
         icon: Bot,
       },
       {
         title: 'Skills',
-        description: 'Give project agents reusable capabilities.',
+        description: i18n.t('projects:settings.overview.skills'),
         url: 'settings/skills',
         icon: Wand2,
       },
       {
         title: 'MCP servers',
-        description: 'Connect project agents to external tools.',
+        description: i18n.t('projects:settings.overview.mcpServers'),
         url: 'settings/mcp-servers',
         icon: Server,
       },
@@ -183,6 +184,7 @@ export function ProjectSettingsOverview({
 }: {
   project: ProjectResponse
 }) {
+  const { t } = useTranslation('projects')
   const hrefFor = (url: string) => `/projects/${project.slug}/${url}`
 
   return (
@@ -195,8 +197,7 @@ export function ProjectSettingsOverview({
           Configure {project.name}
         </h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          Project-wide defaults and environment-specific runtime controls,
-          organized by the scope they affect.
+          {t('settings.overview.intro')}
         </p>
       </div>
 

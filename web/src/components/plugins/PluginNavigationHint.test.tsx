@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 import { expect, test } from 'bun:test'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToStaticMarkup } from '@/i18n/testing'
 import { PluginNavigationHint } from './PluginNavigationHint'
 import type { NavEntry, NavSection } from '../../types/plugins'
 
@@ -21,7 +21,7 @@ test('explains a running plugin without navigation rather than implying install 
 test('points to contextual sidebars and does not warn for platform navigation', () => {
   expect(
     renderToStaticMarkup(<PluginNavigationHint nav={[entry('project')]} />)
-  ).toContain('Open a project')
+  ).toContain('Open a service')
   expect(
     renderToStaticMarkup(<PluginNavigationHint nav={[entry('settings')]} />)
   ).toContain('Settings sidebar')

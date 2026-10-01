@@ -18,6 +18,8 @@
  * that state, so this never has to guess.
  */
 
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import {
   ProjectResponse,
   type CloudTelemetryFidelity,
@@ -78,14 +80,12 @@ const WRITE_MODE_COPY: Record<
 > = {
   local: {
     title: 'Store spans on this instance',
-    description:
-      'Spans are written to this instance’s span store first, then optionally mirrored to Temps Cloud. This is the default and what every project did before Cloud-primary writes existed.',
+    description: i18n.t('projects:settings.telemetry.localDescription'),
     icon: HardDrive,
   },
   cloud: {
     title: 'Write spans to Temps Cloud',
-    description:
-      'Spans go straight to this instance’s durable telemetry queue and are shipped to Temps Cloud. No span for this project is stored on this instance — which is how a local span store stops being necessary. Traces are then read back from Cloud.',
+    description: i18n.t('projects:settings.telemetry.cloudDescription'),
     icon: CloudUpload,
   },
 }
@@ -127,6 +127,7 @@ function WriteModeBadge({
 }
 
 export function TelemetrySettings({ project }: TelemetrySettingsProps) {
+  const { t } = useTranslation('projects')
   usePageTitle(`Telemetry storage - ${project.name}`)
   const queryClient = useQueryClient()
 
@@ -210,8 +211,8 @@ export function TelemetrySettings({ project }: TelemetrySettingsProps) {
       })
       toast.success(
         updated.write_mode === 'cloud'
-          ? 'This project’s spans now go to Temps Cloud. They are no longer stored on this instance.'
-          : 'This project’s spans are stored on this instance.'
+          ? t('settings.telemetry.nowCloud')
+          : t('settings.telemetry.nowLocal')
       )
     },
     onError: (mutationError) => {
@@ -219,10 +220,7 @@ export function TelemetrySettings({ project }: TelemetrySettingsProps) {
       // failure here would leave the operator guessing between four unrelated
       // fixes.
       toast.error(
-        problemDetail(
-          mutationError,
-          'Could not change this project’s telemetry storage.'
-        ),
+        problemDetail(mutationError, t('settings.telemetry.changeFailed')),
         {
           action: problemSetupPath(mutationError)
             ? {
@@ -258,10 +256,7 @@ export function TelemetrySettings({ project }: TelemetrySettingsProps) {
           <AlertTitle>Telemetry storage settings unavailable</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>
-              {problemDetail(
-                error,
-                'This instance could not report where this project’s spans are stored.'
-              )}
+              {problemDetail(error, t('settings.telemetry.statusUnavailable'))}
             </p>
             <Button size="sm" variant="outline" onClick={() => void refetch()}>
               Try again
@@ -302,12 +297,10 @@ export function TelemetrySettings({ project }: TelemetrySettingsProps) {
       {settings.effective_write_mode !== settings.write_mode && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>
-            Spans are not going where this project’s settings say
-          </AlertTitle>
+          <AlertTitle>{t('settings.telemetry.mismatchTitle')}</AlertTitle>
           <AlertDescription>
             {settings.effective_reason_message ??
-              'Temps Cloud is not accepting this project’s spans, so they are being stored on this instance instead.'}{' '}
+              t('settings.telemetry.mismatchFallback')}{' '}
             The setting below is unchanged and takes effect again automatically
             once Cloud accepts.
           </AlertDescription>
@@ -357,7 +350,7 @@ export function TelemetrySettings({ project }: TelemetrySettingsProps) {
       {/* ── Write mode ─────────────────────────────────────────────── */}
       <SettingsSection
         title="Where spans are stored"
-        description="Choose whether this project's spans are stored locally or in Temps Cloud"
+        description={t('settings.telemetry.writeModeDescription')}
         icon={HardDrive}
       >
         <div className="space-y-4">
@@ -524,10 +517,7 @@ export function TelemetrySettings({ project }: TelemetrySettingsProps) {
                 Metered fidelity cannot be combined with Cloud-primary writes
               </AlertTitle>
               <AlertDescription>
-                Metered spans are pseudonymised placeholders that cannot be read
-                back, and a Cloud-primary project stores nothing here — this
-                project’s traces would exist nowhere. Choose “Store spans on
-                this instance”, or keep fidelity at Queryable.
+                {t('settings.telemetry.meteredConflict')}
               </AlertDescription>
             </Alert>
           )}
@@ -570,8 +560,7 @@ export function TelemetrySettings({ project }: TelemetrySettingsProps) {
           <CardHeader>
             <CardTitle className="text-base">Storage history</CardTitle>
             <CardDescription>
-              Where this project’s spans actually went, which is what decides
-              which store answers a query for a given time range.
+              {t('settings.telemetry.historyDescription')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import type { ProjectResponse } from '@/api/client'
 import {
   hasAnalyticsEventsOptions,
@@ -73,8 +74,7 @@ export function buildProjectSetupSteps(
     {
       id: 'domain',
       title: 'Connect a custom domain',
-      description:
-        'Give the project a production hostname and let Temps provision and renew its TLS certificate.',
+      description: i18n.t('projects:setup.domainDescription'),
       href: `${base}/domains`,
       cta: 'Manage domains',
       done: signals.customDomainCount > 0,
@@ -93,10 +93,9 @@ export function buildProjectSetupSteps(
     {
       id: 'storage',
       title: 'Link database or storage',
-      description:
-        'Attach a managed service to this project so application data and deployment configuration stay together.',
+      description: i18n.t('projects:setup.storageDescription'),
       href: `${base}/storage`,
-      cta: 'Open project storage',
+      cta: i18n.t('projects:setup.storageCta'),
       done: signals.serviceCount > 0,
       icon: Database,
     },

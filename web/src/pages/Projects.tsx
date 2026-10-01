@@ -47,6 +47,7 @@ const SEARCH_CATALOG_LIMIT = 50
 export function Projects() {
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
+  const { t: tp } = useTranslation('projects')
   const [searchParams, setSearchParams] = useSearchParams()
   const { page, pageSize } = readProjectPagination(searchParams)
   const projectSearch = searchParams.get('q') ?? ''
@@ -133,7 +134,7 @@ export function Projects() {
     setBreadcrumbs([{ label: t('projects') }])
   }, [setBreadcrumbs, t])
 
-  usePageTitle('Projects')
+  usePageTitle(tp('list.title'))
 
   // Batch fetch analytics for all visible projects
   const { startDate, endDate } = useMemo(() => {
@@ -190,7 +191,10 @@ export function Projects() {
         actions={
           <>
             <PlatformStrip />
-            <CreateActionButton to="/projects/new" label="New Project" />
+            <CreateActionButton
+              to="/projects/new"
+              label={tp('list.newProject')}
+            />
           </>
         }
       />
@@ -202,30 +206,34 @@ export function Projects() {
 
       {((projectsData?.total ?? 0) > 0 || Boolean(projectSearch)) && (
         <ListToolbar
-          searchLabel="Filter projects by name or slug"
-          placeholder="Filter projects…"
+          searchLabel={tp('list.searchLabel')}
+          placeholder={tp('list.searchPlaceholder')}
           value={projectSearch}
           onChange={setProjectSearch}
           summary={
             !projectsData
               ? isError
-                ? 'Project count unavailable'
-                : 'Loading projects…'
+                ? tp('list.countUnavailable')
+                : tp('list.loading')
               : normalizedProjectSearch
-                ? `${visibleProjects.length} matching ${visibleProjects.length === 1 ? 'project' : 'projects'} · searching ${projectsData.projects.length} of ${projectsData.total}`
-                : `${projectsData.total} ${projectsData.total === 1 ? 'project' : 'projects'}`
+                ? tp('list.matching', {
+                    count: visibleProjects.length,
+                    loaded: projectsData.projects.length,
+                    total: projectsData.total,
+                  })
+                : tp('list.total', { count: projectsData.total })
           }
         />
       )}
 
       {isError && (
         <Alert variant="destructive">
-          <AlertTitle>Projects could not be loaded</AlertTitle>
+          <AlertTitle>{tp('list.loadErrorTitle')}</AlertTitle>
           <AlertDescription>
             <p>
               {projectsData
-                ? 'Showing previously loaded projects. Refresh to get the latest status.'
-                : 'Check your connection and retry loading your projects.'}
+                ? tp('list.loadErrorStale')
+                : tp('list.loadErrorHint')}
             </p>
             <Button
               variant="outline"
@@ -237,7 +245,7 @@ export function Projects() {
               <RefreshCw
                 className={isFetching ? 'size-4 animate-spin' : 'size-4'}
               />
-              {isFetching ? 'Retrying…' : 'Retry loading projects'}
+              {isFetching ? 'Retrying…' : tp('list.retry')}
             </Button>
           </AlertDescription>
         </Alert>
@@ -248,7 +256,7 @@ export function Projects() {
       isPageOutOfRange ? (
         <div
           className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
-          aria-label="Loading projects"
+          aria-label={tp('list.loadingLabel')}
           aria-busy="true"
         >
           {Array.from({ length: pageSize }).map((_, i) => (
@@ -265,9 +273,9 @@ export function Projects() {
         />
       ) : visibleProjects.length === 0 ? (
         <div className="rounded-xl border border-dashed px-6 py-12 text-center">
-          <p className="font-medium">No matching projects</p>
+          <p className="font-medium">{tp('list.noMatchTitle')}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            No project name or slug contains “{projectSearch.trim()}”.
+            {tp('list.noMatchHint', { query: projectSearch.trim() })}
           </p>
           <Button
             variant="outline"
@@ -295,8 +303,8 @@ export function Projects() {
             total={projectsData.total}
             totalPages={totalPages}
             pageSizeOptions={PROJECT_PAGE_SIZE_OPTIONS}
-            ariaLabel="Project list pagination"
-            pageSizeAriaLabel="Projects per page"
+            ariaLabel={tp('list.paginationLabel')}
+            pageSizeAriaLabel={tp('list.perPage')}
             className="pt-2"
             onPageChange={(nextPage) => setPagination(nextPage)}
             onPageSizeChange={(nextPageSize) => setPagination(1, nextPageSize)}
@@ -311,10 +319,11 @@ export function Projects() {
  * migration-entry-point variants swap out.
  */
 function ProjectsHeader({ actions }: { actions: React.ReactNode }) {
+  const { t } = useTranslation('projects')
   return (
     <PageHeader
-      title="Projects"
-      description="Manage your projects and their settings"
+      title={t('list.title')}
+      description={t('list.description')}
       actions={actions}
     />
   )

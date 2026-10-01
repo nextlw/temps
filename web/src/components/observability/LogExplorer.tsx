@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 import { AnsiLogMessage } from './AnsiLogMessage'
 
@@ -134,6 +135,7 @@ export function LogExplorer({
   /** Attribute facet sidebar (ADR-047 §5), rendered under the label facets. */
   attributesPanel?: ReactNode
 }) {
+  const { t } = useTranslation('observability')
   const [params, setParams] = useSearchParams()
   const mode =
     params.get('lv') === 'patterns'
@@ -222,11 +224,13 @@ export function LogExplorer({
       values: map(facetValues(facets, 'level'), (value) => value),
     },
     {
-      title: 'Project',
+      title: t('logs.facetProject'),
       key: 'project_id',
       values: map(
         projectFacet,
-        (value) => names.projects.get(value) ?? `Project ${value}`
+        (value) =>
+          names.projects.get(value) ??
+          t('logs.facetProjectFallback', { id: value })
       ),
     },
     {
@@ -358,7 +362,7 @@ export function LogExplorer({
                   [
                     ['list', 'List'],
                     ['patterns', 'Patterns'],
-                    ['service', 'By service'],
+                    ['service', t('logs.byContainer')],
                   ] as const
                 ).map(([value, label]) => (
                   <Button
@@ -431,14 +435,17 @@ export function LogExplorer({
             (mode !== 'list' ? (
               <div className="overflow-hidden rounded-md border">
                 <p className="px-4 py-3 text-xs text-muted-foreground">
-                  {mode === 'patterns' ? 'Exact repeated messages' : 'Services'}{' '}
-                  on this loaded page. Select a row to inspect an example.
+                  {mode === 'patterns'
+                    ? t('logs.summaryPatterns')
+                    : t('logs.summaryContainers')}
                 </p>
                 <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
                       <TableHead>
-                        {mode === 'patterns' ? 'Message pattern' : 'Service'}
+                        {mode === 'patterns'
+                          ? t('logs.messagePattern')
+                          : t('logs.container')}
                       </TableHead>
                       <TableHead className="w-20 text-right">Lines</TableHead>
                       <TableHead className="w-20 text-right">Errors</TableHead>
@@ -494,7 +501,7 @@ export function LogExplorer({
                       </TableHead>
                       <TableHead className="w-16">Level</TableHead>
                       <TableHead className="hidden w-32 lg:table-cell">
-                        Project / service
+                        {t('logs.ownerColumn')}
                       </TableHead>
                       <TableHead>Message</TableHead>
                       {visibleColumns.map((column) => (
@@ -665,10 +672,10 @@ export function LogExplorer({
                   'Environment',
                   logEnvironmentLabel(line.env, environmentLabels),
                 ],
-                ['Service', line.service],
+                [t('logs.container'), line.service],
                 ['Stream', line.stream],
                 ['Node', line.node_name],
-                ['Container', line.container_id],
+                [t('logs.containerId'), line.container_id],
                 ['Deployment', line.deploy_id],
                 ['Line ID', line.line_id],
               ].map(([label, value]) => (

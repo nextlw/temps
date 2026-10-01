@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { describe, expect, test } from 'bun:test'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { renderToStaticMarkup } from '@/i18n/testing'
 import { WorkspaceGitConnections } from './WorkspaceGitConnections'
 
 const base = {
@@ -74,7 +74,7 @@ describe('WorkspaceGitConnections', () => {
     expect(html).toContain('origin')
     expect(html).toContain('backup')
     expect(html).toContain('does not publish files')
-    expect(html).toContain('Disconnect origin from project 1')
+    expect(html).toContain('Disconnect origin from service 1')
   })
   test('loading and failures are exposed accessibly', () => {
     const html = renderToStaticMarkup(

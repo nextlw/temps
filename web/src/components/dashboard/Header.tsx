@@ -16,6 +16,7 @@ import { useConsoleExtensions } from '@temps-sdk/console-kit'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
 import React, { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate } from 'react-router'
 import {
   Breadcrumb,
@@ -81,6 +82,7 @@ function ProjectSwitcher({
   label: string
 }) {
   const navigate = useNavigate()
+  const { t } = useTranslation('nav')
   const [open, setOpen] = useState(false)
   const { data } = useQuery({
     ...getProjectsOptions({ query: { page: 1, per_page: 100 } }),
@@ -101,7 +103,7 @@ function ProjectSwitcher({
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="Switch project"
+          aria-label={t('switcher.switch')}
           className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-sm font-normal text-foreground transition-colors hover:bg-accent"
         >
           <span className="max-w-[120px] truncate sm:max-w-[200px] lg:max-w-[280px]">
@@ -117,9 +119,9 @@ function ProjectSwitcher({
         sideOffset={6}
       >
         <Command>
-          <CommandInput placeholder="Find Project…" />
+          <CommandInput placeholder={t('switcher.find')} />
           <CommandList>
-            <CommandEmpty>No projects found.</CommandEmpty>
+            <CommandEmpty>{t('switcher.empty')}</CommandEmpty>
             <CommandGroup>
               {projects.map((p) => {
                 const isCurrent = p.slug === currentSlug
@@ -152,7 +154,7 @@ function ProjectSwitcher({
                 }}
               >
                 <Plus className="size-4" />
-                <span>Create Project</span>
+                <span>{t('switcher.create')}</span>
               </CommandItem>
             </CommandGroup>
           </CommandList>

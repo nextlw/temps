@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   createServiceMutation,
   getServiceTypeParametersOptions,
@@ -193,6 +194,7 @@ export function CreateServiceForm({
   onSuccess,
   successMessage,
 }: CreateServiceFormProps) {
+  const { t } = useTranslation('storage')
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
 
   // Fetch parameters for the selected service type
@@ -302,7 +304,7 @@ export function CreateServiceForm({
     return z.object({
       name: z
         .string()
-        .min(1, 'Service name is required')
+        .min(1, t('create.nameRequired'))
         .regex(
           /^[a-z0-9-]+$/,
           'Name must contain only lowercase letters, numbers, and hyphens'
@@ -310,7 +312,7 @@ export function CreateServiceForm({
       service_type: z.string(),
       parameters: z.object(paramSchema),
     })
-  }, [parameters])
+  }, [parameters, t])
 
   type FormValues = z.infer<typeof formSchema>
 
@@ -352,7 +354,7 @@ export function CreateServiceForm({
   const createServiceMut = useMutation({
     ...createServiceMutation(),
     meta: {
-      errorTitle: 'Failed to create service',
+      errorTitle: t('create.failed'),
     },
     onSuccess: (data) => {
       completeServiceCreation({

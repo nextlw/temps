@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import * as React from 'react'
 import { getProjects } from '@/api/client/sdk.gen'
 import { ProjectCardMedia } from '@/components/dashboard/ProjectCardMedia'
@@ -52,10 +53,12 @@ export function ProjectSelect({
   onValueChange,
   allowAll = true,
   excludeIds,
-  placeholder = 'Select project…',
+  placeholder: placeholderProp,
   disabled,
   className,
 }: ProjectSelectProps) {
+  const { t } = useTranslation('projects')
+  const placeholder = placeholderProp ?? t('select.placeholder')
   const [open, setOpen] = React.useState(false)
   const queryClient = useQueryClient()
 
@@ -120,7 +123,7 @@ export function ProjectSelect({
   const triggerLabel =
     value == null
       ? allowAll
-        ? 'All projects'
+        ? t('select.all')
         : placeholder
       : (selected?.name ?? placeholder)
 
@@ -166,7 +169,7 @@ export function ProjectSelect({
               className="mr-1 h-7 w-7 shrink-0"
               onClick={handleRefresh}
               disabled={projectsQuery.isFetching}
-              title="Refresh projects"
+              title={t('select.refresh')}
             >
               <RefreshCw
                 className={cn(
@@ -185,7 +188,7 @@ export function ProjectSelect({
               </div>
             ) : projectsQuery.isError ? (
               <div className="flex flex-col items-center gap-2 p-4 text-center text-sm text-muted-foreground">
-                Failed to load projects
+                {t('select.loadFailed')}
                 <Button
                   type="button"
                   variant="outline"
@@ -197,7 +200,7 @@ export function ProjectSelect({
               </div>
             ) : (
               <>
-                <CommandEmpty>No projects found.</CommandEmpty>
+                <CommandEmpty>{t('select.empty')}</CommandEmpty>
                 {allowAll && (
                   <CommandGroup>
                     <CommandItem
@@ -213,7 +216,7 @@ export function ProjectSelect({
                           value == null ? 'opacity-100' : 'opacity-0'
                         )}
                       />
-                      <span className="truncate">All projects</span>
+                      <span className="truncate">{t('select.all')}</span>
                     </CommandItem>
                   </CommandGroup>
                 )}

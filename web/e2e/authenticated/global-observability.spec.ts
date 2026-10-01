@@ -189,7 +189,7 @@ for (const kind of Object.keys(fixtures) as Kind[]) {
         const filters = page.getByRole('region', {
           name: `${kind[0].toUpperCase() + kind.slice(1)} filters`,
         })
-        await filters.getByRole('combobox', { name: 'Project scope' }).click()
+        await filters.getByRole('combobox', { name: 'Service scope' }).click()
         await page.getByRole('option', { name: /Storefront/ }).click()
       }
       await expect(page).toHaveURL(/project_id=1/)
@@ -215,7 +215,7 @@ for (const kind of Object.keys(fixtures) as Kind[]) {
             .getByRole('region', {
               name: `${kind[0].toUpperCase() + kind.slice(1)} filters`,
             })
-            .getByRole('combobox', { name: 'Project scope' })
+            .getByRole('combobox', { name: 'Service scope' })
         ).toContainText('Storefront')
       expect(new URL(page.url()).searchParams.get('from')).toBe(frozen)
       expect(
@@ -225,7 +225,7 @@ for (const kind of Object.keys(fixtures) as Kind[]) {
       ).toBe(true)
       if (kind === 'traces')
         await expect(
-          page.getByRole('link', { name: 'Cross-project waterfall' })
+          page.getByRole('link', { name: 'Cross-service waterfall' })
         ).toHaveAttribute(
           'href',
           new RegExp(`^/traces/global/${traceId}\\?start_time=.+&end_time=.+`)
@@ -390,7 +390,9 @@ for (const width of [1440, 390]) {
     await expect(
       page.getByText('Checkout request failed', { exact: true })
     ).toBeVisible()
-    await page.getByRole('button', { name: 'By service', exact: true }).click()
+    await page
+      .getByRole('button', { name: 'By container', exact: true })
+      .click()
     await expect(
       page.getByRole('button', { name: 'Storefront / web', exact: true })
     ).toBeVisible()
@@ -632,7 +634,7 @@ test('logs workspace supports grouping, columns and facets without a page-only v
       exact: false,
     })
   ).toBeVisible()
-  await page.getByRole('button', { name: 'By service', exact: true }).click()
+  await page.getByRole('button', { name: 'By container', exact: true }).click()
   await expect(
     page.getByRole('button', { name: 'Storefront / web', exact: true })
   ).toBeVisible()
@@ -661,7 +663,7 @@ test('log key:value autocomplete applies, edits and validates filters', async ({
   await page.goto('/logs')
   const input = page.getByRole('combobox', { name: 'Search log messages' })
   await expect(
-    page.getByRole('combobox', { name: 'Project scope' })
+    page.getByRole('combobox', { name: 'Service scope' })
   ).toHaveCount(0)
   await expect(page.getByRole('combobox', { name: 'Log level' })).toHaveCount(0)
   await input.fill('lev')

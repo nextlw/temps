@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import type { DropInspectionResponse, DropPresetCandidate } from '@/api/client'
 import { prepareDrop, type DropFile } from '@/lib/drop-archive'
 
@@ -48,7 +49,7 @@ export async function prepareAndInspectDrop(
     throw new Error('Preset detection returned no result')
   }
   if (inspection.candidates.length === 0) {
-    throw new Error('No deployable project preset was detected')
+    throw new Error(i18n.t('projects:drop.noPreset'))
   }
 
   return { archive: prepared.file, inspection }

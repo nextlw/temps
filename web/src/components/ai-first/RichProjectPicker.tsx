@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import { Check, ChevronsUpDown, PanelsTopLeft } from 'lucide-react'
 import { useState } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -51,11 +53,12 @@ export function RichProjectPicker({
   projects,
   value,
   onValueChange,
-  placeholder = 'Choose a project…',
+  placeholder = i18n.t('ai:workspace.pickerPlaceholder'),
   disabled,
   ariaLabel,
   className,
 }: Props) {
+  const { t } = useTranslation('ai')
   const [open, setOpen] = useState(false)
   const selected = projects.find((project) => project.id === value) ?? null
 
@@ -91,10 +94,13 @@ export function RichProjectPicker({
         className="w-[min(calc(100vw-2rem),22rem)] min-w-[var(--radix-popover-trigger-width)] p-0"
       >
         <Command>
-          <CommandInput name="project-filter" placeholder="Find a project…" />
+          <CommandInput
+            name="project-filter"
+            placeholder={t('workspace.pickerFind')}
+          />
           <CommandList className="max-h-80">
-            <CommandEmpty>No projects found.</CommandEmpty>
-            <CommandGroup heading="Projects">
+            <CommandEmpty>{t('workspace.pickerEmpty')}</CommandEmpty>
+            <CommandGroup heading={t('workspace.pickerHeading')}>
               {projects.map((project) => (
                 <CommandItem
                   className="items-start gap-2 p-2"

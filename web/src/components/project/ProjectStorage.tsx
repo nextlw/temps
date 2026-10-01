@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   ExternalServiceInfo,
   ProjectResponse,
@@ -106,6 +107,7 @@ function ServiceRow({
   onToggle: () => Promise<void>
   link?: ProjectServiceInfo
 }) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
 
   const primaryHref = isLinked
@@ -167,10 +169,10 @@ function ServiceRow({
                 {' '}
                 ·{' '}
                 {link?.database_provisioning_mode === 'custom'
-                  ? 'Custom database'
+                  ? t('storage.customDatabase')
                   : link?.database_provisioning_mode === 'project'
-                    ? 'Per project'
-                    : 'Per environment'}
+                    ? t('storage.perProject')
+                    : t('storage.perEnvironment')}
               </span>
             )}
           {isLinked
@@ -277,7 +279,7 @@ function ServiceRow({
                 onSelect={() => void onToggle()}
               >
                 <Link2Off className="size-3.5" />
-                Unlink from project
+                {t('storage.unlink')}
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem
@@ -285,7 +287,7 @@ function ServiceRow({
                 onSelect={() => void onToggle()}
               >
                 <Link2 className="size-3.5" />
-                Link to project
+                {t('storage.link')}
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -301,6 +303,7 @@ function ServiceRow({
 }
 
 export function ProjectStorage({ project }: { project: ProjectResponse }) {
+  const { t } = useTranslation('projects')
   const { setBreadcrumbs } = useBreadcrumbs()
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -341,13 +344,13 @@ export function ProjectStorage({ project }: { project: ProjectResponse }) {
 
   const linkServiceMutation = useMutation({
     ...linkServiceToProjectMutation(),
-    meta: { errorTitle: 'Failed to link service to project' },
+    meta: { errorTitle: t('storage.linkFailed') },
     onSuccess: () => refetchServicesLinked(),
   })
 
   const unlinkServiceMutation = useMutation({
     ...unlinkServiceFromProjectMutation(),
-    meta: { errorTitle: 'Failed to unlink service from project' },
+    meta: { errorTitle: t('storage.unlinkFailed') },
     onSuccess: () => refetchServicesLinked(),
   })
 
@@ -360,9 +363,9 @@ export function ProjectStorage({ project }: { project: ProjectResponse }) {
       body: { project_id: project.id, ...selection },
     })
     toast.promise(promise, {
-      loading: 'Linking service...',
-      success: 'Service linked',
-      error: 'Failed to link service',
+      loading: t('storage.linking'),
+      success: t('storage.linked'),
+      error: t('storage.linkError'),
     })
     await promise
     await refetchServicesLinked()
@@ -376,9 +379,9 @@ export function ProjectStorage({ project }: { project: ProjectResponse }) {
         path: { id: serviceId, project_id: project.id },
       })
       toast.promise(promise, {
-        loading: 'Unlinking service...',
-        success: 'Service unlinked',
-        error: 'Failed to unlink service',
+        loading: t('storage.unlinking'),
+        success: t('storage.unlinked'),
+        error: t('storage.unlinkError'),
       })
       await promise.catch(() => {})
     } else {
@@ -488,7 +491,7 @@ export function ProjectStorage({ project }: { project: ProjectResponse }) {
           Databases
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Link an existing database or create a new one for this project.
+          {t('storage.subtitle')}
           {totalCount > 0 ? (
             <span className="ml-1 tabular-nums">
               {linkedCount} of {totalCount} linked.
@@ -514,7 +517,7 @@ export function ProjectStorage({ project }: { project: ProjectResponse }) {
           <AlertDescription>
             {servicesError
               ? 'Could not load the available databases.'
-              : 'Could not determine which databases are linked to this project.'}
+              : t('storage.linksLoadFailed')}
             <Button
               variant="outline"
               size="sm"
@@ -582,9 +585,7 @@ export function ProjectStorage({ project }: { project: ProjectResponse }) {
         {header}
 
         <p className="text-sm text-muted-foreground">
-          Choose an existing database below, or create a new database of any
-          supported type. Linking makes its connection settings available to
-          this project.
+          {t('storage.chooseHint')}
         </p>
 
         {linkedServices.length > 0 ? (
@@ -656,8 +657,7 @@ export function ProjectStorage({ project }: { project: ProjectResponse }) {
           </section>
         ) : (
           <p className="text-sm text-muted-foreground">
-            All existing databases are linked to this project. You can create
-            another database above.
+            {t('storage.allLinked')}
           </p>
         )}
         {databaseTypes}

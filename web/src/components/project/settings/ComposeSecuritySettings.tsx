@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   updateComposeSecurity,
   type ComposeSecurityCheckDefinition,
@@ -47,6 +48,7 @@ export function ComposeSecuritySettings({
   projectId: number
   focusCheck?: string | null
 }) {
+  const { t } = useTranslation('projects')
   const [legacyAcknowledged, setLegacyAcknowledged] = useState(false)
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -174,19 +176,12 @@ export function ComposeSecuritySettings({
           role="note"
           className="px-4 pb-4 text-sm text-amber-700 dark:text-amber-400"
         >
-          This project has legacy “Disable sandbox” settings. They no longer
-          apply to new deployments. Review and acknowledge the individual
-          exceptions you need here before redeploying.
+          {t('settings.composeSecurity.legacy')}
         </p>
       )}
       <CollapsibleContent className="space-y-4 border-t p-4">
         <p className="text-sm text-muted-foreground">
-          Checks are enabled by default. Exceptions apply to this project on its
-          next deployment and may expose the host or other projects. Docker
-          configuration validity and protection of Temps-generated files always
-          remain enforced. Ordinary named volumes need no exception. These
-          settings replace the former per-service “Disable sandbox” option;
-          configure any required exceptions here before your next deployment.
+          {t('settings.composeSecurity.intro')}
         </p>
         {query.isPending && (
           <div className="space-y-2">
@@ -226,8 +221,7 @@ export function ComposeSecuritySettings({
                     }
                     disabled={mutation.isPending}
                   />
-                  I have reviewed the exceptions this project needs for its next
-                  deployment.
+                  {t('settings.composeSecurity.legacyAcknowledge')}
                 </label>
                 <Button
                   size="sm"
@@ -333,9 +327,8 @@ export function ComposeSecuritySettings({
           <AlertDialogHeader>
             <AlertDialogTitle>Disable this security check?</AlertDialogTitle>
             <AlertDialogDescription>
-              {pending?.label}: {pending?.consequence} This applies to every
-              service in this project on the next deployment. Other checks
-              remain enforced.
+              {pending?.label}: {pending?.consequence}{' '}
+              {t('settings.composeSecurity.disableScope')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="flex items-start gap-2">
@@ -346,8 +339,7 @@ export function ComposeSecuritySettings({
               disabled={mutation.isPending}
             />
             <label htmlFor="acknowledge-compose-security" className="text-sm">
-              I trust this stack and understand that this exception can affect
-              the host and other projects.
+              {t('settings.composeSecurity.trustAcknowledge')}
             </label>
           </div>
           <AlertDialogFooter>

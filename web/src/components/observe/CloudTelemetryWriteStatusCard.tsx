@@ -22,6 +22,7 @@
  * unhappy.
  */
 
+import { useTranslation } from 'react-i18next'
 import { getCloudTelemetryStatusOptions } from '@/api/client/@tanstack/react-query.gen'
 import type { CloudTelemetryWriteStatusResponse } from '@/api/client/types.gen'
 import { CloudTelemetryActivationSection } from '@/components/observe/CloudTelemetryActivationSection'
@@ -74,6 +75,7 @@ function Stat({
 }
 
 export function CloudTelemetryWriteStatusCard() {
+  const { t } = useTranslation('observability')
   const { data, isPending, isError, error, refetch } = useQuery({
     ...getCloudTelemetryStatusOptions(),
     refetchInterval: 30_000,
@@ -88,10 +90,7 @@ export function CloudTelemetryWriteStatusCard() {
               <CloudUpload className="h-4 w-4" />
               Cloud telemetry writes
             </CardTitle>
-            <CardDescription>
-              Projects whose spans go straight to Temps Cloud instead of being
-              stored here, and whether this instance still needs a span store.
-            </CardDescription>
+            <CardDescription>{t('cloudWrites.description')}</CardDescription>
           </div>
           {data && (
             <Badge variant={data.configured ? 'default' : 'secondary'}>
@@ -139,6 +138,7 @@ function WriteStatusBody({
   error: unknown
   onRetry: () => void
 }) {
+  const { t } = useTranslation('observability')
   if (isPending) {
     return (
       <div className="space-y-3">
@@ -193,12 +193,9 @@ function WriteStatusBody({
       ) : (
         <Alert>
           <CheckCircle2 className="h-4 w-4" />
-          <AlertTitle>
-            No project writes spans to this instance any more
-          </AlertTitle>
+          <AlertTitle>{t('cloudWrites.noneLocal')}</AlertTitle>
           <AlertDescription>
-            Every project is Cloud-primary and no local span history remains
-            inside retention, so a local span backend (ClickHouse, or the
+            {t('cloudWrites.noneLocalBody')}
             `otel_spans` hypertable) is no longer required for traces. Metrics,
             logs and every other signal still use local storage — only spans
             move.
@@ -237,8 +234,7 @@ function WriteStatusBody({
             Cloud-primary writes are suspended — spans are being stored here
           </AlertTitle>
           <AlertDescription>
-            {data.write_suspension} Project settings are unchanged and resume
-            automatically once Cloud accepts again.
+            {data.write_suspension} {t('cloudWrites.suspendedTail')}
           </AlertDescription>
         </Alert>
       )}
@@ -299,8 +295,8 @@ function WriteStatusBody({
               className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs leading-5"
             >
               <p className="font-medium">
-                Project {gap.project_id}: {gap.dropped_spans.toLocaleString()}{' '}
-                span
+                {t('cloudWrites.gapProject', { id: gap.project_id })}{' '}
+                {gap.dropped_spans.toLocaleString()} span
                 {gap.dropped_spans === 1 ? '' : 's'} (
                 {formatBytes(gap.dropped_bytes)}) between{' '}
                 {new Date(gap.started_at).toLocaleString()} and{' '}

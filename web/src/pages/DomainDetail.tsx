@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   cancelDomainOrderMutation,
   createOrRecreateOrderMutation,
@@ -108,6 +109,7 @@ type ChallengeData = {
 }
 
 export function DomainDetail() {
+  const { t } = useTranslation('projects')
   const { id } = useParams<{ id: string }>()
   const { setBreadcrumbs } = useBreadcrumbs()
   const navigate = useNavigate()
@@ -1160,14 +1162,15 @@ export function DomainDetail() {
             <AlertDialogHeader>
               <AlertDialogTitle>Move {domain.domain}</AlertDialogTitle>
               <AlertDialogDescription>
-                Choose the project first, then the environment that should
-                receive this hostname.
+                {t('domainMove.description')}
               </AlertDialogDescription>
             </AlertDialogHeader>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="target-project">Target project</Label>
+                <Label htmlFor="target-project">
+                  {t('domainMove.targetLabel')}
+                </Label>
                 <Select
                   value={targetProjectId}
                   onValueChange={(value) => {
@@ -1180,8 +1183,8 @@ export function DomainDetail() {
                     <SelectValue
                       placeholder={
                         projectsQuery.isPending
-                          ? 'Loading projects…'
-                          : 'Select a project'
+                          ? t('domainMove.loading')
+                          : t('domainMove.select')
                       }
                     />
                   </SelectTrigger>
@@ -1206,20 +1209,20 @@ export function DomainDetail() {
                     }
                   >
                     {projectsQuery.isFetchingNextPage
-                      ? 'Loading more projects…'
-                      : 'Load more projects'}
+                      ? t('domainMove.loadingMore')
+                      : t('domainMove.loadMore')}
                   </Button>
                 )}
                 {!projectsQuery.isPending &&
                   !projectsQuery.isError &&
                   targetProjects.length === 0 && (
                     <p className="text-sm text-muted-foreground">
-                      No other accessible projects are available.
+                      {t('domainMove.none')}
                     </p>
                   )}
                 {projectsQuery.isError && (
                   <p className="text-sm text-destructive">
-                    Projects could not be loaded. Close and try again.
+                    {t('domainMove.loadFailed')}
                   </p>
                 )}
               </div>
@@ -1239,7 +1242,7 @@ export function DomainDetail() {
                     <SelectValue
                       placeholder={
                         !targetProjectId
-                          ? 'Select a project first'
+                          ? t('domainMove.selectFirst')
                           : environmentsQuery.isPending
                             ? 'Loading environments…'
                             : 'Select an environment'
@@ -1259,8 +1262,7 @@ export function DomainDetail() {
                 </Select>
                 {environmentsQuery.isError && (
                   <p className="text-sm text-destructive">
-                    Environments could not be loaded. Select the project again
-                    to retry.
+                    {t('domainMove.environmentsFailed')}
                   </p>
                 )}
               </div>

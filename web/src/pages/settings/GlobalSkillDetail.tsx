@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 
 import {
@@ -49,6 +50,7 @@ function formatDate(iso: string): string {
 }
 
 export function GlobalSkillDetail() {
+  const { t } = useTranslation('projects')
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -299,7 +301,7 @@ export function GlobalSkillDetail() {
               <Badge variant="outline" className="text-xs">
                 {skill.project_id === null
                   ? 'Global'
-                  : `Project ${skill.project_id}`}
+                  : t('globalAi.scopeProject', { id: skill.project_id })}
               </Badge>
             </div>
             <div>
@@ -329,8 +331,7 @@ export function GlobalSkillDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete global skill?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this skill. All projects that
-              reference it will lose access.
+              {t('globalAi.skillDelete')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

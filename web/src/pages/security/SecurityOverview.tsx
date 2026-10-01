@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getLatestScansPerEnvironmentOptions,
   getEnvironmentsOptions,
@@ -421,13 +422,12 @@ function VulnerabilityScanningDisabledAlert({
 }: {
   settingsHref: string
 }) {
+  const { t } = useTranslation('projects')
   return (
     <Alert className="border-amber-500/20 bg-amber-500/10">
       <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
       <AlertDescription className="text-amber-700 dark:text-amber-400">
-        <div className="font-medium">
-          Vulnerability scanning is disabled for this project
-        </div>
+        <div className="font-medium">{t('security.scanDisabled')}</div>
         <p className="text-sm text-muted-foreground mt-1">
           Scan your deployed Docker images for known CVEs, categorized by
           severity, after every deploy and daily.
@@ -468,6 +468,7 @@ function TriggerScanButton({
   variant,
   children,
 }: TriggerScanButtonProps) {
+  const { t } = useTranslation('projects')
   const button = (
     <Button
       onClick={onClick}
@@ -499,7 +500,7 @@ function TriggerScanButton({
         </TooltipTrigger>
         <TooltipContent>
           <p>
-            Vulnerability scanning is disabled for this project.{' '}
+            {t('security.scanDisabledSentence')}{' '}
             <Link to={settingsHref} className="underline">
               Enable it in Settings
             </Link>

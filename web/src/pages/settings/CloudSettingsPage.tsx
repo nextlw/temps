@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   disconnectCloudMutation,
   enrollCloudMutation,
@@ -61,6 +62,7 @@ const enrollmentSchema = z.object({
 type EnrollmentForm = z.infer<typeof enrollmentSchema>
 
 export function CloudSettingsPage() {
+  const { t } = useTranslation('projects')
   const { setBreadcrumbs } = useBreadcrumbs()
   const queryClient = useQueryClient()
   const capability = useQuery({
@@ -503,13 +505,7 @@ export function CloudSettingsPage() {
                   Disconnect the previous link, then paste a reconnect code from
                   the existing instance in Temps Cloud.
                 </p>
-                <p>
-                  Disconnecting disables Cloud exports, removes managed backup
-                  schedules, and revokes Cloud console access and its sessions.
-                  It removes the saved Cloud credential. Local projects and
-                  deployments remain available. After reconnecting, review your
-                  Cloud exports and backup schedule.
-                </p>
+                <p>{t('serviceMentions.cloudDisconnect')}</p>
                 <p>{status.data?.health_message}</p>
               </AlertDescription>
             </Alert>
@@ -851,22 +847,15 @@ function ArchiveConflicts({
   repointingServiceId: number | null
   onRepoint: (conflict: ManagedBackupArchiveConflict) => void
 }) {
+  const { t: ts } = useTranslation('storage')
   return (
     <Alert variant="warning" className="mt-3">
       <AlertCircle className="size-4" />
       <AlertTitle>
-        {conflicts.length === 1
-          ? '1 service archives somewhere else'
-          : `${conflicts.length} services archive somewhere else`}
+        {ts('misc.archiveConflict', { count: conflicts.length })}
       </AlertTitle>
       <AlertDescription className="space-y-3">
-        <p>
-          These services keep their WAL or binlog archive on another S3 source,
-          so the Cloud schedule cannot back them up and their runs fail.
-          Repointing moves archiving to Temps Cloud from now on; data already
-          archived stays under the old source and is no longer replayable from
-          here.
-        </p>
+        <p>{ts('misc.archiveConflictBody')}</p>
         <ul className="space-y-2">
           {conflicts.map((conflict) => (
             <li

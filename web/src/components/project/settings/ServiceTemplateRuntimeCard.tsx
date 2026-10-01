@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import type {
   EnvVarTemplate,
   ProjectResponse,
@@ -68,6 +69,7 @@ export function ServiceTemplateRuntimeCard({
   project: ProjectResponse
   refetch: () => void
 }) {
+  const { t } = useTranslation('projects')
   const instanceQuery = useQuery({
     ...getProjectServiceTemplateOptions({
       path: { project_id: project.id },
@@ -192,9 +194,7 @@ export function ServiceTemplateRuntimeCard({
               Service template details unavailable
             </CardTitle>
             <CardDescription>
-              Temps could not read this project&apos;s saved template release.
-              Its current runtime is still editable, but upgrades and resetting
-              to template defaults are disabled until this is resolved.
+              {t('settings.template.unreadable')}
             </CardDescription>
           </CardHeader>
           <CardFooter>
@@ -245,8 +245,9 @@ export function ServiceTemplateRuntimeCard({
                     )}
                   </CardTitle>
                   <CardDescription>
-                    This project was created from the {templateName} template.
-                    Changes below become the source of truth for future deploys.
+                    {t('settings.template.createdFrom', {
+                      template: templateName,
+                    })}
                   </CardDescription>
                 </div>
               </div>
@@ -284,9 +285,7 @@ export function ServiceTemplateRuntimeCard({
             <CardContent className="space-y-6">
               {!template && !instanceQuery.isPending && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-muted-foreground">
-                  The saved template definition is currently unavailable. You
-                  can still edit and save this project&apos;s stored runtime;
-                  only resetting to template defaults is unavailable.
+                  {t('settings.template.definitionUnavailable')}
                 </div>
               )}
               <div className="flex items-start gap-3 rounded-lg border bg-muted/25 p-3 text-sm">
@@ -487,6 +486,7 @@ function ServiceTemplateUpgradeCard({
   instance: ServiceTemplateInstanceResponse
   onUpgraded: () => Promise<void>
 }) {
+  const { t } = useTranslation('projects')
   const upgrade = useMutation({
     ...upgradeProjectServiceTemplateMutation(),
   })
@@ -592,11 +592,13 @@ function ServiceTemplateUpgradeCard({
           <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm">
             <Database className="mt-0.5 size-4 shrink-0 text-amber-600" />
             <div className="flex-1">
-              <p className="font-medium">Link the required managed service</p>
+              <p className="font-medium">
+                {t('settings.template.linkRequiredTitle')}
+              </p>
               <p className="mt-1 text-muted-foreground">
-                Add {instance.missing_services.join(', ')} to this project
-                before applying the update. Existing service links are never
-                removed automatically.
+                {t('settings.template.linkRequiredBody', {
+                  services: instance.missing_services.join(', '),
+                })}
               </p>
               <Button variant="outline" size="sm" className="mt-3" asChild>
                 <Link to={legacyDatabasesRedirectPath(project.slug)}>

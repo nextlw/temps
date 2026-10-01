@@ -1,0 +1,167 @@
+{
+  "scope": {
+    "label": "$t(terms:project.singular) scope"
+  },
+  "empty": {
+    "hint": "Choose another $t(terms:project.singularLower) or time range, or clear your search. If you have not sent data yet, open a $t(terms:project.singularLower) to configure collection.",
+    "openProjects": "Open $t(terms:project.pluralLower)"
+  },
+  "logs": {
+    "facetProject": "$t(terms:project.singular)",
+    "facetProjectFallback": "$t(terms:project.singular) {{id}}",
+    "byContainer": "By container",
+    "container": "Container",
+    "ownerColumn": "$t(terms:project.singular) / container",
+    "loadingProjects": "Loading $t(terms:project.pluralLower)…",
+    "retryProjects": "Retry $t(terms:project.singularLower) suggestions",
+    "narrowProjects": "Type a $t(terms:project.singularLower) name to narrow suggestions.",
+    "histogramExample": "Group ERROR lines by http_route for the last hour, chart requests slower than 500 ms per container, or facet on any field your app logs.",
+    "allContainers": "All containers",
+    "scopeSelected": "Selected $t(terms:project.singularLower) · application and database logs",
+    "scopeAll": "All $t(terms:project.pluralLower) · application and database logs",
+    "containerId": "Container ID",
+    "messagePattern": "Message pattern",
+    "summaryPatterns": "Exact repeated messages on this loaded page. Select a row to inspect an example.",
+    "summaryContainers": "$t(terms:containers) on this loaded page. Select a row to inspect an example."
+  },
+  "traces": {
+    "serviceFilter": "$t(terms:otelService.singular)",
+    "allServices": "All $t(terms:otelService.plural)",
+    "serviceColumn": "$t(terms:otelService.singular)",
+    "serviceTooltip": "$t(terms:otelService.singular): {{name}}",
+    "serviceCount_one": "{{count}} $t(terms:otelService.singular)",
+    "serviceCount_other": "{{count}} $t(terms:otelService.plural)",
+    "projectCount_one": "{{count}} $t(terms:project.singularLower)",
+    "projectCount_other": "{{count}} $t(terms:project.pluralLower)",
+    "serviceNameFilter": "Filter by $t(terms:otelService.singular) name…",
+    "globalDescription": "Follow requests across $t(terms:project.pluralLower) and $t(terms:otelService.pluralLower).",
+    "projectColumn": "$t(terms:project.singular)",
+    "thisProject": "This $t(terms:project.singularLower)",
+    "projectFallback": "$t(terms:project.singular) {{id}}",
+    "noSpansDescription": "Spans for this trace are not available or have expired across all $t(terms:project.pluralLower).",
+    "projectsFact": "$t(terms:project.plural)",
+    "truncatedProjects_one": "Spans from {{count}} $t(terms:project.singularLower) were dropped ($t(terms:project.singularLower) id: {{ids}}).",
+    "truncatedProjects_other": "Spans from {{count}} $t(terms:project.pluralLower) were dropped ($t(terms:project.singularLower) ids: {{ids}}).",
+    "optedOut": "Some $t(terms:project.pluralLower) opted out of cross-$t(terms:project.singularLower) trace sharing, so their spans are not shown here.",
+    "hiddenTitle": "Some contributing $t(terms:project.pluralLower) have cross-$t(terms:project.singularLower) sharing turned off; their spans are hidden.",
+    "hidden": "Some $t(terms:project.pluralLower) hidden",
+    "truncatedTitle": "This trace exceeded the $t(terms:project.singularLower)/span cap; some spans were dropped.",
+    "setupDescription": "Pick your framework — the snippet and endpoint are pre-filled for this $t(terms:project.singularLower). Apps deployed on Temps get these env vars automatically.",
+    "metricsEmpty": "Point an OpenTelemetry exporter at this $t(terms:project.singularLower) to start seeing metrics here.",
+    "crossWaterfall": "Cross-$t(terms:project.singularLower) waterfall",
+    "truncatedView": "This view was truncated to stay within cross-$t(terms:project.singularLower) limits."
+  },
+  "proxy": {
+    "destinationDescription": "Per-interval request count, split by destination: $t(terms:project.singularLower) routes, console fallback, or handled by the proxy itself",
+    "destinationProject": "$t(terms:project.singular)",
+    "destinationSplit": "{{project}}% $t(terms:project.singularLower) · {{console}}% console · {{other}}% other",
+    "projectColumn": "$t(terms:project.singular)",
+    "trafficTitle": "Traffic by $t(terms:project.singularLower)",
+    "trafficDescription": "Requests per $t(terms:project.singularLower) from proxy logs over the selected window",
+    "trafficFailed": "Failed to load $t(terms:project.singularLower) traffic",
+    "trafficEmpty": "No $t(terms:project.pluralLower) yet",
+    "rangeTooWide": "Custom range exceeds the {{max}}-day maximum. Narrow the window, or request older data {{max}} days at a time.",
+    "rangeTooWideFiltered": "Custom range exceeds the {{max}}-day maximum for a $t(terms:project.singularLower). Narrow the window, or request older data {{max}} days at a time."
+  },
+  "revenue": {
+    "allProjects": "All $t(terms:project.pluralLower)",
+    "description": "Transactions, invoices, and subscription events across every $t(terms:project.singularLower).",
+    "filterPlaceholder": "Filter by $t(terms:project.singularLower)",
+    "searchPlaceholder": "Search $t(terms:project.pluralLower)...",
+    "empty": "No $t(terms:project.pluralLower).",
+    "projectColumn": "$t(terms:project.singular)",
+    "connectHint": "Connect Stripe or LemonSqueezy on a $t(terms:project.singularLower) to start capturing invoices and subscription changes."
+  },
+  "errors": {
+    "description": "Review application issues across your $t(terms:project.pluralLower). Event and user counts cover the selected time range.",
+    "projectColumn": "$t(terms:project.singular)"
+  },
+  "analytics": {
+    "description": "Traffic, audience, and engagement across your $t(terms:project.pluralLower).",
+    "emptyDescription": "Open a $t(terms:project.singularLower) to finish analytics setup and start collecting page views, sessions, and visitors.",
+    "openProjects": "Open $t(terms:project.pluralLower)"
+  },
+  "proxyLogs": {
+    "scopedProject": "$t(terms:project.singular) {{id}}",
+    "noProject": "No $t(terms:project.singular)",
+    "projectId": "$t(terms:project.singular) ID"
+  },
+  "alerts": {
+    "noProjects": "No $t(terms:project.pluralLower) found",
+    "noProjectsDescription": "Create a $t(terms:project.singularLower) first to configure error alert rules.",
+    "projectLabel": "$t(terms:project.singular)",
+    "selectProject": "Select $t(terms:project.singularLower)"
+  },
+  "logQuery": {
+    "chooseProject": "Choose a $t(terms:project.singularLower) suggestion or enter its numeric ID.",
+    "projectWithDatabases": "$t(terms:project.singular) filters (project:) apply to application logs. Remove project: or choose source:application."
+  },
+  "alarms": {
+    "selectProject": "Select a $t(terms:project.singularLower)…",
+    "noProject": "No $t(terms:project.singularLower) selected",
+    "noProjectDescription": "Select a $t(terms:project.singularLower) to view its alarm history.",
+    "nothingFired": "Nothing has fired for this $t(terms:project.singularLower) yet."
+  },
+  "traceUnavailable": "Its spans may have expired under your retention policy or may not have reached this $t(terms:project.singularLower).",
+  "badgeLabel": "$t(terms:project.singular): {{name}}",
+  "legend": "$t(terms:project.plural):",
+  "activation": {
+    "currentProject": "Current $t(terms:project.singularLower)",
+    "betweenProjects": "Between $t(terms:project.pluralLower)",
+    "openSettings": "Open $t(terms:project.singularLower) settings",
+    "projectColumn": "$t(terms:project.singular)",
+    "dialogTitle": "Switch $t(terms:project.pluralLower) to Temps Cloud",
+    "projectsStat": "$t(terms:project.plural)",
+    "nothingEligible": "Every $t(terms:project.singularLower) in this scope was skipped, so there is no bill to confirm. Each reason is listed below with the page that unblocks it.",
+    "switchOrder": "Each $t(terms:project.singularLower) is switched to Cloud-primary first — instant, and it sends nothing — and its history follows behind. A $t(terms:project.singularLower) whose backfill fails stays on Cloud for new data; its history can be retried from this page.",
+    "projectFallback": "$t(terms:project.singular) {{id}}",
+    "queued_one": "Activation queued for {{count}} $t(terms:project.singularLower). Progress is shown here.",
+    "queued_other": "Activation queued for {{count}} $t(terms:project.pluralLower). Progress is shown here.",
+    "intro": "Switch every eligible $t(terms:project.singularLower) to Cloud-primary writes and ship the history this instance is still holding, in one queued job instead of one API call and one CLI run per $t(terms:project.singularLower).",
+    "stopBody": "$t(terms:project.plural) already switched stay on Temps Cloud — the switch is never rolled back. Spans already shipped are not re-sent if you resume later, and the job stops at the next chunk boundary rather than mid-batch.",
+    "restricted": "Bulk Cloud telemetry activation is restricted to instance administrators, so this section cannot show whether one is running. $t(terms:project.plural) can still be switched one at a time from their own telemetry settings.",
+    "noJob": "No activation is running. Starting one quotes every eligible $t(terms:project.singularLower) first — you see the exact span count and metered bytes before anything is sent.",
+    "retry_one": "Retry {{count}} $t(terms:project.singularLower)",
+    "retry_other": "Retry {{count}} $t(terms:project.pluralLower)",
+    "retryDescription": "Re-quotes only the $t(terms:project.pluralLower) that failed or were skipped, and asks you to confirm the new bill before anything is sent.",
+    "resume_one": "Resume {{count}} $t(terms:project.singularLower)",
+    "resume_other": "Resume {{count}} $t(terms:project.pluralLower)",
+    "resumeDescription": "Picks up the $t(terms:project.pluralLower) this activation never finished. Spans already acknowledged by Temps Cloud are not sent again.",
+    "switchAll": "Switch all $t(terms:project.pluralLower) to Cloud",
+    "quotesFirst": "Quotes every eligible $t(terms:project.singularLower) first. Nothing is sent until you confirm the total.",
+    "notConnectedTail": "Once connected, this button quotes every $t(terms:project.singularLower) — for example “12 $t(terms:project.pluralLower), 4.1 million spans, 3.2 GB” — and switches them all after you confirm.",
+    "status": {
+      "running": "Switching $t(terms:project.pluralLower) to Temps Cloud and shipping their history.",
+      "completed": "Every $t(terms:project.singularLower) in this activation is on Temps Cloud.",
+      "completedWithFailures": "The activation ran to the end, but some $t(terms:project.pluralLower) did not finish. Each one is listed below with its reason.",
+      "aborted": "An instance-wide condition stopped this activation. $t(terms:project.plural) it never reached are still queued, so resuming picks up where it left off — nothing already paid for is sent twice.",
+      "pending": "Not started yet — nothing has been sent for this $t(terms:project.singularLower).",
+      "backfilling": "Sending this $t(terms:project.singularLower)’s existing history. This is the part that takes time and costs egress.",
+      "failed": "History backfill failed. New spans are still going to Temps Cloud — the switch is never rolled back — so this is a recorded hole in history, not a broken $t(terms:project.singularLower).",
+      "noSkipReason": "The instance recorded no reason for skipping this $t(terms:project.singularLower)."
+    }
+  },
+  "cloudWrites": {
+    "description": "$t(terms:project.plural) whose spans go straight to Temps Cloud instead of being stored here, and whether this instance still needs a span store.",
+    "noneLocal": "No $t(terms:project.singularLower) writes spans to this instance any more",
+    "noneLocalBody": "Every $t(terms:project.singularLower) is Cloud-primary and no local span history remains inside retention, so a local span backend (ClickHouse, or the",
+    "suspendedTail": "$t(terms:project.singular) settings are unchanged and resume automatically once Cloud accepts again.",
+    "gapProject": "$t(terms:project.singular) {{id}}:",
+    "backlogTitle": "This $t(terms:project.singularLower)’s spans are not going where its settings say",
+    "backlogFallback": "Temps Cloud is not accepting this $t(terms:project.singularLower)’s spans, so they are being stored on this instance instead.",
+    "cloudPrimarySince": "This $t(terms:project.singularLower) has been Cloud-primary"
+  },
+  "pipeline": {
+    "switched_one": "{{done}} of {{count}} $t(terms:project.singularLower) switched so far. Spans for those $t(terms:project.pluralLower) are no longer counted in the throughput figures below.",
+    "switched_other": "{{done}} of {{count}} $t(terms:project.pluralLower) switched so far. Spans for those $t(terms:project.pluralLower) are no longer counted in the throughput figures below.",
+    "rejectionsDescription": "Ingest requests turned away since the server started. Non-zero values mean $t(terms:project.pluralLower) are hitting their quotas or rate limits.",
+    "rejectionsBody": "$t(terms:project.plural) are being rate-limited or have exceeded their storage quota. Check the"
+  },
+  "misc": {
+    "alarmDatabase": "$t(terms:externalService.singularLower) #{{id}}",
+    "alarmWide": "$t(terms:project.singularLower)-wide",
+    "otelService": "$t(terms:otelService.singular)",
+    "otelServiceName": "$t(terms:otelService.singular) name…",
+    "otelServiceAttr": "$t(terms:otelService.singular): {{name}}"
+  }
+}

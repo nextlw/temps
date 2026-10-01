@@ -1,9 +1,9 @@
 {
   "project": {
-    "singular": "Project",
-    "plural": "Projects",
-    "singularLower": "project",
-    "pluralLower": "projects"
+    "singular": "Service",
+    "plural": "Services",
+    "singularLower": "service",
+    "pluralLower": "services"
   },
   "projectGroup": {
     "singular": "Project",
@@ -11,8 +11,25 @@
     "singularLower": "project",
     "pluralLower": "projects"
   },
+  "externalService": {
+    "singular": "Database",
+    "plural": "Databases",
+    "singularLower": "database",
+    "pluralLower": "databases"
+  },
+  "composeService": {
+    "singular": "Compose container",
+    "plural": "Compose containers",
+    "singularLower": "compose container",
+    "pluralLower": "compose containers"
+  },
+  "otelService": {
+    "singular": "OTel service",
+    "plural": "OTel services",
+    "singularLower": "OTel service",
+    "pluralLower": "OTel services"
+  },
   "externalServices": "Databases",
   "platformResources": "Platform resources",
-  "containers": "Containers",
-  "otelService": "OTel service"
+  "containers": "Containers"
 }

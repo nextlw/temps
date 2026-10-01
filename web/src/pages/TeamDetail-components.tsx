@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addTeamMemberMutation,
@@ -127,6 +128,7 @@ function AddMemberDialog({
   open,
   onOpenChange,
 }: AddMemberDialogProps) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [userId, setUserId] = useState<string>('')
   const [role, setRole] = useState<TeamRole>('viewer')
@@ -164,10 +166,7 @@ function AddMemberDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
-          <DialogDescription>
-            Their role here is capped by the role this team holds on each
-            project — the narrower of the two applies.
-          </DialogDescription>
+          <DialogDescription>{t('teams.memberRoleCap')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
@@ -242,6 +241,7 @@ function EditTeamDialog({
   open,
   onOpenChange,
 }: EditTeamDialogProps) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [draftName, setDraftName] = useState(name)
   const [draftDescription, setDraftDescription] = useState(description ?? '')
@@ -276,10 +276,7 @@ function EditTeamDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Edit team</DialogTitle>
-          <DialogDescription>
-            Changing the name doesn&apos;t affect who can reach what —
-            membership and project grants stay as they are.
-          </DialogDescription>
+          <DialogDescription>{t('teams.renameHint')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="space-y-2">
@@ -377,6 +374,7 @@ function MembersSkeleton() {
 }
 
 export function TeamDetail() {
+  const { t } = useTranslation('projects')
   const { teamId: teamIdParam } = useParams<{ teamId: string }>()
   const teamId = Number(teamIdParam)
   const navigate = useNavigate()
@@ -438,7 +436,8 @@ export function TeamDetail() {
   // project isn't in the caller's own visible list.
   const projectFor = (id: number) =>
     projects?.projects?.find((p) => p.id === id)
-  const projectName = (id: number) => projectFor(id)?.name ?? `Project ${id}`
+  const projectName = (id: number) =>
+    projectFor(id)?.name ?? t('teams.projectFallback', { id })
 
   const memberList = members ?? []
   const grantList = grants ?? []
@@ -487,9 +486,7 @@ export function TeamDetail() {
               <Users className="h-4 w-4" />
               Members
             </CardTitle>
-            <CardDescription>
-              Everyone here reaches every project granted to this team.
-            </CardDescription>
+            <CardDescription>{t('teams.membersDescription')}</CardDescription>
           </div>
           <Button size="sm" onClick={() => setAddOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -503,7 +500,7 @@ export function TeamDetail() {
             <EmptyState
               icon={Users}
               title="No members"
-              description="Add users to this team so they inherit its project access."
+              description={t('teams.noMembersDescription')}
               action={
                 <Button onClick={() => setAddOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
@@ -559,11 +556,9 @@ export function TeamDetail() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FolderGit2 className="h-4 w-4" />
-            Projects
+            {t('teams.projectsTitle')}
           </CardTitle>
-          <CardDescription>
-            Grants are added from each project&apos;s Access tab.
-          </CardDescription>
+          <CardDescription>{t('teams.projectsDescription')}</CardDescription>
         </CardHeader>
         <CardContent>
           {grantsLoading ? (
@@ -571,15 +566,15 @@ export function TeamDetail() {
           ) : grantList.length === 0 ? (
             <EmptyState
               icon={FolderGit2}
-              title="No project access"
-              description="This team can't reach any project yet. Open a project's Access tab to grant it."
+              title={t('teams.noAccessTitle')}
+              description={t('teams.noAccessDescription')}
             />
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Project</TableHead>
+                    <TableHead>{t('teams.projectColumn')}</TableHead>
                     <TableHead>Team&apos;s role on it</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -639,9 +634,10 @@ export function TeamDetail() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove member?</AlertDialogTitle>
             <AlertDialogDescription>
-              {memberToRemove?.user_name ?? 'This user'} loses access to every
-              project they could only reach through this team. This takes effect
-              immediately.
+              {t('teams.removeMember', {
+                name:
+                  memberToRemove?.user_name ?? t('teams.removeMemberFallback'),
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

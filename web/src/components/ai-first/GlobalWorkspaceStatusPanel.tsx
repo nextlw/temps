@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   Activity,
   Cpu,
@@ -25,6 +26,7 @@ export function GlobalWorkspaceStatusPanel({
   waking: boolean
   workspace: ApplicationWorkspaceResponse | null
 }) {
+  const { t } = useTranslation('storage')
   const status = workspaceStatusPresentation(workspace, loading, waking)
 
   return (
@@ -93,7 +95,7 @@ export function GlobalWorkspaceStatusPanel({
               />
               <StatusLine
                 icon={<Database className="size-3.5" />}
-                label="Data services"
+                label={t('misc.dataServices')}
                 value={String(workspace.data_network_service_count)}
               />
               <StatusLine

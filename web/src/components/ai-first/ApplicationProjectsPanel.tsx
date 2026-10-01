@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   CheckCircle2,
@@ -40,6 +41,7 @@ export function ApplicationProjectsPanel({
   application,
   onApplicationChange,
 }: Props) {
+  const { t } = useTranslation('ai')
   const [name, setName] = useState('')
   const [linkId, setLinkId] = useState<number | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
@@ -67,7 +69,7 @@ export function ApplicationProjectsPanel({
       const { data } = await action()
       onApplicationChange(data)
     } catch (cause) {
-      setError(errorMessage(cause, 'The project operation failed.'))
+      setError(errorMessage(cause, t('workspace.operationFailed')))
     } finally {
       setBusy(null)
     }
@@ -101,10 +103,11 @@ export function ApplicationProjectsPanel({
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-sm font-semibold">Application projects</p>
+        <p className="text-sm font-semibold">
+          {t('workspace.applicationProjects')}
+        </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Each project has its own deployment settings while sharing this
-          application&apos;s persistent workspace.
+          {t('workspace.applicationProjectsHint')}
         </p>
       </div>
 
@@ -178,8 +181,8 @@ export function ApplicationProjectsPanel({
                   size="icon"
                   title={
                     application.projects.length === 1
-                      ? 'An application must keep at least one project'
-                      : 'Unlink project'
+                      ? t('workspace.keepOne')
+                      : t('workspace.unlink')
                   }
                   variant="ghost"
                 >
@@ -259,8 +262,7 @@ export function ApplicationProjectsPanel({
             </Button>
           </div>
           <p className="text-[10px] text-muted-foreground">
-            Creates the Temps project and projects/&lt;slug&gt; directory as one
-            operation.
+            {t('workspace.createHint')}
           </p>
         </div>
 
@@ -269,7 +271,7 @@ export function ApplicationProjectsPanel({
             <Label htmlFor="application-project-link">Link existing</Label>
             <div className="flex gap-2">
               <RichProjectPicker
-                ariaLabel="Existing project to link"
+                ariaLabel={t('workspace.linkExistingLabel')}
                 disabled={busy !== null}
                 onValueChange={setLinkId}
                 projects={unlinked.map(projectPickerItem)}
@@ -302,12 +304,12 @@ export function ApplicationProjectsPanel({
       )}
       {projectsQuery.isError && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
-          Could not load the projects available to link.
+          {t('workspace.linkLoadFailed')}
         </div>
       )}
       <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
         <CheckCircle2 className="size-3.5 text-success" />
-        Project topology is injected fresh into every AI turn.
+        {t('workspace.topologyHint')}
       </div>
     </div>
   )

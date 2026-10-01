@@ -177,7 +177,7 @@ describe('command destination catalog', () => {
       })
     ).toEqual([
       'Show me the latest S3 backups',
-      'Open the PostgreSQL service primary-db',
+      'Open the PostgreSQL database primary-db',
       'Open the production environment for marketing-site',
       'Show visitors for api-control-plane',
     ])
@@ -188,8 +188,8 @@ describe('command destination catalog', () => {
       buildCommandSampleQueries({ projectSlugs: [], services: [] })
     ).toEqual([
       'Show me the latest S3 backups',
-      'Show me all database services',
-      'Show me all projects',
+      'Show me all databases',
+      'Show me all services',
       'Open platform monitoring',
     ])
   })

@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import { MarkdownCodeBlock } from '@/components/ui/markdown-code-block'
 import {
   confirmPendingAction,
@@ -637,6 +639,7 @@ function PendingActionCard({
   /** Reconcile a standalone recovery card with its parent-owned snapshot. */
   onStatusChange?: (status: string) => void
 }) {
+  const { t } = useTranslation('ai')
   const proposal = parseProposal(tool.result)
   const committedApplicationProjects =
     projectCollectionFromApplicationProjectWrite(tool)
@@ -686,7 +689,7 @@ function PendingActionCard({
     return (
       <div className="min-w-0 overflow-hidden rounded-lg border border-green-500/30 bg-green-500/5 text-xs">
         <GeneratedProjectCollection
-          title="Application projects"
+          title={t('chat.applicationProjects')}
           presentation={committedApplicationProjects}
           framed={false}
         />
@@ -697,7 +700,7 @@ function PendingActionCard({
           </summary>
           <div className="min-w-0 space-y-2 border-t border-green-500/20 px-3 py-2.5 sm:px-4">
             <div className="font-medium text-green-600 dark:text-green-400">
-              Project created and attached to the persistent workspace
+              {t('chat.projectAttached')}
             </div>
             <ToolBlock value={tool.result ?? ''} />
           </div>
@@ -1936,7 +1939,7 @@ export function DebugChatPanel({
   autoStart = false,
   placeholder = 'Ask a follow-up…',
   lazyCreate = false,
-  emptyHint = 'Ask anything about this project.',
+  emptyHint = i18n.t('ai:chat.emptyHint'),
   onConversationChange,
   onLiveEvent,
   onConversationStatusInvalidated,

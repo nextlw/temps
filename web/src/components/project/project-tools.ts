@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import {
   Activity,
   AlarmClock,
@@ -136,7 +137,7 @@ export const projectToolGroups: ProjectToolGroup[] = [
   },
   {
     label: 'Configure',
-    description: 'Connect runtime features and automate project workflows.',
+    description: i18n.t('projects:tools.configureDescription'),
     items: [
       { title: 'Feature Flags', url: 'flags', icon: Flag },
       {
@@ -148,7 +149,7 @@ export const projectToolGroups: ProjectToolGroup[] = [
     ],
   },
   {
-    label: 'Project settings',
+    label: i18n.t('projects:tools.settingsGroup'),
     description: 'Control secrets, access, schedules, and integrations.',
     items: [
       { title: 'General', url: 'settings/general', icon: SlidersHorizontal },

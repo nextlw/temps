@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -53,7 +55,7 @@ const STARTER_PROMPTS = [
   },
   {
     icon: FolderPlus,
-    title: 'Create a project',
+    title: i18n.t('ai:onboarding.createProject'),
     prompt:
       'Use the Temps skill to create a manual project named api-playground. Explain the target and ask for confirmation before creating it, then verify it appears in the project list.',
   },
@@ -66,6 +68,7 @@ const STARTER_PROMPTS = [
 ] as const
 
 export function AiOnboarding() {
+  const { t } = useTranslation('ai')
   const { setBreadcrumbs } = useBreadcrumbs()
   const [createdKeySecret, setCreatedKeySecret] = useState<string | null>(null)
   const origin = typeof window === 'undefined' ? '' : window.location.origin
@@ -173,9 +176,7 @@ export function AiOnboarding() {
                   One connection, every platform workflow
                 </h2>
                 <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                  Your harness can inspect projects, create services, deploy
-                  applications, and verify the result using the same pinned
-                  Temps CLI workflow.
+                  {t('onboarding.intro')}
                 </p>
               </div>
             </div>
@@ -229,7 +230,7 @@ export function AiOnboarding() {
           number="01"
           icon={KeyRound}
           title="Create a dedicated admin key"
-          description="The harness needs platform access to create and verify projects, databases, deployments, domains, and other resources."
+          description={t('onboarding.keyDescription')}
           ready={!!harnessKey || !!createdKeySecret}
           loading={apiKeysLoading}
           status={harnessKey || createdKeySecret ? 'Key ready' : 'Required'}
@@ -305,7 +306,7 @@ export function AiOnboarding() {
           number="03"
           icon={Terminal}
           title="Verify before changing anything"
-          description="Confirm the harness is targeting this instance and can read its projects. Neither verification command changes platform state."
+          description={t('onboarding.verifyDescription')}
           ready={effectiveHarnessStatus === 'connected'}
           status={
             effectiveHarnessStatus === 'connected' ? 'Verified' : 'Read-only'
@@ -317,7 +318,7 @@ export function AiOnboarding() {
               value={commands.verifyIdentity}
             />
             <Command
-              label="Verify project access"
+              label={t('onboarding.verifyProjects')}
               value={commands.verifyProjects}
             />
           </div>

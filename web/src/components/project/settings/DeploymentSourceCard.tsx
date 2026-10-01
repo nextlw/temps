@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
+import { useTranslation } from 'react-i18next'
 import { HighlightedCode } from '@/components/ui/code-block'
 
 import { ProjectResponse } from '@/api/client'
@@ -95,6 +96,7 @@ export function DeploymentSourceCard({
   project: ProjectResponse
   refetch: () => void
 }) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const current = (project.source_type ?? 'git') as SourceType
   const [selected, setSelected] = useState<PickableSourceType>(
@@ -134,8 +136,8 @@ export function DeploymentSourceCard({
       }
       toast.success(
         allow
-          ? 'This project can now also be deployed from an uploaded folder'
-          : 'This project now only deploys from its configured source'
+          ? t('settings.deploymentSource.allowed')
+          : t('settings.deploymentSource.restricted')
       )
       refetch()
     } catch (e) {
@@ -179,7 +181,7 @@ export function DeploymentSourceCard({
       <CardHeader>
         <CardTitle>Deployment source</CardTitle>
         <CardDescription>
-          How this project is built and deployed.
+          {t('settings.deploymentSource.description')}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -229,7 +231,7 @@ export function DeploymentSourceCard({
             />
             <p className="text-sm text-muted-foreground">
               {alternatesAreImplicit
-                ? 'This project already deploys from uploaded source, so it always accepts one.'
+                ? t('settings.deploymentSource.implicit')
                 : 'Uploading a folder re-detects the build directory and preset, which is why it is off by default. Docker images and static bundles are always accepted and are unaffected by this setting.'}
             </p>
           </div>
@@ -237,7 +239,7 @@ export function DeploymentSourceCard({
             checked={alternatesAreImplicit || allowsAlternates}
             disabled={savingAlternates || alternatesAreImplicit}
             onCheckedChange={setAlternates}
-            aria-label="Allow deploying this project from other sources"
+            aria-label={t('settings.deploymentSource.switchLabel')}
           />
         </div>
       </CardContent>

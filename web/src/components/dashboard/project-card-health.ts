@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
+
 /**
  * Health indicator shown on every project card and in the project header.
  *
@@ -142,8 +144,7 @@ export function projectHealthIndicator({
       // Short enough to sit beside a long project name; the detail carries the
       // rest, and is exposed to screen readers rather than hidden in a tooltip.
       label: 'Unavailable',
-      detail:
-        'Temps could not load request health for this project. Reload the page to try again; if it persists, check that the proxy is running.',
+      detail: i18n.t('projects:card.healthError'),
     }
   }
 
@@ -159,8 +160,7 @@ export function projectHealthIndicator({
     return {
       tone: 'unavailable',
       label: 'No health data',
-      detail:
-        'The health summary returned no entry for this project, so its status could not be determined.',
+      detail: i18n.t('projects:card.healthMissing'),
     }
   }
 
@@ -170,9 +170,9 @@ export function projectHealthIndicator({
     return {
       tone: 'idle',
       label: 'No traffic',
-      detail:
-        `No user requests reached this project in ${windowLabel(windowHours)}, so there is no traffic to measure. ` +
-        'Add an uptime monitor to get a health signal that does not depend on visitors.',
+      detail: i18n.t('projects:card.noTraffic', {
+        window: windowLabel(windowHours),
+      }),
     }
   }
 

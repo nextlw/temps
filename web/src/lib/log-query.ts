@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { positiveInteger } from './global-observability'
 export const LOG_FILTER_KEYS = [
   'project',
@@ -72,8 +73,7 @@ export function parseLogQuery(
       const id =
         positiveInteger(value) ??
         (matches.length === 1 ? matches[0].id : undefined)
-      if (!id)
-        return { error: 'Choose a project suggestion or enter its numeric ID.' }
+      if (!id) return { error: i18n.t('observability:logQuery.chooseProject') }
       value = String(id)
     }
     if (key === 'node' || key === 'deployment') {
@@ -85,8 +85,7 @@ export function parseLogQuery(
   }
   if (patch.source === 'service' && patch.project_id)
     return {
-      error:
-        'Project filters apply to application logs. Remove project or choose source:application.',
+      error: i18n.t('observability:logQuery.projectWithDatabases'),
     }
   if (patch.source === 'service') patch.project_id = undefined
   else if (patch.project_id && !patch.source) patch.source = 'application'

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   getServiceRuntimeQueryKey,
   getServiceStatsQueryKey,
@@ -84,6 +85,7 @@ export function EditResourceLimitsDialog({
   serviceName,
   currentLimits,
 }: EditResourceLimitsDialogProps) {
+  const { t } = useTranslation('storage')
   // -- Form state ---------------------------------------------------------
   // Each cap is independently toggleable. Docker's wire format wants
   // `memory_swap` as the *total* (memory + swap); we hide that footgun by
@@ -226,8 +228,7 @@ export function EditResourceLimitsDialog({
         })
       } else if (recreate.length > 0) {
         toast.warning('Limits saved — restart required', {
-          description:
-            "Some changes (shared memory, or removing a memory cap) can't be applied live. Restart the service to recreate the container and apply them.",
+          description: t('misc.restartRequired'),
         })
       } else if (members.length === 0) {
         toast.success('Resource limits saved', {

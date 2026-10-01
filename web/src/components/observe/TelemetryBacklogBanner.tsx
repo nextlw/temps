@@ -16,6 +16,7 @@
  * comes back with zeros on a `local` project.
  */
 
+import { useTranslation } from 'react-i18next'
 import { getProjectCloudTelemetryOptions } from '@/api/client/@tanstack/react-query.gen'
 import type { TelemetryGapWindowResponse } from '@/api/client/types.gen'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -59,6 +60,7 @@ export function TelemetryBacklogBanner({
   startTime,
   endTime,
 }: TelemetryBacklogBannerProps) {
+  const { t } = useTranslation('observability')
   const { data } = useQuery({
     ...getProjectCloudTelemetryOptions({ path: { project_id: projectId } }),
     // A backlog drains; an operator watching one needs it to move without a
@@ -112,13 +114,11 @@ export function TelemetryBacklogBanner({
       {fallingBack && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>
-            This project’s spans are not going where its settings say
-          </AlertTitle>
+          <AlertTitle>{t('cloudWrites.backlogTitle')}</AlertTitle>
           <AlertDescription className="space-y-2">
             <p>
               {data.effective_reason_message ??
-                'Temps Cloud is not accepting this project’s spans, so they are being stored on this instance instead.'}{' '}
+                t('cloudWrites.backlogFallback')}{' '}
               Traces from this period are read from this instance, not from
               Cloud.
             </p>
@@ -146,7 +146,7 @@ export function TelemetryBacklogBanner({
             {data.intervals[0]?.effective_from && (
               <>
                 {' '}
-                This project has been Cloud-primary{' '}
+                {t('cloudWrites.cloudPrimarySince')}{' '}
                 {formatDistanceToNow(
                   new Date(data.intervals[0].effective_from),
                   {

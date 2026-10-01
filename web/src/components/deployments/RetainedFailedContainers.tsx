@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { listContainerHistoryOptions } from '@/api/client/@tanstack/react-query.gen'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -70,6 +71,7 @@ export function RetainedFailedContainers({
   deploymentId,
   deploymentStatus,
 }: RetainedFailedContainersProps) {
+  const { t } = useTranslation('projects')
   const [expandedContainerId, setExpandedContainerId] = useState<string | null>(
     null
   )
@@ -119,9 +121,7 @@ export function RetainedFailedContainers({
           </Badge>
         </div>
         <p className="mb-4 text-xs text-muted-foreground">
-          These containers are not receiving public traffic. Inspect their live
-          logs before redeploying; the next successful deployment or project
-          deletion removes them automatically.
+          {t('serviceMentions.retainedContainers')}
         </p>
 
         <div className="flex flex-col gap-2">
@@ -142,7 +142,9 @@ export function RetainedFailedContainers({
                     </div>
                     {container.service_name && (
                       <div className="text-xs text-muted-foreground">
-                        Service: {container.service_name}
+                        {t('compose.container', {
+                          name: container.service_name,
+                        })}
                       </div>
                     )}
                   </div>

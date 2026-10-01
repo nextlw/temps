@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { LogExplorer } from '@/components/observability/LogExplorer'
@@ -36,6 +37,7 @@ import { Callout, HelpPopover } from '@temps-sdk/ds'
 const LEVELS: LogLevel[] = ['TRACE', 'DEBUG', 'INFO', 'WARN', 'ERROR']
 
 export default function GlobalLogs() {
+  const { t } = useTranslation('observability')
   const view = useGlobalView()
   usePageTitle('Logs')
   const { setBreadcrumbs } = useBreadcrumbs()
@@ -196,7 +198,9 @@ export default function GlobalLogs() {
     <PageContainer innerClassName="space-y-6">
       <PageHeader
         title="Logs"
-        description={`${view.projectId ? 'Selected project' : 'All projects'} · application and database logs`}
+        description={
+          view.projectId ? t('logs.scopeSelected') : t('logs.scopeAll')
+        }
       />
       <LogExplorer
         lines={lines}

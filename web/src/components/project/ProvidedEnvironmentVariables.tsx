@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import {
   getServicePreviewEnvironmentVariableNamesOptions,
   listManagedEnvironmentVariablesOptions,
@@ -56,11 +57,11 @@ const SOURCE_DETAILS: Record<
 > = {
   error_tracking: {
     label: 'Error tracking',
-    description: 'Sentry-compatible project and release metadata',
+    description: i18n.t('projects:providedVariables.errorTracking'),
   },
   open_telemetry: {
     label: 'OpenTelemetry',
-    description: 'Trace export and service metadata',
+    description: i18n.t('projects:providedVariables.openTelemetry'),
   },
   temps: {
     label: 'Temps platform',

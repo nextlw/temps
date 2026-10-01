@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { aiHarnessName } from '@/components/ui/ai-harness-brand'
@@ -376,6 +377,7 @@ function AgentCard({
 }
 
 export function AutopilotPage({ project }: AutopilotPageProps) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
@@ -526,9 +528,7 @@ prompt: |
                   </h3>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Trigger a one-off run from a local YAML file — nothing is
-                  stored in the project config. Great for experimenting before
-                  committing.
+                  {t('serviceMentions.autopilotLocal')}
                 </p>
                 <CodeBlock
                   language="bash"

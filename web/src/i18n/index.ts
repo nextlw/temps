@@ -15,16 +15,42 @@ import i18next from 'i18next'
 import common from './locales/en/common.json'
 import nav from './locales/en/nav.json'
 import terms from './locales/en/terms.json'
+import command from './locales/en/command.json'
+import projects from './locales/en/projects.json'
+import observability from './locales/en/observability.json'
+import audit from './locales/en/audit.json'
+import storage from './locales/en/storage.json'
+import ai from './locales/en/ai.json'
 
 export const FALLBACK_LANGUAGE = 'en'
 export const SUPPORTED_LANGUAGES = ['en', 'pt-BR'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 
-export const NAMESPACES = ['common', 'nav', 'terms'] as const
+export const NAMESPACES = [
+  'common',
+  'nav',
+  'terms',
+  'command',
+  'projects',
+  'observability',
+  'audit',
+  'storage',
+  'ai',
+] as const
 export const DEFAULT_NAMESPACE = 'common'
 
 export const resources = {
-  en: { common, nav, terms },
+  en: {
+    common,
+    nav,
+    terms,
+    command,
+    projects,
+    observability,
+    audit,
+    storage,
+    ai,
+  },
 } as const
 
 export const i18n = i18next.createInstance()

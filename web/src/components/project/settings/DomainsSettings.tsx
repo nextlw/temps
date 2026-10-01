@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { CustomDomainResponse, ProjectResponse } from '@/api/client'
 import {
   deleteCustomDomainMutation,
@@ -39,6 +40,7 @@ interface DomainsSettingsProps {
 }
 
 export function DomainsSettings({ project }: DomainsSettingsProps) {
+  const { t } = useTranslation('projects')
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingDomain, setEditingDomain] = useState<
@@ -104,8 +106,7 @@ export function DomainsSettings({ project }: DomainsSettingsProps) {
       </div>
 
       <p className="text-sm text-muted-foreground mb-6">
-        Configure domains for your project. Each domain can be assigned to a
-        specific environment and optionally set up with redirects.
+        {t('settings.domains.intro')}
       </p>
 
       {customDomains && customDomains?.domains?.length > 0 ? (
@@ -124,7 +125,9 @@ export function DomainsSettings({ project }: DomainsSettingsProps) {
                 )}
                 {(domain as any).service_name && (
                   <p className="text-sm text-muted-foreground">
-                    Service: {(domain as any).service_name}
+                    {t('compose.domainContainer', {
+                      name: (domain as any).service_name,
+                    })}
                   </p>
                 )}
                 {domain.redirect_to && (
@@ -197,8 +200,7 @@ export function DomainsSettings({ project }: DomainsSettingsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              domain from your project.
+              {t('settings.domains.deleteDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

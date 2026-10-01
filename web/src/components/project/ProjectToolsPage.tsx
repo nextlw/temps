@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { type ProjectResponse } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { FeatureMaturityBadge } from '@/components/feature-maturity/FeatureMaturityBadge'
@@ -21,6 +22,7 @@ import {
 } from './project-tools'
 
 export function ProjectToolsPage({ project }: { project: ProjectResponse }) {
+  const { t } = useTranslation('projects')
   const [query, setQuery] = useState('')
   const { projectNavEntries } = usePluginsContext()
 
@@ -98,7 +100,7 @@ export function ProjectToolsPage({ project }: { project: ProjectResponse }) {
           size="sm"
           onClick={() => togglePinned(item.url)}
           aria-label={`${pinned ? 'Unpin' : 'Pin'} ${item.title}`}
-          title={`${pinned ? 'Unpin from' : 'Pin to'} project sidebar`}
+          title={pinned ? t('tools.unpin') : t('tools.pin')}
           className="mr-1.5 shrink-0 text-muted-foreground hover:text-foreground"
         >
           {pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
@@ -113,11 +115,10 @@ export function ProjectToolsPage({ project }: { project: ProjectResponse }) {
       <div className="flex flex-col gap-5 border-b pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
           <h1 className="text-2xl font-semibold tracking-tight">
-            All project tools
+            {t('tools.title')}
           </h1>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Browse every secondary capability for {project.name}. Pin the tools
-            you use often to keep them one click away in the project sidebar.
+            {t('tools.intro', { name: project.name })}
           </p>
         </div>
         <div className="relative w-full lg:max-w-md">
@@ -127,7 +128,7 @@ export function ProjectToolsPage({ project }: { project: ProjectResponse }) {
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search tools, for example “uptime” or “secrets”"
             className="h-11 pl-10"
-            aria-label="Search project tools"
+            aria-label={t('tools.searchLabel')}
           />
         </div>
       </div>
@@ -204,7 +205,7 @@ export function ProjectToolsPage({ project }: { project: ProjectResponse }) {
       ) : (
         <div className="rounded-xl border border-dashed px-6 py-16 text-center">
           <Search className="mx-auto mb-3 size-6 text-muted-foreground" />
-          <p className="text-sm font-medium">No matching project tool</p>
+          <p className="text-sm font-medium">{t('tools.noMatch')}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             Try a capability such as visitors, uptime, secrets, or webhooks.
           </p>

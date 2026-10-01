@@ -3,6 +3,7 @@
 
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import {
   attachScheduleServicesMutation,
   deleteBackupScheduleMutation,
@@ -218,6 +219,7 @@ function RunRow({ run }: { run: ScheduleRunSummary }) {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function ScheduleDetail() {
+  const { t } = useTranslation('storage')
   const { id } = useParams<{ id: string }>()
   const scheduleId = id ? parseInt(id) : undefined
   const navigate = useNavigate()
@@ -363,9 +365,9 @@ export function ScheduleDetail() {
 
   const attachMutation = useMutation({
     ...attachScheduleServicesMutation(),
-    meta: { errorTitle: 'Failed to attach services' },
+    meta: { errorTitle: t('backups.attachFailed') },
     onSuccess: () => {
-      toast.success('Services attached')
+      toast.success(t('backups.attached'))
       void queryClient.invalidateQueries({
         queryKey: listScheduleServicesQueryKey({
           path: { id: scheduleId! },
@@ -378,9 +380,9 @@ export function ScheduleDetail() {
 
   const detachMutation = useMutation({
     ...detachScheduleServiceMutation(),
-    meta: { errorTitle: 'Failed to detach service' },
+    meta: { errorTitle: t('backups.detachFailed') },
     onSuccess: () => {
-      toast.success('Service detached')
+      toast.success(t('backups.detached'))
       void queryClient.invalidateQueries({
         queryKey: listScheduleServicesQueryKey({
           path: { id: scheduleId! },
@@ -478,7 +480,7 @@ export function ScheduleDetail() {
                   <span>
                     Skipped{' '}
                     <span className="text-muted-foreground">
-                      (only external services are backed up)
+                      {t('backups.onlyExternal')}
                     </span>
                   </span>
                 )}
@@ -792,9 +794,9 @@ export function ScheduleDetail() {
                       Backup targets
                     </CardTitle>
                     <CardDescription>
-                      External services this schedule backs up on every run.
-                      Currently in <strong>specific</strong> mode — only the
-                      listed services are included.
+                      {t('backups.targetsDescription')}{' '}
+                      <strong>{t('backups.targetsMode')}</strong>{' '}
+                      {t('backups.targetsTail')}
                     </CardDescription>
                   </div>
                   <Button
@@ -807,7 +809,9 @@ export function ScheduleDetail() {
                     className="shrink-0"
                   >
                     <Plus className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Attach service</span>
+                    <span className="hidden sm:inline">
+                      {t('backups.attach')}
+                    </span>
                   </Button>
                 </CardHeader>
                 <CardContent className="p-5">
@@ -819,11 +823,12 @@ export function ScheduleDetail() {
                   ) : !attachedServices || attachedServices.length === 0 ? (
                     <EmptyState
                       icon={Database}
-                      title="No services attached yet"
+                      title={t('backups.noneAttached')}
                       description={
                         <>
-                          Click <strong>Attach service</strong> to add Postgres,
-                          Redis, MongoDB, or RustFS targets.
+                          {t('backups.clickAttach')}{' '}
+                          <strong>{t('backups.attach')}</strong>{' '}
+                          {t('backups.attachTargets')}
                         </>
                       }
                     />
@@ -879,10 +884,9 @@ export function ScheduleDetail() {
       <Dialog open={showAttachDialog} onOpenChange={setShowAttachDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Attach services</DialogTitle>
+            <DialogTitle>{t('backups.attachTitle')}</DialogTitle>
             <DialogDescription>
-              Pick the external services to add to this schedule. Already-
-              attached services are hidden.
+              {t('backups.attachDescription')}
             </DialogDescription>
           </DialogHeader>
           <ScheduleServicesSelector

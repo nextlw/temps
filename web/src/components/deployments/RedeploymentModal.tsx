@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   checkCommitExistsOptions,
   getEnvironmentsOptions,
@@ -168,6 +169,7 @@ export function RedeploymentModal({
   imageRef,
   staticBundleId,
 }: RedeploymentModalProps) {
+  const { t } = useTranslation('projects')
   // A historical deployment can use a different source than the project's
   // current default. Redeploy the selected workload according to its source.
   const sourceType =
@@ -564,7 +566,7 @@ export function RedeploymentModal({
       <DialogContent className="sm:max-w-[640px]">
         <DialogHeader>
           <DialogTitle>
-            {mode === 'redeploy' ? 'Redeploy' : 'Deploy Project'}
+            {mode === 'redeploy' ? 'Redeploy' : t('create.deployProject')}
           </DialogTitle>
         </DialogHeader>
 

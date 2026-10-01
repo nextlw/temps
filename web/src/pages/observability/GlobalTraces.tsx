@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { traceDetailPath } from '@/lib/traces-time-window'
 import { Layers } from 'lucide-react'
 import { ProjectCardMedia } from '@/components/dashboard/ProjectCardMedia'
@@ -30,6 +31,7 @@ import { TimeAgo } from '@/components/utils/TimeAgo'
 import { OBSERVABILITY_PAGE_SIZE } from '@/lib/global-observability'
 
 export default function GlobalTraces() {
+  const { t } = useTranslation('observability')
   const view = useGlobalView()
   const status = view.params.get('status') === 'ERROR' ? 'ERROR' : 'all'
   const sort =
@@ -73,7 +75,7 @@ export default function GlobalTraces() {
   return (
     <GlobalPage
       title="Traces"
-      description="Follow requests across services and projects."
+      description={t('traces.globalDescription')}
       view={view}
       fetching={query.isFetching}
       refresh={() => void query.refetch()}
@@ -120,7 +122,9 @@ export default function GlobalTraces() {
             <TableHeader>
               <TableRow>
                 <TableHead>Trace</TableHead>
-                <TableHead className="hidden md:table-cell">Project</TableHead>
+                <TableHead className="hidden md:table-cell">
+                  {t('traces.projectColumn')}
+                </TableHead>
                 <TableHead>Status</TableHead>
                 <SortableTableHead
                   label="Duration"
@@ -169,7 +173,7 @@ export default function GlobalTraces() {
                       className="text-xs text-muted-foreground underline whitespace-nowrap"
                       to={`/traces/global/${traceDetailPath(trace)}`}
                     >
-                      Cross-project waterfall
+                      {t('traces.crossWaterfall')}
                     </Link>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">

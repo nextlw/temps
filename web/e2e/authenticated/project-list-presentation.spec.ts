@@ -32,7 +32,7 @@ for (const width of [1440, 390]) {
     )
     await page.goto('/projects')
     const search = page.getByRole('textbox', {
-      name: 'Filter projects by name or slug',
+      name: 'Filter services by name or slug',
     })
     await expect(search).toBeVisible()
     await search.fill('billing')
@@ -45,7 +45,7 @@ for (const width of [1440, 390]) {
     await expect(search).toHaveValue('billing')
     await search.fill('missing-project')
     await expect(
-      page.getByText('No matching projects', { exact: true })
+      page.getByText('No matching services', { exact: true })
     ).toBeVisible()
     await page
       .getByRole('button', { name: 'Clear filter', exact: true })
@@ -79,16 +79,16 @@ test('project load failure offers retry instead of claiming no matching projects
   )
   await page.goto('/projects')
   await expect(
-    page.getByText('Projects could not be loaded', { exact: true })
+    page.getByText('Services could not be loaded', { exact: true })
   ).toBeVisible({ timeout: 30000 })
   await expect(
-    page.getByText('No matching projects', { exact: true })
+    page.getByText('No matching services', { exact: true })
   ).toHaveCount(0)
   fail = false
-  await page.getByRole('button', { name: 'Retry loading projects' }).click()
+  await page.getByRole('button', { name: 'Retry loading services' }).click()
   await expect(page.getByRole('link', { name: /Billing API/ })).toBeVisible()
   await expect(
-    page.getByText('Projects could not be loaded', { exact: true })
+    page.getByText('Services could not be loaded', { exact: true })
   ).toHaveCount(0)
 })
 
@@ -106,7 +106,7 @@ test('loading keeps a responsive card grid before results arrive', async ({
   })
   try {
     await page.goto('/projects')
-    const loading = page.locator('[aria-label="Loading projects"]')
+    const loading = page.locator('[aria-label="Loading services"]')
     await expect(loading).toBeVisible()
     await expect(loading.locator(':scope > div')).toHaveCount(9)
     expect(
@@ -121,7 +121,7 @@ test('loading keeps a responsive card grid before results arrive', async ({
       localStorage.setItem('theme', 'dark')
     })
     await expect(
-      page.getByRole('textbox', { name: 'Filter projects by name or slug' })
+      page.getByRole('textbox', { name: 'Filter services by name or slug' })
     ).toBeVisible()
     await page.reload()
     await expect(page.getByRole('link', { name: /Billing API/ })).toBeVisible()

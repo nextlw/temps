@@ -3,6 +3,7 @@
 
 'use client'
 
+import { useTranslation } from 'react-i18next'
 import {
   deleteBackupScheduleMutation,
   disableBackupScheduleMutation,
@@ -140,6 +141,7 @@ function sourceFacts(source: S3SourceResponse): DetailFact[] {
 }
 
 export function S3SourceDetail() {
+  const { t } = useTranslation('storage')
   const { id } = useParams<{ id: string }>()
   const sourceId = id ? parseInt(id) : undefined
   const { setBreadcrumbs } = useBreadcrumbs()
@@ -692,7 +694,7 @@ export function S3SourceDetail() {
                   <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     type="search"
-                    placeholder="Search by service, engine, state, or UUID…"
+                    placeholder={t('misc.searchBackups')}
                     value={backupSearch}
                     onChange={(e) => {
                       setBackupSearch(e.target.value)

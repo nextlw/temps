@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import {
   getWebhookOptions,
@@ -45,6 +46,7 @@ interface WebhookDetailProps {
 }
 
 export function WebhookDetail({ project }: WebhookDetailProps) {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const { webhookId } = useParams()
   const [selectedDeliveryId, setSelectedDeliveryId] = useState<number | null>(
@@ -404,8 +406,7 @@ export function WebhookDetail({ project }: WebhookDetailProps) {
               <Clock className="h-12 w-12 text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-semibold mb-2">No deliveries yet</h3>
               <p className="text-sm text-muted-foreground max-w-md">
-                Webhook deliveries will appear here when events matching your
-                subscriptions occur in this project.
+                {t('settings.webhooks.noDeliveries')}
               </p>
             </div>
           )}

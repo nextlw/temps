@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   htmlRootCandidates,
@@ -43,6 +44,7 @@ export function DropZone({
   onError,
   disabled = false,
 }: DropZoneProps) {
+  const { t } = useTranslation('projects')
   const folderInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -98,11 +100,10 @@ export function DropZone({
               <UploadCloud className="size-10 text-primary" strokeWidth={1.5} />
             </div>
             <h2 className="text-2xl font-semibold tracking-tight">
-              Drag your project here
+              {t('drop.dragHere')}
             </h2>
             <p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-              A project folder, one HTML file, or a .zip archive. Folders are
-              packaged locally before upload.
+              {t('drop.dragHint')}
             </p>
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Button

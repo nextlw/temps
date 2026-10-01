@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useState } from 'react'
 import {
   kvStatusOptions,
@@ -69,6 +70,7 @@ function EditDockerImageDialog({
   onSave,
   isPending,
 }: EditDockerImageDialogProps) {
+  const { t } = useTranslation('storage')
   const handleSave = () => {
     if (dockerImage.trim()) {
       onSave(dockerImage.trim())
@@ -81,8 +83,7 @@ function EditDockerImageDialog({
         <DialogHeader>
           <DialogTitle>Update {serviceName} Configuration</DialogTitle>
           <DialogDescription>
-            Change the Docker image for the {serviceName} service. This will
-            restart the service with the new image.
+            {t('platform.updateImage', { name: serviceName })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -133,6 +134,7 @@ function EditDockerImageDialog({
 }
 
 export function PlatformServices() {
+  const { t } = useTranslation('storage')
   const queryClient = useQueryClient()
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingService, setEditingService] = useState<ServiceType | null>(null)
@@ -262,12 +264,8 @@ export function PlatformServices() {
     <div className="space-y-6">
       <Alert>
         <Info className="h-4 w-4" />
-        <AlertTitle>Platform Services</AlertTitle>
-        <AlertDescription>
-          These services are shared across all projects. Each project’s data is
-          isolated by namespace. Enable a service to make it available for all
-          projects.
-        </AlertDescription>
+        <AlertTitle>{t('platform.title')}</AlertTitle>
+        <AlertDescription>{t('platform.sharedIntro')}</AlertDescription>
       </Alert>
 
       <div className="grid gap-6 md:grid-cols-2">

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import {
   addTeamMemberMutation,
   createUserMutation,
@@ -78,14 +79,12 @@ const ROLE_OPTIONS = [
   {
     value: 'user' as const,
     label: 'User',
-    description:
-      'Can deploy and operate every existing and future project, but cannot manage users or system settings.',
+    description: i18n.t('projects:roles.user'),
   },
   {
     value: 'admin' as const,
     label: 'Administrator',
-    description:
-      'Full control of projects, users, roles, settings, and system resources.',
+    description: i18n.t('projects:roles.admin'),
   },
 ]
 
@@ -94,21 +93,25 @@ const TEAM_ROLE_OPTIONS: Array<{
   label: string
   description: string
 }> = [
-  { value: 'viewer', label: 'Viewer', description: 'Can view team projects.' },
+  {
+    value: 'viewer',
+    label: 'Viewer',
+    description: i18n.t('projects:roles.teamViewer'),
+  },
   {
     value: 'deployer',
     label: 'Deployer',
-    description: 'Can view and deploy team projects.',
+    description: i18n.t('projects:roles.teamDeployer'),
   },
   {
     value: 'admin',
     label: 'Team admin',
-    description: 'Can operate projects and manage team members.',
+    description: i18n.t('projects:roles.teamAdmin'),
   },
   {
     value: 'owner',
     label: 'Team owner',
-    description: 'Full control of the team and its project access.',
+    description: i18n.t('projects:roles.teamOwner'),
   },
 ]
 

@@ -65,8 +65,12 @@ export function ErrorEventDetail({ project }: { project: ProjectResponse }) {
 
   usePageTitle(
     sentryEvent
-      ? `Event: ${sentryEvent.sentry.exception?.values?.[0]?.type || 'Event'}`
-      : 'Event Details'
+      ? t('titles.event', {
+          type:
+            sentryEvent.sentry.exception?.values?.[0]?.type ||
+            t('titles.eventFallback'),
+        })
+      : t('crumbs.eventDetails')
   )
 
   useEffect(() => {
@@ -74,12 +78,15 @@ export function ErrorEventDetail({ project }: { project: ProjectResponse }) {
       setBreadcrumbs([
         { label: t('projects'), href: '/projects' },
         { label: project.name, href: `/projects/${projectSlug}` },
-        { label: 'Error Tracking', href: `/projects/${projectSlug}/errors` },
         {
-          label: 'Error Group',
+          label: t('crumbs.errorTracking'),
+          href: `/projects/${projectSlug}/errors`,
+        },
+        {
+          label: t('crumbs.errorGroup'),
           href: `/projects/${projectSlug}/errors/${errorGroupId}`,
         },
-        { label: 'Event Details' },
+        { label: t('crumbs.eventDetails') },
       ])
     }
   }, [setBreadcrumbs, event, projectSlug, errorGroupId, project.name, t])

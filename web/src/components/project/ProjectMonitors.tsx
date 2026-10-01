@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   listMonitorsOptions,
   createMonitorMutation,
@@ -308,6 +309,7 @@ function MonitorCard({
 }
 
 export function ProjectMonitors({ project }: ProjectMonitorsProps) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [monitorToDelete, setMonitorToDelete] = useState<number | null>(null)
@@ -410,9 +412,7 @@ export function ProjectMonitors({ project }: ProjectMonitorsProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Monitors</h2>
-          <p className="text-muted-foreground">
-            Monitor your project&apos;s uptime and performance
-          </p>
+          <p className="text-muted-foreground">{t('monitors.subtitle')}</p>
         </div>
         {monitors && monitors.length > 0 && (
           <CreateActionButton
@@ -425,8 +425,7 @@ export function ProjectMonitors({ project }: ProjectMonitorsProps) {
             <DialogHeader>
               <DialogTitle>Create Monitor</DialogTitle>
               <DialogDescription>
-                Set up a new monitor to track your project&apos;s uptime and
-                performance.
+                {t('monitors.createDescription')}
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -592,7 +591,7 @@ export function ProjectMonitors({ project }: ProjectMonitorsProps) {
           size="compact"
           icon={Activity}
           title="No monitors yet"
-          description="Create a monitor to track this project's uptime and response time."
+          description={t('monitors.emptyDescription')}
           action={
             <Button onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="mr-2 size-4" />

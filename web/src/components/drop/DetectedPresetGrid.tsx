@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import type { DropPresetCandidate } from '@/api/client'
 import { PresetIcon } from '@/components/presets/PresetIcon'
 import { cn } from '@/lib/utils'
@@ -17,11 +18,12 @@ export function DetectedPresetGrid({
   onSelect: (index: number) => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation('projects')
   return (
     <div
       className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
       role="radiogroup"
-      aria-label="Detected projects"
+      aria-label={t('drop.detectedProjects')}
     >
       {candidates.map((candidate, index) => {
         const selected = index === selectedIndex

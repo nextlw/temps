@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { DateTimeRange } from '@/components/ui/date-time-range'
 import { resolveTimeRange } from '@/lib/time-range-filter'
 
@@ -247,6 +248,7 @@ function parseGroupBy(raw: string | null): string[] {
  * TODO blocks below can be un-commented.
  */
 export default function MetricsExplorer({ project }: MetricsExplorerProps) {
+  const { t } = useTranslation('observability')
   usePageTitle(`Metrics · ${project.name}`)
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -845,7 +847,7 @@ export default function MetricsExplorer({ project }: MetricsExplorerProps) {
                 <Input
                   value={serviceName}
                   onChange={(e) => setServiceName(e.target.value)}
-                  placeholder="Filter by service name…"
+                  placeholder={t('traces.serviceNameFilter')}
                   className="pl-8 font-mono text-xs"
                 />
               </div>
@@ -969,6 +971,7 @@ function MetricsOverview({
   isLoadingNames: boolean
   totalCount: number
 }) {
+  const { t } = useTranslation('observability')
   // One alert fetch for the whole grid (cached). Float metrics with a firing
   // rule to the top so the 24-cap can't hide what's actually broken.
   const alerts = useAlertStatus(project.id)
@@ -1002,7 +1005,7 @@ function MetricsOverview({
           }
           description={
             totalCount === 0
-              ? 'Point an OpenTelemetry exporter at this project to start seeing metrics here.'
+              ? t('traces.metricsEmpty')
               : 'No metrics match your search. Clear the filter to see them all.'
           }
           action={

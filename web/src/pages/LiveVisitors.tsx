@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { getProjectBySlugOptions } from '@/api/client/@tanstack/react-query.gen'
 import { ProjectResponse } from '@/api/client/types.gen'
 import { LiveVisitorsList } from '@/components/visitors/LiveVisitorsList'
@@ -16,6 +17,7 @@ interface LiveVisitorsProps {
 }
 
 export function LiveVisitors({ project: projectProp }: LiveVisitorsProps = {}) {
+  const { t } = useTranslation('projects')
   const { slug } = useParams()
 
   const { data: queriedProject, isLoading } = useQuery({
@@ -29,7 +31,9 @@ export function LiveVisitors({ project: projectProp }: LiveVisitorsProps = {}) {
 
   const project = projectProp || queriedProject
 
-  usePageTitle(`${project?.slug || 'Project'} - Live Visitors`)
+  usePageTitle(
+    t('live.title', { name: project?.name || t('live.titleFallback') })
+  )
 
   if (isLoading) {
     return (
@@ -37,7 +41,7 @@ export function LiveVisitors({ project: projectProp }: LiveVisitorsProps = {}) {
         <div className="p-4 sm:p-6 space-y-6">
           <Button variant="outline" size="sm" disabled>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Project
+            {t('live.back')}
           </Button>
           <div className="space-y-4">
             <Skeleton className="h-8 w-48" />
@@ -55,11 +59,11 @@ export function LiveVisitors({ project: projectProp }: LiveVisitorsProps = {}) {
           <Button variant="outline" size="sm" asChild>
             <Link to="/projects">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Projects
+              {t('live.backToList')}
             </Link>
           </Button>
           <div className="text-center py-12">
-            <p className="text-muted-foreground">Project not found</p>
+            <p className="text-muted-foreground">{t('live.notFound')}</p>
           </div>
         </div>
       </div>
@@ -72,7 +76,7 @@ export function LiveVisitors({ project: projectProp }: LiveVisitorsProps = {}) {
         <Button variant="outline" size="sm" asChild>
           <Link to={`/projects/${project.slug}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Project
+            {t('live.back')}
           </Link>
         </Button>
 

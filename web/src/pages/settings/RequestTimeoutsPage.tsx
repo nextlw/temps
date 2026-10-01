@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@temps-sdk/ds'
 import { PageHeader, SettingsGroup, SettingsSection } from '@temps-sdk/ds'
@@ -60,6 +61,7 @@ const CEILING_DEFAULTS: TenantResourceCeilings = {
  * project/environment) — it never creates one on its own.
  */
 export function RequestTimeoutsPage() {
+  const { t } = useTranslation('projects')
   const { setBreadcrumbs } = useBreadcrumbs()
   const { data: settings, isLoading, error } = useSettings()
   const updateSettings = useUpdateSettings()
@@ -150,9 +152,7 @@ export function RequestTimeoutsPage() {
                 })}
               />
               <p className="text-xs text-muted-foreground">
-                No project/environment override, and no default below, can
-                exceed this — but only applies once a timeout is actually
-                configured. Min 5, max 86400 (24h). Default 600 (10m).
+                {t('timeouts.maxHint')}
               </p>
               {errors.request_timeouts?.max_request_timeout_seconds && (
                 <p className="text-xs text-destructive">
@@ -266,28 +266,20 @@ export function RequestTimeoutsPage() {
         </SettingsGroup>
 
         <SettingsSection
-          title="Project Override Ceilings"
-          description="Bound the resource and timeout overrides projects and environments can configure"
+          title={t('timeouts.ceilingsTitle')}
+          description={t('timeouts.ceilingsDescription')}
           icon={ShieldCheck}
           hasError={Boolean(errors.tenant_resource_ceilings)}
         >
           <div className="mb-6 text-sm text-muted-foreground">
-            The two settings above are <em>defaults</em> — anyone who can edit a
-            project or environment&apos;s Deployment Config can override them,
-            including overriding them to unlimited. These ceilings bound those
-            overrides. All three are off by default, so nothing changes until
-            you set one, and holders of the Settings write permission are never
-            blocked by them. An override that breaks a ceiling is rejected with
-            an explanation, never silently reduced.
+            {t('timeouts.ceilingsIntroStart')} <em>defaults</em>{' '}
+            {t('timeouts.ceilingsIntro')}
             <br />
             <br />
             <strong>
               Applied when a config is saved, not retroactively.
             </strong>{' '}
-            Setting a ceiling here does not change projects that already exceed
-            it — they keep running as configured until someone next edits them.
-            Note also that the memory ceiling is per container, so a project
-            with several replicas can still total more than the ceiling.
+            {t('timeouts.ceilingsRetro')}
           </div>
           <div className="space-y-6">
             <div className="grid gap-6 sm:grid-cols-2">
@@ -306,8 +298,7 @@ export function RequestTimeoutsPage() {
                   })}
                 />
                 <p className="text-xs text-muted-foreground">
-                  0 = no ceiling (default). When set, a project cannot request
-                  more than this, nor set its memory limit to unlimited.
+                  {t('timeouts.memoryHint')}
                 </p>
                 {errors.tenant_resource_ceilings?.max_memory_limit_mb && (
                   <p className="text-xs text-destructive">
@@ -345,13 +336,10 @@ export function RequestTimeoutsPage() {
             <div className="flex items-start justify-between gap-4">
               <div className="space-y-1">
                 <Label htmlFor="allow_unlimited_request_timeouts">
-                  Allow projects to disable timeouts
+                  {t('timeouts.allowUnlimited')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  On by default. Turn it off to stop a project from setting its
-                  request, SSE, or WebSocket timeout to 0 — the value that opts
-                  out of the hard ceiling above entirely. Timeouts a project
-                  sets to a real number are already clamped to that ceiling.
+                  {t('timeouts.allowUnlimitedHint')}
                 </p>
               </div>
               <Controller

@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
 import { useState } from 'react'
 import { useActivationSignals } from './useActivationSignals'
 import { useManualHarnessCompletion } from './useManualHarnessCompletion'
@@ -84,8 +85,7 @@ export function useGettingStarted() {
     {
       key: 'database',
       label: 'Add a database',
-      description:
-        'Provision a managed Postgres, Redis, or MongoDB to attach to a project.',
+      description: i18n.t('projects:onboarding.databaseDescription'),
       done: signals.hasDatabase,
       href: '/storage/create',
       cta: 'Add database',
@@ -102,7 +102,7 @@ export function useGettingStarted() {
     {
       key: 'team',
       label: 'Invite your team',
-      description: 'Add teammates so they can manage projects and deployments.',
+      description: i18n.t('projects:onboarding.teamDescription'),
       done: signals.teamInvited,
       href: '/settings/users',
       cta: 'Invite',

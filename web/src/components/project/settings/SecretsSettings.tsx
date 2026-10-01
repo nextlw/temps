@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { ProjectResponse } from '@/api/client'
 import {
   createProjectSecretMutation,
@@ -51,6 +52,7 @@ const MAX_SECRET_BYTES = 1_048_576 // 1 MiB
 const KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,254}$/
 
 export function SecretsSettings({ project }: SecretsSettingsProps) {
+  const { t } = useTranslation('projects')
   const queryClient = useQueryClient()
 
   const secretsQuery = useQuery({
@@ -109,8 +111,7 @@ export function SecretsSettings({ project }: SecretsSettingsProps) {
               fs.readFileSync(&apos;/run/secrets/DB_PASSWORD&apos;,
               &apos;utf8&apos;)
             </code>
-            . Docker Compose projects get the same mount in every service. A
-            redeploy is required for new or updated secrets to take effect.
+            {t('compose.secretsMountHint')}
           </p>
         </div>
         <Button onClick={() => setIsCreateOpen(true)}>
@@ -299,6 +300,7 @@ function CreateSecretDialog({
   isComposeProject,
   onCreated,
 }: CreateSecretDialogProps) {
+  const { t } = useTranslation('projects')
   const [key, setKey] = useState('')
   const [value, setValue] = useState('')
   const [environmentIds, setEnvironmentIds] = useState<number[]>(() =>
@@ -451,18 +453,15 @@ function CreateSecretDialog({
           </div>
           {isComposeProject && composeServiceNames.length === 0 && (
             <div>
-              <Label>Compose services</Label>
+              <Label>{t('compose.listLabel')}</Label>
               <p className="text-xs text-muted-foreground mt-2">
-                This secret will be mounted in every service. To restrict it to
-                specific containers — so a database or sidecar can&apos;t read
-                an application&apos;s credentials — sync this project&apos;s
-                compose services from Git settings, then edit the secret.
+                {t('compose.secretsEveryContainer')}
               </p>
             </div>
           )}
           {composeServiceNames.length > 0 && (
             <div>
-              <Label>Compose services</Label>
+              <Label>{t('compose.listLabel')}</Label>
               <div className="mt-2 space-y-2">
                 {composeServiceNames.map((name) => (
                   <label
@@ -483,10 +482,7 @@ function CreateSecretDialog({
                   </label>
                 ))}
                 <p className="text-xs text-muted-foreground">
-                  Leave empty to mount this secret in every service. Selecting
-                  services restricts it to those containers — the others get no
-                  file at all, so a database or sidecar can&apos;t read an
-                  application&apos;s credentials.
+                  {t('compose.secretsSelectHint')}
                 </p>
               </div>
             </div>

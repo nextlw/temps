@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { useEffect } from 'react'
 import { Link, useNavigate } from 'react-router'
 import {
@@ -128,6 +129,7 @@ function buildRecommendations(
 }
 
 export function Setup() {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const { setBreadcrumbs } = useBreadcrumbs()
   const { items, completedCount, totalCount, allDone, isLoaded } =
@@ -177,7 +179,7 @@ export function Setup() {
               </p>
             </div>
             <Button asChild className="mt-2">
-              <Link to="/projects">Go to projects</Link>
+              <Link to="/projects">{t('serviceMentions.goToProjects')}</Link>
             </Button>
           </CardContent>
         </Card>

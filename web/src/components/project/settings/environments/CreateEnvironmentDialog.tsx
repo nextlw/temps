@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -47,6 +48,7 @@ export function CreateEnvironmentDialog({
   onOpenChange,
   project,
 }: CreateEnvironmentDialogProps) {
+  const { t } = useTranslation('projects')
   const [branchError, setBranchError] = useState<string | null>(null)
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -74,8 +76,7 @@ export function CreateEnvironmentDialog({
             <DialogHeader>
               <DialogTitle>Create Environment</DialogTitle>
               <DialogDescription>
-                Add a new environment to your project for different deployment
-                stages.
+                {t('settings.environments.createDescription')}
               </DialogDescription>
             </DialogHeader>
 

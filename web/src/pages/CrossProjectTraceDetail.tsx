@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
 import {
   traceDetailPath,
   traceTimeBoundsFromSearch,
@@ -136,6 +137,7 @@ function UnifiedSpanDetail({
 }
 
 export default function CrossProjectTraceDetail() {
+  const { t } = useTranslation('observability')
   const { traceId } = useParams()
   const [searchParams] = useSearchParams()
 
@@ -157,7 +159,7 @@ export default function CrossProjectTraceDetail() {
 
   const projectName = (span: SpanRecord) =>
     projectById.get(span.project_id)?.project_name ??
-    `Project ${span.project_id}`
+    t('traces.projectFallback', { id: span.project_id })
 
   // This view is global, so there is no single list it belongs to. The first
   // contributing project's trace list is the closest thing; before the trace
@@ -253,7 +255,7 @@ export default function CrossProjectTraceDetail() {
         <EmptyState
           icon={Layers}
           title="No spans available"
-          description="Spans for this trace are not available or have expired across all projects."
+          description={t('traces.noSpansDescription')}
         />
       </div>
     )
@@ -271,7 +273,7 @@ export default function CrossProjectTraceDetail() {
   const facts: DetailFact[] = [
     { label: 'Duration', value: formatDuration(data.total_duration_ms) },
     { label: 'Spans', value: data.span_count },
-    { label: 'Projects', value: data.projects.length },
+    { label: t('traces.projectsFact'), value: data.projects.length },
     {
       label: 'Errors',
       value: (
@@ -296,14 +298,14 @@ export default function CrossProjectTraceDetail() {
           {/* Truncation callout */}
           {data.truncated && (
             <Callout tone="warning" title="Trace view truncated">
-              This view was truncated to stay within cross-project limits.
+              {t('traces.truncatedView')}
               {data.truncated_projects.length > 0 && (
                 <>
                   {' '}
-                  Spans from {data.truncated_projects.length} project
-                  {data.truncated_projects.length === 1 ? '' : 's'} were dropped
-                  (project id{data.truncated_projects.length === 1 ? '' : 's'}:{' '}
-                  {data.truncated_projects.join(', ')}).
+                  {t('traces.truncatedProjects', {
+                    count: data.truncated_projects.length,
+                    ids: data.truncated_projects.join(', '),
+                  })}
                 </>
               )}
             </Callout>
@@ -314,8 +316,7 @@ export default function CrossProjectTraceDetail() {
             <Callout tone="info" title="Some spans are hidden">
               <span className="inline-flex items-center gap-1.5">
                 <EyeOff className="h-3.5 w-3.5 shrink-0" />
-                Some projects opted out of cross-project trace sharing, so their
-                spans are not shown here.
+                {t('traces.optedOut')}
               </span>
             </Callout>
           )}

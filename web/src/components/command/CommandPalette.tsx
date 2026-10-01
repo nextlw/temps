@@ -104,7 +104,9 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router'
+import { i18n } from '@/i18n'
 
 interface NavigationItem {
   title: string
@@ -223,10 +225,10 @@ const mainNavItems: NavigationItem[] = [
     keywords: ['home', 'overview', 'main'],
   },
   {
-    title: 'Projects',
+    title: i18n.t('command:nav.projects'),
     url: '/projects',
     icon: Folder,
-    keywords: ['apps', 'applications', 'sites'],
+    keywords: ['apps', 'applications', 'sites', 'projects', 'services'],
   },
   {
     title: 'All platform tools',
@@ -254,19 +256,19 @@ const mainNavItems: NavigationItem[] = [
     keywords: ['workspace', 'context', 'persistent'],
   },
   {
-    title: 'Create New Project',
+    title: i18n.t('command:nav.createProject'),
     url: '/projects/new',
     icon: FolderPlus,
-    keywords: ['new', 'create', 'add', 'project', 'app'],
+    keywords: ['new', 'create', 'add', 'project', 'service', 'app'],
   },
   {
-    title: 'Drop Project Files',
+    title: i18n.t('command:nav.dropProjectFiles'),
     url: '/projects/new?source=drop',
     icon: Upload,
     keywords: ['drop', 'upload', 'zip', 'folder', 'deploy', 'no git'],
   },
   {
-    title: 'Import Project',
+    title: i18n.t('command:nav.importProject'),
     url: '/projects/import-wizard',
     icon: Upload,
     keywords: ['import', 'migrate', 'workload', 'platform', 'external'],
@@ -737,7 +739,7 @@ const accountNavItems: NavigationItem[] = [
 // Project-specific navigation items (will be prefixed with project slug)
 const projectNavItems: NavigationItem[] = [
   {
-    title: 'Project Overview',
+    title: i18n.t('command:nav.projectOverview'),
     url: 'project',
     icon: Home,
     keywords: ['home', 'overview', 'main'],
@@ -877,7 +879,7 @@ const projectNavItems: NavigationItem[] = [
     ],
   },
   {
-    title: 'Project Settings',
+    title: i18n.t('command:nav.projectSettings'),
     url: 'settings/general',
     icon: Settings,
     keywords: ['settings', 'configuration', 'general'],
@@ -949,13 +951,13 @@ const projectNavItems: NavigationItem[] = [
     keywords: ['webhooks', 'hooks', 'events', 'callbacks', 'integrations'],
   },
   {
-    title: 'Project Skills',
+    title: i18n.t('command:nav.projectSkills'),
     url: 'settings/skills',
     icon: Wand2,
     keywords: ['skills', 'ai', 'agents', 'claude', 'instructions', 'project'],
   },
   {
-    title: 'Project MCP Servers',
+    title: i18n.t('command:nav.projectMcpServers'),
     url: 'settings/mcp-servers',
     icon: Server,
     keywords: [
@@ -1001,23 +1003,36 @@ const projectNavItems: NavigationItem[] = [
     icon: ScrollText,
     keywords: ['logs', 'opentelemetry', 'otel', 'observe'],
   },
+  // No entry for `services` itself: that route only redirects to the
+  // service's databases, which is not where KV and Blob live.
   {
-    title: 'Services',
-    url: 'services',
-    icon: Boxes,
-    keywords: ['services', 'kv', 'blob', 'storage', 'redis', 's3'],
-  },
-  {
-    title: 'Services - KV Store',
+    title: i18n.t('command:nav.platformResourcesKv'),
     url: 'services/kv',
     icon: Database,
-    keywords: ['kv', 'key-value', 'redis', 'cache', 'storage'],
+    keywords: [
+      'platform',
+      'resources',
+      'kv',
+      'key-value',
+      'redis',
+      'cache',
+      'storage',
+    ],
   },
   {
-    title: 'Services - Blob Storage',
+    title: i18n.t('command:nav.platformResourcesBlob'),
     url: 'services/blob',
     icon: HardDrive,
-    keywords: ['blob', 's3', 'files', 'storage', 'uploads', 'objects'],
+    keywords: [
+      'platform',
+      'resources',
+      'blob',
+      's3',
+      'files',
+      'storage',
+      'uploads',
+      'objects',
+    ],
   },
   {
     title: 'AI Traces',
@@ -1081,6 +1096,8 @@ export function CommandPalette() {
   const [activeValue, setActiveValue] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
+  const { t } = useTranslation('command')
+  const projectCategory = t('categories.project')
   const { platformNavEntries, settingsNavEntries, projectNavEntries } =
     usePluginsContext()
   const showFullBrowseCatalog =
@@ -1292,7 +1309,11 @@ export function CommandPalette() {
 
   // Create Fuse instances for fuzzy search
   const navFuse = useMemo(() => {
-    const allNavItems = [
+    // `projectScoped` marks the current project's pages; `category` is only a
+    // translated label and must not be compared.
+    const allNavItems: Array<
+      NavigationItem & { category: string; projectScoped?: boolean }
+    > = [
       ...indexedMainNavItems.map((item) => ({
         ...item,
         category: 'Navigation',
@@ -1322,7 +1343,8 @@ export function CommandPalette() {
         ...item,
         // Prepend project slug to URL for absolute navigation
         url: `/projects/${currentProjectSlug}/${item.url}`,
-        category: 'Project',
+        category: projectCategory,
+        projectScoped: true,
       }))
       allNavItems.push(...projectSpecificItems)
     }
@@ -1341,6 +1363,7 @@ export function CommandPalette() {
   }, [
     currentProjectSlug,
     currentProject,
+    projectCategory,
     pluginNavItems,
     projectPluginNavItems,
     visibleObserveNavItems,
@@ -1501,8 +1524,8 @@ export function CommandPalette() {
     const projectPages = orderedProjects.flatMap((project) => {
       const category =
         project.id === currentProject?.id
-          ? `Current project · ${project.slug}`
-          : `Project · ${project.slug}`
+          ? t('categories.currentProject', { slug: project.slug })
+          : t('categories.projectWithSlug', { slug: project.slug })
       const pages = projectNavItems.map((item) => {
         const url = `/projects/${project.slug}/${item.url}`
         return destination(
@@ -1516,17 +1539,25 @@ export function CommandPalette() {
               project.name,
               project.slug,
               project.id === currentProject?.id ? 'current project' : '',
+              project.id === currentProject?.id ? 'current service' : '',
             ].filter(Boolean),
           },
           category,
-          `Open ${item.title} for project ${project.name} (${project.slug})`
+          t('descriptions.openProjectPage', {
+            page: item.title,
+            name: project.name,
+            slug: project.slug,
+          })
         )
       })
 
       pages.push({
         id: `project:${project.slug}:environment:production`,
         title: `Production environment · ${project.slug}`,
-        description: `Open the production environment for project ${project.name} (${project.slug})`,
+        description: t('descriptions.openProductionEnvironment', {
+          name: project.name,
+          slug: project.slug,
+        }),
         url: `/projects/${project.slug}/environments?environment=production`,
         category,
         keywords: [
@@ -1543,9 +1574,12 @@ export function CommandPalette() {
     const servicePages: CommandDestination[] = services.map((service) => ({
       id: `service:${service.id}`,
       title: `${service.name} · ${service.service_type}`,
-      description: `Open the ${service.service_type} service named ${service.name}`,
+      description: t('descriptions.openExternalService', {
+        type: service.service_type,
+        name: service.name,
+      }),
       url: `/storage/${service.id}`,
-      category: 'Service',
+      category: t('categories.externalService'),
       keywords: [
         'service',
         'database',
@@ -1586,6 +1620,7 @@ export function CommandPalette() {
     services,
     globalSkills,
     globalMcpServers,
+    t,
   ])
 
   const commandDestinationFuse = useMemo(
@@ -1629,7 +1664,7 @@ export function CommandPalette() {
         key: item.url,
         title: item.title,
         subtitle:
-          item.category === 'Project' && currentProject
+          item.projectScoped && currentProject
             ? currentProject.name
             : undefined,
         category: item.category,
@@ -1644,7 +1679,7 @@ export function CommandPalette() {
       out.push({
         key: `project:${project.id}`,
         title: project.slug,
-        category: 'Project',
+        category: projectCategory,
         icon: <ProjectAvatar name={project.name} className="size-5" />,
         score: rank(`project:${project.id}`, project.name, result.score),
         run: () => navigate(`/projects/${project.slug}`),
@@ -1661,7 +1696,7 @@ export function CommandPalette() {
           key: item.url,
           title: item.title,
           subtitle: item.projectName,
-          category: 'Project',
+          category: projectCategory,
           icon: <Icon className="h-4 w-4" />,
           // Damped: a top-level page named X should beat every project's X.
           score: rank(item.url, item.title, result.score, 0.6),
@@ -1733,6 +1768,7 @@ export function CommandPalette() {
     skillsFuse,
     mcpFuse,
     currentProject,
+    projectCategory,
     rank,
     navigate,
   ])
@@ -1920,7 +1956,7 @@ export function CommandPalette() {
 
   const projectResultsGroup = browseResults.projects.length > 0 && (
     <>
-      <CommandGroup heading="Projects">
+      <CommandGroup heading={t('groups.projects')}>
         {browseResults.projects.map((project) => (
           <CommandItem
             key={project.id}
@@ -1963,7 +1999,7 @@ export function CommandPalette() {
       >
         <CommandInput
           aria-label="Search this Temps instance"
-          placeholder="Search projects, services, settings, and tools…"
+          placeholder={t('searchPlaceholder')}
           value={search}
           onValueChange={setSearch}
           className="h-12 pr-10 text-base sm:text-sm"

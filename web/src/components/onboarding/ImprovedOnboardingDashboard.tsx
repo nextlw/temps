@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { useTranslation } from 'react-i18next'
+import { i18n } from '@/i18n'
 import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { CheckCircle2 } from 'lucide-react'
@@ -64,11 +66,12 @@ const STEP_LABELS = {
   'external-url': 'External URL',
   'screenshot-setup': 'Screenshots',
   'git-provider': 'Git Provider',
-  project: 'Project',
+  project: i18n.t('projects:onboarding.stepProject'),
   complete: 'Complete',
 }
 
 export function ImprovedOnboardingDashboard() {
+  const { t } = useTranslation('projects')
   const navigate = useNavigate()
   const { data: settings } = useSettings()
 
@@ -425,12 +428,10 @@ export function ImprovedOnboardingDashboard() {
             <div className="text-center space-y-4">
               <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto" />
               <h2 className="text-2xl font-bold">Setup Complete!</h2>
-              <p className="text-muted-foreground">
-                You&apos;re all set to start deploying projects with Temps
-              </p>
+              <p className="text-muted-foreground">{t('onboarding.allSet')}</p>
               <div className="flex gap-3 justify-center pt-4">
                 <Button onClick={() => navigate('/projects')}>
-                  Go to Projects
+                  {t('onboarding.goToProjects')}
                 </Button>
                 <Button variant="outline" onClick={resetOnboarding}>
                   Reset Onboarding

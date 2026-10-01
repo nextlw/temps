@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { i18n } from '@/i18n'
+
 export const DEPLOYMENT_TOKEN_PERMISSIONS = [
   {
     value: '*',
@@ -10,7 +12,7 @@ export const DEPLOYMENT_TOKEN_PERMISSIONS = [
   {
     value: 'analytics:read',
     label: 'Read analytics',
-    description: 'Read project analytics data.',
+    description: i18n.t('projects:settings.tokens.analyticsRead'),
   },
   {
     value: 'events:write',
@@ -25,7 +27,7 @@ export const DEPLOYMENT_TOKEN_PERMISSIONS = [
   {
     value: 'emails:send',
     label: 'Send email',
-    description: 'Send email for this project.',
+    description: i18n.t('projects:settings.tokens.emailsSend'),
   },
   {
     value: 'errors:read',
@@ -40,7 +42,7 @@ export const DEPLOYMENT_TOKEN_PERMISSIONS = [
   {
     value: 'flags:read',
     label: 'Read feature flags',
-    description: 'Evaluate project feature flags.',
+    description: i18n.t('projects:settings.tokens.flagsRead'),
   },
   {
     value: 'blob:read',

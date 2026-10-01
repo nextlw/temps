@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
@@ -108,6 +109,7 @@ export function GitImportClone({
   // inside the onboarding flow) keeps the source in plain React state since
   // it doesn't own the URL.
   const navigate = useNavigate()
+  const { t } = useTranslation('projects')
   const [searchParams, setSearchParams] = useSearchParams()
   const [localSource, setLocalSource] = useState<ProjectSource | null>(null)
 
@@ -394,10 +396,10 @@ export function GitImportClone({
   const createProjectMutationM = useMutation({
     ...createProjectMutation(),
     meta: {
-      errorTitle: 'Failed to create project',
+      errorTitle: t('create.createFailed'),
     },
     onSuccess: async (data) => {
-      toast.success('Project created successfully')
+      toast.success(t('create.created'))
       onProjectCreated?.()
       navigate(`/projects/${data.slug}?new=true`)
     },
@@ -553,8 +555,9 @@ export function GitImportClone({
               onClick={() => selectTemplate(null)}
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
-              Back to{' '}
-              {selectedTemplateSource === 'services' ? 'Services' : 'Templates'}
+              {selectedTemplateSource === 'services'
+                ? t('templates.backToServiceTemplates')
+                : t('templates.backToTemplates')}
             </Button>
           </div>
 
@@ -597,7 +600,7 @@ export function GitImportClone({
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" onClick={goBackFromRepo}>
               <ChevronLeft className="h-4 w-4 mr-2" />
-              {useGitUrl ? 'Back to Git URL' : 'Back to Create Project'}
+              {useGitUrl ? 'Back to Git URL' : t('create.backToCreate')}
             </Button>
           </div>
 
@@ -752,7 +755,9 @@ export function GitImportClone({
         <Card>
           <CardContent className="pt-6">
             <div className="mb-5">
-              <h2 className="text-lg font-semibold">Curated services</h2>
+              <h2 className="text-lg font-semibold">
+                {t('templates.curatedTitle')}
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Reviewed, version-pinned applications that integrate with
                 Temps-managed databases and storage.
