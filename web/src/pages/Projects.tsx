@@ -95,6 +95,9 @@ export function Projects() {
         per_page: normalizedProjectSearch ? SEARCH_CATALOG_LIMIT : pageSize,
       },
     }),
+    // With Projects the list reads the whole catalogue instead; this page is
+    // only asked for once it is known there are none.
+    enabled: !projectGroups.isLoading && !grouped,
   })
 
   const { data: rawGitProviders, isLoading: gitProvidersLoading } = useQuery({
@@ -286,7 +289,9 @@ export function Projects() {
       {/* Nothing here can be built or deployed until something can run it. */}
       <WorkerNodeRequiredBanner />
 
-      {(projectsData?.total ?? 0) > 0 && <OnboardingNextStepCard />}
+      {(projectsData?.total ?? catalog.data?.length ?? 0) > 0 && (
+        <OnboardingNextStepCard />
+      )}
 
       {projectGroups.isError && (
         <Callout tone="warning">

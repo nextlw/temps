@@ -38,7 +38,7 @@ import { useSensitiveActionVerification } from '@/hooks/useSensitiveActionVerifi
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -73,6 +73,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>
 
 export function GeneralSettings({ project, refetch }: GeneralSettingsProps) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { t } = useTranslation('projects', { keyPrefix: 'settings.general' })
   // Renaming a project onto — or off — a slug this host grants the Docker
   // socket to is a sensitive action (ADR 045), so the save can come back 428
@@ -214,6 +215,8 @@ export function GeneralSettings({ project, refetch }: GeneralSettingsProps) {
         {
           loading: t('deleting'),
           success: () => {
+            // Lists of services, the Projects' catalogue among them.
+            void queryClient.invalidateQueries({ queryKey: ['getProjects'] })
             navigate('/projects')
             return t('deleted')
           },
