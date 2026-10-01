@@ -39,7 +39,7 @@ across hundreds of files that touch `project`.
 | Code (Rust, SQL, API, CLI, plugin SDK, AI tools) | UI (en) |
 |---|---|
 | `project` | **Service** / Services |
-| `project_group` (new entity, added later) | **Project** / Projects |
+| `project_group` (new entity, defined in [ADR-049](049-project-groups.md)) | **Project** / Projects |
 | external service | Database / Databases (`terms.externalService`) |
 | KV / Blob under `/projects/:slug/services/*` | Platform resources |
 | compose `service_name` | Compose container / Containers (`terms.composeService`) |
