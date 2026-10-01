@@ -47,6 +47,8 @@ test('sidebar follows the URL through back links and browser history', async ({
         role: 'admin',
         mfa_enabled: false,
       }
+    // The service is in no Project (project group).
+    else if (path === '/project-groups') body = []
     else if (path === '/projects/by-slug/example-app' || path === '/projects/1')
       body = project
     else if (path === '/projects')
