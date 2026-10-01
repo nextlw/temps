@@ -1,0 +1,9 @@
+{
+  "switcher": {
+    "switch": "Switch $t(terms:projectGroup.singularLower)",
+    "find": "Find $t(terms:projectGroup.singular)…",
+    "empty": "No $t(terms:projectGroup.pluralLower) found.",
+    "all": "All $t(terms:projectGroup.pluralLower)"
+  },
+  "ungrouped": "Ungrouped $t(terms:project.pluralLower)"
+}

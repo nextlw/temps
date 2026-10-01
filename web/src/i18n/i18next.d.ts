@@ -14,6 +14,7 @@ import type observability from './locales/en/observability.json'
 import type audit from './locales/en/audit.json'
 import type storage from './locales/en/storage.json'
 import type ai from './locales/en/ai.json'
+import type projectGroups from './locales/en/projectGroups.json'
 
 declare module 'i18next' {
   interface CustomTypeOptions {
@@ -28,6 +29,7 @@ declare module 'i18next' {
       audit: typeof audit
       storage: typeof storage
       ai: typeof ai
+      projectGroups: typeof projectGroups
     }
   }
 }
