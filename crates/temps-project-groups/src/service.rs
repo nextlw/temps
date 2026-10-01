@@ -401,11 +401,15 @@ impl ProjectGroupService {
             .await
             .map_err(ProjectGroupError::db("starting the assign transaction"))?;
 
-        // FOR SHARE: a concurrent delete of this group waits for the commit
-        // (then cascades the new row away) instead of failing our insert on
-        // the foreign key.
+        // FOR KEY SHARE: a concurrent delete of this group waits for the
+        // commit (then cascades the new row away) instead of failing our
+        // insert on the foreign key. Not FOR SHARE: that conflicts with the
+        // `updated_at` UPDATE below, so two assigns into the same group (or
+        // two crossed moves) would each hold the share lock the other's
+        // UPDATE waits on — a deadlock. KEY SHARE only conflicts with
+        // deletes and key changes.
         let group = project_groups::Entity::find_by_id(group_id)
-            .lock_shared()
+            .lock(LockType::KeyShare)
             .one(&txn)
             .await
             .map_err(ProjectGroupError::db("loading a project group"))?
@@ -465,14 +469,20 @@ impl ProjectGroupService {
             .await
             .map_err(|source| membership_write_error(source, group_id, project_id))?;
 
-        // Both groups' contents changed.
-        let touched: Vec<i32> = std::iter::once(group_id).chain(previous_group_id).collect();
-        project_groups::Entity::update_many()
-            .col_expr(project_groups::Column::UpdatedAt, Expr::value(Utc::now()))
-            .filter(project_groups::Column::Id.is_in(touched))
-            .exec(&txn)
-            .await
-            .map_err(ProjectGroupError::db("touching the project groups"))?;
+        // Both groups' contents changed. One row per statement, in id
+        // order, so crossed moves (A: G1→G2, B: G2→G1) take the two row
+        // locks in the same order whatever plan Postgres picks.
+        let mut touched: Vec<i32> = std::iter::once(group_id).chain(previous_group_id).collect();
+        touched.sort_unstable();
+        let now = Utc::now();
+        for id in touched {
+            project_groups::Entity::update_many()
+                .col_expr(project_groups::Column::UpdatedAt, Expr::value(now))
+                .filter(project_groups::Column::Id.eq(id))
+                .exec(&txn)
+                .await
+                .map_err(ProjectGroupError::db("touching the project groups"))?;
+        }
 
         txn.commit()
             .await
@@ -713,7 +723,10 @@ mod tests {
         let sql = statements(svc, conn).join("\n");
         assert!(sql.contains("'crm-interno'"), "{sql}");
         assert!(sql.contains("'CRM Interno'"), "name is trimmed: {sql}");
-        assert!(sql.contains("NULL"), "blank description stored as NULL: {sql}");
+        assert!(
+            sql.contains("NULL"),
+            "blank description stored as NULL: {sql}"
+        );
     }
 
     #[tokio::test]
@@ -809,7 +822,7 @@ mod tests {
             .append_query_results([vec![group_row(2, "Ops", "ops")]])
             .append_query_results([vec![id_row(41)]])
             .append_query_results([vec![member(41, 1)]])
-            .append_exec_results([exec(1), exec(2)])
+            .append_exec_results([exec(1), exec(1), exec(1)])
             // `get` after the commit: the group, then its members.
             .append_query_results([vec![group_row(2, "Ops", "ops")]])
             .append_query_results([vec![member(41, 2)]]);
@@ -819,9 +832,19 @@ mod tests {
         assert_eq!(outcome.previous_group_id, Some(1));
         assert_eq!(outcome.group.project_ids, vec![41]);
         let sql = statements(svc, conn).join("\n");
-        assert!(sql.contains("ON CONFLICT (\"project_id\") DO UPDATE"), "{sql}");
-        assert!(sql.contains("FOR SHARE"), "group is share-locked: {sql}");
-        assert!(sql.contains("FOR NO KEY UPDATE"), "project is locked: {sql}");
+        assert!(
+            sql.contains("ON CONFLICT (\"project_id\") DO UPDATE"),
+            "{sql}"
+        );
+        assert!(
+            sql.contains("FOR KEY SHARE"),
+            "group is key-share locked: {sql}"
+        );
+        assert!(!sql.contains(" FOR SHARE"), "FOR SHARE deadlocks: {sql}");
+        assert!(
+            sql.contains("FOR NO KEY UPDATE"),
+            "project is locked: {sql}"
+        );
         assert!(sql.contains("FOR UPDATE"), "{sql}");
     }
 
@@ -882,7 +905,10 @@ mod tests {
         let (svc, conn) = service(db);
         svc.unassign(1, 41).await.expect("unassign succeeds");
         let sql = statements(svc, conn).join("\n");
-        assert!(sql.contains("DELETE FROM \"project_group_members\""), "{sql}");
+        assert!(
+            sql.contains("DELETE FROM \"project_group_members\""),
+            "{sql}"
+        );
         assert!(sql.contains("UPDATE \"project_groups\""), "{sql}");
     }
 }

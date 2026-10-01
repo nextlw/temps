@@ -1243,7 +1243,7 @@ mod tests {
             .append_query_results([vec![group_row(2, "Ops")]])
             .append_query_results([vec![BTreeMap::from([("id", Value::from(41))])]])
             .append_query_results([vec![member(41, 1)]])
-            .append_exec_results([exec(1), exec(2)])
+            .append_exec_results([exec(1), exec(1), exec(1)])
             .append_query_results([vec![group_row(2, "Ops")]])
             .append_query_results([vec![member(41, 2)]]);
         let h = harness(db, allow(&[41]));
