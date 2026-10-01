@@ -353,3 +353,143 @@ test('with no Project yet, the call to action opens the dialog and gets focus ba
   await page.keyboard.press('Escape')
   await expect(create).toBeFocused()
 })
+
+// Failures are said once, in the console's own words: no app-wide toast
+// with the server's English detail (ADR-049 status table).
+for (const [status, message] of [
+  [409, 'already uses this name'],
+  [400, 'Check the name'],
+  [403, 'You do not have permission'],
+] as const) {
+  test(`creating a Project that fails with ${status} explains it in the dialog`, async ({
+    page,
+  }) => {
+    await page.route('**/api/project-groups', (route) =>
+      route.request().method() === 'POST'
+        ? route.fulfill({
+            status,
+            json: { title: 'Rejected', detail: 'Server English detail' },
+          })
+        : route.fallback()
+    )
+    await page.goto('/projects')
+    await page.getByRole('button', { name: 'New Project' }).click()
+    const dialog = page.getByRole('dialog')
+    const name = dialog.getByRole('textbox', { name: 'Name' })
+    await expect(name).toBeFocused()
+    await name.fill('CRM')
+    await dialog.getByRole('button', { name: 'Create project' }).click()
+    await expect(dialog.getByRole('alert')).toContainText(message)
+    await expect(page.getByText('Server English detail')).toHaveCount(0)
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0)
+  })
+}
+
+test('a 404 on removal reloads the Projects, as its message says', async ({
+  page,
+}) => {
+  await page.route('**/api/project-groups/3/projects/1', (route) =>
+    route.fulfill({ status: 404, json: { title: 'Not Found' } })
+  )
+  let listReads = 0
+  page.on('request', (request) => {
+    if (
+      request.method() === 'GET' &&
+      new URL(request.url()).pathname === '/api/project-groups'
+    )
+      listReads += 1
+  })
+  await page.goto('/project-groups/crm')
+  await page
+    .getByRole('button', { name: 'Remove CRM backend from project' })
+    .click()
+  const before = listReads
+  const confirm = page.getByRole('alertdialog')
+  await confirm.getByRole('button', { name: 'Remove from project' }).click()
+  await expect(confirm.getByRole('alert')).toContainText(
+    'The list has been refreshed'
+  )
+  await expect.poll(() => listReads).toBeGreaterThan(before)
+  await expect(page.locator('[data-sonner-toast]')).toHaveCount(0)
+})
+
+test('deleting a Project keeps its services and returns to the list', async ({
+  page,
+}) => {
+  let deleted = false
+  await page.route('**/api/project-groups**', (route) => {
+    const request = route.request()
+    const path = new URL(request.url()).pathname
+    if (request.method() === 'DELETE' && path === '/api/project-groups/3') {
+      deleted = true
+      return route.fulfill({ status: 204 })
+    }
+    if (request.method() === 'GET' && path === '/api/project-groups' && deleted)
+      return route.fulfill({ json: [] })
+    return route.fallback()
+  })
+  await page.goto('/project-groups/crm/settings')
+  await page.getByRole('button', { name: 'Delete project' }).click()
+  const confirm = page.getByRole('alertdialog')
+  await expect(confirm).toContainText('Services are kept and become ungrouped')
+  await confirm.getByRole('button', { name: 'Delete project' }).click()
+  await expect(page).toHaveURL(/\/projects(\?|$)/)
+  await expect(page.getByText('CRM deleted')).toBeVisible()
+  await expect(page.getByText('CRM backend').first()).toBeVisible()
+})
+
+test('"Add service" waits for the services before saying none are left', async ({
+  page,
+}) => {
+  await page.route('**/api/project-groups', (route) =>
+    route.fulfill({ json: [{ ...crm, service_ids: [], service_count: 0 }] })
+  )
+  await page.route('**/api/projects?*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+    await route.fallback()
+  })
+  await page.goto('/project-groups/crm')
+  await page.getByRole('button', { name: 'Add service' }).first().click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog.getByRole('status')).toHaveText('Loading services…')
+  await expect(dialog).not.toContainText('already in this project')
+  await expect(
+    dialog.getByRole('option', { name: /Landing page/ })
+  ).toBeVisible()
+})
+
+test('on a phone the remove action is on screen without scrolling', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/project-groups/crm')
+  const remove = page.getByRole('button', {
+    name: 'Remove CRM backend from project',
+  })
+  await expect(remove).toBeInViewport({ ratio: 1 })
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > window.innerWidth
+  )
+  expect(overflow).toBe(false)
+})
+
+test('creating a Project sends only contract fields and opens it', async ({
+  page,
+}) => {
+  const bodies: unknown[] = []
+  await page.route('**/api/project-groups', (route) => {
+    if (route.request().method() !== 'POST') return route.fallback()
+    bodies.push(route.request().postDataJSON())
+    return route.fulfill({
+      status: 201,
+      json: { ...crm, id: 9, slug: 'data', name: 'Data', service_ids: [] },
+    })
+  })
+  await page.goto('/projects')
+  await page.getByRole('button', { name: 'New Project' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('textbox', { name: 'Name' }).fill('  Data  ')
+  await dialog.getByRole('button', { name: 'Create project' }).click()
+  await expect(page).toHaveURL(/\/project-groups\/data$/)
+  expect(bodies).toEqual([{ name: 'Data' }])
+})
