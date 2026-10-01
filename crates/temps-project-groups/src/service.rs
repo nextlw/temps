@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use chrono::Utc;
 use sea_orm::{
-    sea_query::{Expr, OnConflict},
+    sea_query::{Expr, LockType, OnConflict},
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter,
     QueryOrder, QuerySelect, RelationTrait, Set, TransactionTrait,
 };
@@ -33,7 +33,10 @@ pub const MAX_SLUG_LEN: usize = 64;
 // Request DTOs
 // ---------------------------------------------------------------------------
 
+/// Unknown fields are refused so a typo (or an attempt to send `id`) is a
+/// 400, not a silently ignored field.
 #[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CreateProjectGroupRequest {
     pub name: String,
     /// Generated from `name` when omitted. Immutable afterwards.
@@ -42,8 +45,10 @@ pub struct CreateProjectGroupRequest {
 }
 
 /// Only the fields present are changed. Absent and `null` both mean "not
-/// provided"; an empty `description` clears it.
+/// provided"; an empty `description` clears it. Unknown fields are refused,
+/// so sending `slug` (immutable) is a 400 rather than a silent no-op.
 #[derive(Debug, Clone, Default, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateProjectGroupRequest {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -181,6 +186,30 @@ pub fn attach_members(
             ProjectGroupWithMembers { group, project_ids }
         })
         .collect()
+}
+
+/// The locks in `assign` keep both referenced rows alive until commit, so a
+/// foreign-key violation here means the schema or the locking changed; it is
+/// still reported as the missing row (404), never as a 500.
+fn membership_write_error(
+    source: sea_orm::DbErr,
+    group_id: i32,
+    project_id: i32,
+) -> ProjectGroupError {
+    match source.sql_err() {
+        Some(sea_orm::SqlErr::ForeignKeyConstraintViolation(message))
+            if message.contains("fk_project_group_members_project") =>
+        {
+            ProjectGroupError::ProjectNotFound { project_id }
+        }
+        Some(sea_orm::SqlErr::ForeignKeyConstraintViolation(_)) => {
+            ProjectGroupError::NotFound { group_id }
+        }
+        _ => ProjectGroupError::Database {
+            context: "writing the membership",
+            source,
+        },
+    }
 }
 
 fn is_unique_violation(err: &sea_orm::DbErr) -> bool {
@@ -372,17 +401,27 @@ impl ProjectGroupService {
             .await
             .map_err(ProjectGroupError::db("starting the assign transaction"))?;
 
+        // FOR SHARE: a concurrent delete of this group waits for the commit
+        // (then cascades the new row away) instead of failing our insert on
+        // the foreign key.
         let group = project_groups::Entity::find_by_id(group_id)
+            .lock_shared()
             .one(&txn)
             .await
             .map_err(ProjectGroupError::db("loading a project group"))?
             .ok_or(ProjectGroupError::NotFound { group_id })?;
 
+        // The project row is the serialization point for moves of the same
+        // project: the membership row below may not exist yet, and FOR UPDATE
+        // locks nothing then, so two first-time assigns would both read "no
+        // previous group". NO KEY UPDATE serializes them without blocking the
+        // FOR KEY SHARE that foreign-key checks take on `projects`.
         let live_project: Option<i32> = projects::Entity::find_by_id(project_id)
             .select_only()
             .column(projects::Column::Id)
             .filter(projects::Column::IsDeleted.eq(false))
             .filter(projects::Column::DeletedAt.is_null())
+            .lock(LockType::NoKeyUpdate)
             .into_tuple()
             .one(&txn)
             .await
@@ -391,8 +430,9 @@ impl ProjectGroupService {
             return Err(ProjectGroupError::ProjectNotFound { project_id });
         }
 
-        // Locked so that two concurrent moves of the same project agree on
-        // which group it left (the audit entry's `previous_group_id`).
+        // With the project locked this read is stable: `previous_group_id`
+        // in the audit entry and the `updated_at` bump below name the group
+        // the project really left.
         let previous = project_group_members::Entity::find_by_id(project_id)
             .lock_exclusive()
             .one(&txn)
@@ -423,12 +463,10 @@ impl ProjectGroupService {
             )
             .exec_without_returning(&txn)
             .await
-            .map_err(ProjectGroupError::db("writing the membership"))?;
+            .map_err(|source| membership_write_error(source, group_id, project_id))?;
 
         // Both groups' contents changed.
-        let touched: Vec<i32> = std::iter::once(group_id)
-            .chain(previous_group_id)
-            .collect();
+        let touched: Vec<i32> = std::iter::once(group_id).chain(previous_group_id).collect();
         project_groups::Entity::update_many()
             .col_expr(project_groups::Column::UpdatedAt, Expr::value(Utc::now()))
             .filter(project_groups::Column::Id.is_in(touched))
@@ -782,6 +820,8 @@ mod tests {
         assert_eq!(outcome.group.project_ids, vec![41]);
         let sql = statements(svc, conn).join("\n");
         assert!(sql.contains("ON CONFLICT (\"project_id\") DO UPDATE"), "{sql}");
+        assert!(sql.contains("FOR SHARE"), "group is share-locked: {sql}");
+        assert!(sql.contains("FOR NO KEY UPDATE"), "project is locked: {sql}");
         assert!(sql.contains("FOR UPDATE"), "{sql}");
     }
 
@@ -808,10 +848,7 @@ mod tests {
             .append_query_results([Vec::<BTreeMap<&'static str, Value>>::new()]);
         let (svc, _conn) = service(db);
         let err = svc.assign(1, 41).await.unwrap_err();
-        assert!(matches!(
-            err,
-            ProjectGroupError::ProjectNotFound { project_id: 41 }
-        ));
+        assert!(matches!(err, ProjectGroupError::ProjectNotFound { project_id: 41 }));
     }
 
     #[tokio::test]

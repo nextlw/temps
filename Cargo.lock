@@ -12484,8 +12484,11 @@ dependencies = [
  "temps-auth",
  "temps-core",
  "temps-entities",
+ "temps-migrations",
+ "testcontainers",
  "thiserror 2.0.20",
  "tokio",
+ "tower",
  "tracing",
  "utoipa",
 ]
