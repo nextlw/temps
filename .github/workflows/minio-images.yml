@@ -1,0 +1,153 @@
+# SPDX-FileCopyrightText: 2024-2026 Temps Contributors
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+# Builds the MinIO server and mc client from the official public source and
+# publishes them to GHCR. The official images can no longer be pulled
+# anonymously; see images/minio/README.md.
+name: MinIO images
+
+on:
+  push:
+    paths:
+      - images/minio/**
+      - .github/workflows/minio-images.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: minio-images-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  images:
+    name: MinIO and mc images
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Read pinned releases
+        id: meta
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          dockerfile=images/minio/Dockerfile
+          minio_release=$(sed -n 's/^ARG MINIO_RELEASE=//p' "$dockerfile")
+          mc_release=$(sed -n 's/^ARG MC_RELEASE=//p' "$dockerfile")
+          for release in "$minio_release" "$mc_release"; do
+            if [[ ! "$release" =~ ^RELEASE\.[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}-[0-9]{2}Z$ ]]; then
+              echo "Unexpected release name in $dockerfile: '$release'" >&2
+              exit 1
+            fi
+          done
+          owner=${OWNER,,}
+          {
+            echo "minio_image=ghcr.io/$owner/minio:$minio_release"
+            echo "mc_image=ghcr.io/$owner/mc:$mc_release"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4
+        with:
+          cache-image: false
+
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+        with:
+          cache-binary: false
+
+      - name: Load amd64 minio image for the smoke test
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: images/minio
+          target: minio
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: temps-minio:check
+
+      - name: Load amd64 mc image for the smoke test
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: images/minio
+          target: mc
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: temps-mc:check
+
+      - name: Smoke test (bucket, put, get)
+        run: |
+          set -euo pipefail
+          docker network create minio-smoke
+          trap 'docker logs minio-smoke-server || true; docker rm -f minio-smoke-server >/dev/null 2>&1 || true; docker network rm minio-smoke >/dev/null 2>&1 || true' EXIT
+          docker run -d --name minio-smoke-server --network minio-smoke \
+            -e MINIO_ROOT_USER=smokeadmin -e MINIO_ROOT_PASSWORD=smokeadmin \
+            temps-minio:check server /data --console-address :9001
+          # The bundled mc backs the healthcheck Temps configures for the S3 service.
+          timeout 60 bash -c 'until docker exec minio-smoke-server mc ready local >/dev/null 2>&1; do sleep 1; done'
+          docker exec minio-smoke-server minio --version
+          docker run --rm --network minio-smoke --entrypoint /bin/sh \
+            -e MC_HOST_smoke=http://smokeadmin:smokeadmin@minio-smoke-server:9000 \
+            temps-mc:check -c '
+              set -eu
+              mc --version
+              mc mb smoke/temps-smoke
+              echo "temps minio smoke" > /tmp/object.txt
+              mc cp /tmp/object.txt smoke/temps-smoke/object.txt
+              test "$(mc cat smoke/temps-smoke/object.txt)" = "temps minio smoke"
+            '
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish minio image
+        id: minio
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: images/minio
+          target: minio
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.minio_image }}
+
+      - name: Build and publish mc image
+        id: mc
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: images/minio
+          target: mc
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.mc_image }}
+
+      - name: Record digests
+        env:
+          MINIO_IMAGE: ${{ steps.meta.outputs.minio_image }}
+          MINIO_DIGEST: ${{ steps.minio.outputs.digest }}
+          MC_IMAGE: ${{ steps.meta.outputs.mc_image }}
+          MC_DIGEST: ${{ steps.mc.outputs.digest }}
+        run: |
+          {
+            echo "### Published images"
+            echo
+            echo "| Image | Digest |"
+            echo "|---|---|"
+            echo "| \`$MINIO_IMAGE\` | \`$MINIO_DIGEST\` |"
+            echo "| \`$MC_IMAGE\` | \`$MC_DIGEST\` |"
+            echo
+            echo "Pinned references:"
+            echo
+            echo "- \`$MINIO_IMAGE@$MINIO_DIGEST\`"
+            echo "- \`$MC_IMAGE@$MC_DIGEST\`"
+          } >> "$GITHUB_STEP_SUMMARY"
