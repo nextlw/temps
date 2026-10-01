@@ -20,10 +20,11 @@ import {
 } from '@/lib/project-group-errors'
 import { projectGroupHref } from '@/lib/project-groups'
 import { Callout, Field } from '@temps-sdk/ds'
-import { useState } from 'react'
+import { useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { returnFocusTo } from './return-focus'
 
 /**
  * Creates a Project (code: `project_group`) and opens it. The server derives
@@ -32,9 +33,12 @@ import { toast } from 'sonner'
 export function CreateProjectGroupDialog({
   open,
   onOpenChange,
+  opener,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** The button that opened the dialog; focus returns to it on close. */
+  opener: RefObject<HTMLElement | null>
 }) {
   const { t } = useTranslation('projectGroups')
   const navigate = useNavigate()
@@ -83,7 +87,7 @@ export function CreateProjectGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent>
+      <DialogContent onCloseAutoFocus={(event) => returnFocusTo(event, opener)}>
         <form onSubmit={submit} noValidate className="space-y-4">
           <DialogHeader>
             <DialogTitle>{t('create.title')}</DialogTitle>

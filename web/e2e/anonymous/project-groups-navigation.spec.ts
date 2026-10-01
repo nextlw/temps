@@ -303,3 +303,53 @@ test('back and forward restore page and sidebar together', async ({ page }) => {
   ).toBeVisible()
   expect(errors).toEqual([])
 })
+
+// WCAG 2.4.3: closing a dialog puts focus back on the button that opened it.
+test('closing a dialog returns focus to the button that opened it', async ({
+  page,
+}) => {
+  const errors = watchErrors(page)
+  await page.goto('/projects')
+  const newProject = page.getByRole('button', { name: 'New Project' })
+  await newProject.click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(newProject).toBeFocused()
+
+  await page.goto('/project-groups/crm')
+  const add = page.getByRole('button', { name: 'Add service' })
+  await add.click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(add).toBeFocused()
+
+  const remove = page.getByRole('button', {
+    name: 'Remove CRM backend from project',
+  })
+  await remove.click()
+  await expect(page.getByRole('alertdialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(remove).toBeFocused()
+
+  await page.goto('/project-groups/crm/settings')
+  const deleteProject = page.getByRole('button', { name: 'Delete project' })
+  await deleteProject.click()
+  await expect(page.getByRole('alertdialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(deleteProject).toBeFocused()
+  expect(errors).toEqual([])
+})
+
+test('with no Project yet, the call to action opens the dialog and gets focus back', async ({
+  page,
+}) => {
+  await page.route('**/api/project-groups', (route) =>
+    route.fulfill({ json: [] })
+  )
+  await page.goto('/projects')
+  const create = page.getByRole('button', { name: 'Create project' })
+  await create.click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(create).toBeFocused()
+})

@@ -29,6 +29,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
+import { returnFocusTo } from './return-focus'
 
 /** Rename, describe or delete a Project. The slug is shown, never edited. */
 export function ProjectGroupSettings({
@@ -44,6 +45,7 @@ export function ProjectGroupSettings({
   const [description, setDescription] = useState(group.description ?? '')
   const [submitted, setSubmitted] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const deleteOpener = useRef<HTMLButtonElement | null>(null)
 
   // Keep what the user is typing across refetches of the same group; load
   // the other group's values when the route switches to another one.
@@ -172,6 +174,7 @@ export function ProjectGroupSettings({
       >
         <div>
           <Button
+            ref={deleteOpener}
             variant="destructive"
             onClick={() => {
               remove.reset()
@@ -184,7 +187,9 @@ export function ProjectGroupSettings({
       </SettingsGroup>
 
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(event) => returnFocusTo(event, deleteOpener)}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>
               {t('settings.deleteConfirmTitle', { name: group.name })}

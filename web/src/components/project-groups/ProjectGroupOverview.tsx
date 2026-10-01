@@ -25,10 +25,11 @@ import {
   type DataTableColumn,
 } from '@temps-sdk/ds'
 import { Boxes, Plus, RefreshCw, Unlink } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { AddServiceToProjectGroupDialog } from './AddServiceToProjectGroupDialog'
+import { returnFocusTo } from './return-focus'
 import {
   ServiceEnvironmentsCell,
   ServiceLastDeploymentCell,
@@ -55,6 +56,11 @@ export function ProjectGroupOverview({
   const { t } = useTranslation('projectGroups')
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<ProjectResponse | null>(null)
+  // Focus goes back to the button that opened a dialog; after a removal that
+  // row is gone, so it lands on the header's "Add service" instead.
+  const addOpener = useRef<HTMLElement | null>(null)
+  const removeOpener = useRef<HTMLElement | null>(null)
+  const headerAdd = useRef<HTMLButtonElement | null>(null)
   const remove = useRemoveServiceFromProjectGroup()
   const services = useMemo(
     () => servicesOfGroup(group, catalog),
@@ -92,7 +98,8 @@ export function ProjectGroupOverview({
           size="icon"
           aria-label={t('detail.removeService', { name: service.name })}
           title={t('detail.removeService', { name: service.name })}
-          onClick={() => {
+          onClick={(event) => {
+            removeOpener.current = event.currentTarget
             remove.reset()
             setRemoving(service)
           }}
@@ -119,8 +126,12 @@ export function ProjectGroupOverview({
     )
   }
 
+  const openAdd = (event: React.MouseEvent<HTMLElement>) => {
+    addOpener.current = event.currentTarget
+    setAdding(true)
+  }
   const addButton = (
-    <Button size="sm" onClick={() => setAdding(true)}>
+    <Button size="sm" onClick={openAdd}>
       <Plus className="size-4" />
       {t('detail.addService')}
     </Button>
@@ -137,7 +148,10 @@ export function ProjectGroupOverview({
             {t('detail.servicesCount', { count: group.service_count })}
           </p>
         </div>
-        {addButton}
+        <Button ref={headerAdd} size="sm" onClick={openAdd}>
+          <Plus className="size-4" />
+          {t('detail.addService')}
+        </Button>
       </div>
 
       {catalogError && catalog.length === 0 ? (
@@ -183,6 +197,7 @@ export function ProjectGroupOverview({
         catalog={catalog}
         catalogLoading={catalogLoading && catalog.length === 0}
         catalogError={catalogError}
+        opener={addOpener}
       />
 
       <AlertDialog
@@ -191,7 +206,11 @@ export function ProjectGroupOverview({
           if (!open) setRemoving(null)
         }}
       >
-        <AlertDialogContent>
+        <AlertDialogContent
+          onCloseAutoFocus={(event) =>
+            returnFocusTo(event, removeOpener, headerAdd)
+          }
+        >
           <AlertDialogHeader>
             <AlertDialogTitle>
               {t('remove.title', {

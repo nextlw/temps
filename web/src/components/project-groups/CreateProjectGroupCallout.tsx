@@ -12,7 +12,8 @@ import { useTranslation } from 'react-i18next'
 export function CreateProjectGroupCallout({
   onCreate,
 }: {
-  onCreate: () => void
+  /** Gets the button, so the dialog can give focus back to it. */
+  onCreate: (trigger: HTMLElement) => void
 }) {
   const { t } = useTranslation('projectGroups')
   return (
@@ -34,7 +35,11 @@ export function CreateProjectGroupCallout({
           {t('list.ctaDescription')}
         </p>
       </div>
-      <Button variant="outline" size="sm" onClick={onCreate}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={(event) => onCreate(event.currentTarget)}
+      >
         {t('list.ctaAction')}
       </Button>
     </section>

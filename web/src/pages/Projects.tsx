@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
 import { useTranslation } from 'react-i18next'
 import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics'
@@ -73,6 +73,12 @@ export function Projects() {
   const grouped = projectGroups.groups.length > 0
   const catalog = useServiceCatalog({ enabled: grouped })
   const [creatingGroup, setCreatingGroup] = useState(false)
+  // Two buttons open the create dialog; focus returns to the one used.
+  const createOpener = useRef<HTMLElement | null>(null)
+  const openCreateGroup = (trigger: HTMLElement) => {
+    createOpener.current = trigger
+    setCreatingGroup(true)
+  }
 
   const {
     data: rawProjectsData,
@@ -263,7 +269,10 @@ export function Projects() {
         actions={
           <>
             <PlatformStrip />
-            <Button variant="outline" onClick={() => setCreatingGroup(true)}>
+            <Button
+              variant="outline"
+              onClick={(event) => openCreateGroup(event.currentTarget)}
+            >
               {tg('list.newProject')}
             </Button>
             <CreateActionButton
@@ -297,7 +306,7 @@ export function Projects() {
         !projectGroups.isLoading &&
         !projectGroups.isError &&
         (projectsData?.total ?? 0) > 0 && (
-          <CreateProjectGroupCallout onCreate={() => setCreatingGroup(true)} />
+          <CreateProjectGroupCallout onCreate={openCreateGroup} />
         )}
 
       {((projectsData?.total ?? 0) > 0 ||
@@ -418,6 +427,7 @@ export function Projects() {
       <CreateProjectGroupDialog
         open={creatingGroup}
         onOpenChange={setCreatingGroup}
+        opener={createOpener}
       />
     </PageContainer>
   )

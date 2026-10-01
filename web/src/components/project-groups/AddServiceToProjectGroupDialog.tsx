@@ -25,10 +25,11 @@ import { addableServices } from '@/lib/project-group-overview'
 import type { ProjectGroupResponse } from '@/lib/project-groups-types'
 import { Callout } from '@temps-sdk/ds'
 import { ArrowRightLeft, Box, Check } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ProjectGroupBadge } from './ProjectGroupBadge'
+import { returnFocusTo } from './return-focus'
 
 interface Props {
   open: boolean
@@ -39,6 +40,8 @@ interface Props {
   /** The first load of the catalogue: nothing is known about it yet. */
   catalogLoading: boolean
   catalogError: boolean
+  /** The button that opened the dialog; focus returns to it on close. */
+  opener: RefObject<HTMLElement | null>
 }
 
 /**
@@ -54,6 +57,7 @@ export function AddServiceToProjectGroupDialog({
   catalog,
   catalogLoading,
   catalogError,
+  opener,
 }: Props) {
   const { t } = useTranslation('projectGroups')
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -89,7 +93,10 @@ export function AddServiceToProjectGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className="max-w-lg"
+        onCloseAutoFocus={(event) => returnFocusTo(event, opener)}
+      >
         <DialogHeader>
           <DialogTitle>{t('add.title', { name: group.name })}</DialogTitle>
           <DialogDescription>{t('add.description')}</DialogDescription>
