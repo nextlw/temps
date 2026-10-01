@@ -10,28 +10,27 @@
 //! reach. A group hidden from the caller answers 404, never 403, so its
 //! existence does not leak.
 //!
-//! The per-project check calls the registered `ProjectAccessChecker`
-//! directly instead of through `project_access_guard!`: one batched call
-//! answers for every member and the assigned project together, with the
-//! same admin bypass and fail-closed semantics as the macro.
+//! The per-project checks call the registered `ProjectAccessChecker`
+//! directly instead of through `project_access_guard!` and
+//! `project_permission_guard!`: one batched call answers for every member
+//! and the assigned project together, with the same admin bypass,
+//! narrowing by the grant's role and fail-closed semantics as the macros.
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use axum::{
-    extract::{Extension, Path, State},
+    extract::{rejection::JsonRejection, Extension, Path, State},
     http::StatusCode,
     response::IntoResponse,
     routing::{get, put},
     Json, Router,
 };
 use serde::Serialize;
-use temps_auth::{deny_deployment_token, permission_guard, AuthContext, RequireAuth};
+use temps_auth::{deny_deployment_token, permission_guard, AuthContext, Permission, RequireAuth};
 use temps_core::error_builder::ErrorBuilder;
 use temps_core::problemdetails::{PermissionDenialKind, Problem};
-use temps_core::{
-    AuditContext, AuditLogger, AuditOperation, ProjectAccessChecker, RequestMetadata,
-};
+use temps_core::{AuditContext, AuditLogger, AuditOperation, ProjectAccessChecker, RequestMetadata};
 use utoipa::{OpenApi, ToSchema};
 
 use crate::service::{
@@ -297,6 +296,89 @@ fn without_hidden(
     group
 }
 
+/// Narrows a mutation by the caller's role on every project it touches, as
+/// `project_permission_guard!` does for project mutations: a grant whose
+/// role lacks `permission` (a `viewer`, say) refuses the change even though
+/// the instance-wide role allows it.
+///
+/// `None` from the checker means it has no per-permission opinion on that
+/// project; the coarse answer already in `access` decides, as the macro
+/// falls back to `user_can_access_project`. A project missing from the
+/// batch answer is refused rather than guessed.
+async fn require_project_permission(
+    state: &ProjectGroupsAppState,
+    auth: &AuthContext,
+    access: &ServiceAccess,
+    project_ids: &[i32],
+    permission: Permission,
+) -> Result<(), Problem> {
+    if auth.is_instance_admin() || project_ids.is_empty() {
+        return Ok(());
+    }
+    let Some(checker) = state.project_access_checker.as_ref() else {
+        return Ok(());
+    };
+    let Some(user_id) = auth.user_id_opt() else {
+        tracing::error!("project groups: authenticated caller has no user id");
+        return Err(access_denied("Could not resolve caller identity"));
+    };
+    let answers = match checker
+        .effective_project_permissions_batch(user_id, project_ids)
+        .await
+    {
+        Ok(answers) => answers,
+        Err(e) => {
+            tracing::error!(
+                user_id,
+                error = %e,
+                "project groups: effective_project_permissions_batch failed — denying"
+            );
+            return Err(ErrorBuilder::new(StatusCode::INTERNAL_SERVER_ERROR)
+                .type_("https://temps.sh/probs/project-permission-check-failed")
+                .title("Project Permission Check Failed")
+                .detail("Could not verify project permissions; please try again")
+                .build());
+        }
+    };
+    let required = permission.to_string();
+    for project_id in project_ids {
+        let allowed = match answers.get(project_id) {
+            Some(Some(held)) => held.contains(&required),
+            Some(None) => access.can_access(*project_id),
+            None => false,
+        };
+        if !allowed {
+            return Err(project_permission_denied(&required));
+        }
+    }
+    Ok(())
+}
+
+fn project_permission_denied(required: &str) -> Problem {
+    ErrorBuilder::new(StatusCode::FORBIDDEN)
+        .type_("https://temps.sh/probs/project-permission-denied")
+        .title("Project Permission Denied")
+        .detail(format!(
+            "Your role on a service in this request does not include the {required} permission"
+        ))
+        .value("required_permission", required)
+        .permission_denial(
+            PermissionDenialKind::ProjectPermission,
+            Some(required.to_string()),
+        )
+        .build()
+}
+
+/// A malformed or unknown-field body is the caller's mistake: 400 with a
+/// problem body, like the service's own validation errors, rather than
+/// axum's plain-text 422.
+fn json_body<T>(payload: Result<Json<T>, JsonRejection>) -> Result<T, Problem> {
+    let Json(body) = payload.map_err(|rejection| ProjectGroupError::Validation {
+        message: format!("Invalid request body: {}", rejection.body_text()),
+    })?;
+    Ok(body)
+}
+
 fn with_project(ids: &[i32], project_id: i32) -> Vec<i32> {
     let mut all = ids.to_vec();
     all.push(project_id);
@@ -346,7 +428,7 @@ pub async fn list_project_groups(
     request_body = CreateProjectGroupRequest,
     responses(
         (status = 201, description = "Project group created", body = ProjectGroupResponse),
-        (status = 400, description = "Empty or over-long name, or invalid slug"),
+        (status = 400, description = "Empty or over-long name, invalid slug, or malformed body (unknown fields included)"),
         (status = 401, description = "Unauthorized"),
         (status = 403, description = "Insufficient permissions or deployment token"),
         (status = 409, description = "Slug already taken"),
@@ -357,10 +439,11 @@ pub async fn create_project_group(
     RequireAuth(auth): RequireAuth,
     State(state): State<Arc<ProjectGroupsAppState>>,
     Extension(metadata): Extension<RequestMetadata>,
-    Json(req): Json<CreateProjectGroupRequest>,
+    payload: Result<Json<CreateProjectGroupRequest>, JsonRejection>,
 ) -> Result<impl IntoResponse, Problem> {
     permission_guard!(auth, ProjectsCreate);
     deny_deployment_token!(auth);
+    let req = json_body(payload)?;
 
     let created = state.service.create(req).await?;
     record(
@@ -439,9 +522,9 @@ pub async fn get_project_group_by_slug(
     request_body = UpdateProjectGroupRequest,
     responses(
         (status = 200, description = "Project group updated", body = ProjectGroupResponse),
-        (status = 400, description = "Empty or over-long name"),
+        (status = 400, description = "Empty or over-long name, or malformed body (unknown fields such as slug included)"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Insufficient permissions, deployment token, or a service in the group is hidden from the caller"),
+        (status = 403, description = "Insufficient permissions, deployment token, a service in the group is hidden from the caller, or the caller's role on one of its services lacks projects:write"),
         (status = 404, description = "Not found, or every service in it is hidden from the caller"),
     ),
     security(("bearer_auth" = []))
@@ -451,10 +534,11 @@ pub async fn update_project_group(
     State(state): State<Arc<ProjectGroupsAppState>>,
     Extension(metadata): Extension<RequestMetadata>,
     Path(id): Path<i32>,
-    Json(req): Json<UpdateProjectGroupRequest>,
+    payload: Result<Json<UpdateProjectGroupRequest>, JsonRejection>,
 ) -> Result<impl IntoResponse, Problem> {
     permission_guard!(auth, ProjectsWrite);
     deny_deployment_token!(auth);
+    let req = json_body(payload)?;
 
     let group = state.service.get(id).await?;
     let access = resolve_access(&state, &auth, &group.project_ids).await?;
@@ -462,6 +546,8 @@ pub async fn update_project_group(
         visible_or_not_found(group, &access)?;
         return Err(hidden_member_denied());
     }
+    let members = &group.project_ids;
+    require_project_permission(&state, &auth, &access, members, Permission::ProjectsWrite).await?;
 
     let (updated, changed) = state.service.update(id, req).await?;
     if changed.any() {
@@ -488,7 +574,7 @@ pub async fn update_project_group(
     responses(
         (status = 204, description = "Project group deleted; its services are kept, ungrouped"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Insufficient permissions, deployment token, or a service in the group is hidden from the caller"),
+        (status = 403, description = "Insufficient permissions, deployment token, a service in the group is hidden from the caller, or the caller's role on one of its services lacks projects:delete"),
         (status = 404, description = "Not found, or every service in it is hidden from the caller"),
     ),
     security(("bearer_auth" = []))
@@ -508,6 +594,8 @@ pub async fn delete_project_group(
         visible_or_not_found(group, &access)?;
         return Err(hidden_member_denied());
     }
+    let members = &group.project_ids;
+    require_project_permission(&state, &auth, &access, members, Permission::ProjectsDelete).await?;
 
     state.service.delete(id).await?;
     record(
@@ -534,7 +622,7 @@ pub async fn delete_project_group(
     responses(
         (status = 200, description = "Service is in the group (moved from another group if needed)", body = ProjectGroupResponse),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Insufficient permissions, deployment token, or no access to the service"),
+        (status = 403, description = "Insufficient permissions, deployment token, no access to the service, or the caller's role on it lacks projects:write"),
         (status = 404, description = "Group or service not found, or the group is hidden from the caller"),
     ),
     security(("bearer_auth" = []))
@@ -557,6 +645,8 @@ pub async fn assign_project_to_group(
     if !access.can_access(project_id) {
         return Err(project_access_denied());
     }
+    let target = [project_id];
+    require_project_permission(&state, &auth, &access, &target, Permission::ProjectsWrite).await?;
 
     let outcome = state.service.assign(id, project_id).await?;
     if outcome.changed {
@@ -586,7 +676,7 @@ pub async fn assign_project_to_group(
     responses(
         (status = 204, description = "Service removed from the group; it is kept, ungrouped"),
         (status = 401, description = "Unauthorized"),
-        (status = 403, description = "Insufficient permissions, deployment token, or no access to the service"),
+        (status = 403, description = "Insufficient permissions, deployment token, no access to the service, or the caller's role on it lacks projects:write"),
         (status = 404, description = "Group not found or hidden, or the service is not in this group"),
     ),
     security(("bearer_auth" = []))
@@ -607,6 +697,8 @@ pub async fn remove_project_from_group(
     if !access.can_access(project_id) {
         return Err(project_access_denied());
     }
+    let target = [project_id];
+    require_project_permission(&state, &auth, &access, &target, Permission::ProjectsWrite).await?;
 
     state.service.unassign(id, project_id).await?;
     record(
@@ -683,9 +775,15 @@ mod tests {
     use temps_entities::{project_group_members, project_groups, users};
 
     /// Answers from a fixed allow-list, or fails every call.
+    ///
+    /// `permissions` plays the grant's role: a project absent from it has no
+    /// per-permission opinion (`None`), as on an ungated project.
+    #[derive(Default)]
     struct FakeChecker {
         allowed: BTreeSet<i32>,
+        permissions: BTreeMap<i32, Vec<String>>,
         fail: bool,
+        fail_permissions: bool,
     }
 
     type CheckerError = Box<dyn std::error::Error + Send + Sync>;
@@ -714,6 +812,20 @@ mod tests {
             Ok(project_ids
                 .iter()
                 .map(|id| (*id, self.allowed.contains(id)))
+                .collect())
+        }
+
+        async fn effective_project_permissions_batch(
+            &self,
+            _user_id: i32,
+            project_ids: &[i32],
+        ) -> Result<BTreeMap<i32, Option<Vec<String>>>, CheckerError> {
+            if self.fail_permissions {
+                return Err("permission resolver unavailable".into());
+            }
+            Ok(project_ids
+                .iter()
+                .map(|id| (*id, self.permissions.get(id).cloned()))
                 .collect())
         }
     }
@@ -760,7 +872,24 @@ mod tests {
     fn allow(ids: &[i32]) -> Option<FakeChecker> {
         Some(FakeChecker {
             allowed: ids.iter().copied().collect(),
-            fail: false,
+            ..FakeChecker::default()
+        })
+    }
+
+    const VIEWER: &[Permission] = &[Permission::ProjectsRead];
+    const EDITOR: &[Permission] = &[
+        Permission::ProjectsRead,
+        Permission::ProjectsWrite,
+        Permission::ProjectsDelete,
+    ];
+
+    /// Access to `ids`, each granted with the permissions of `role`.
+    fn granted(ids: &[i32], role: &[Permission]) -> Option<FakeChecker> {
+        let held: Vec<String> = role.iter().map(|p| p.to_string()).collect();
+        Some(FakeChecker {
+            allowed: ids.iter().copied().collect(),
+            permissions: ids.iter().map(|id| (*id, held.clone())).collect(),
+            ..FakeChecker::default()
         })
     }
 
@@ -903,8 +1032,8 @@ mod tests {
             .append_query_results([vec![group_row(2, "Gated")]])
             .append_query_results([vec![member(20, 2)]]);
         let failing = Some(FakeChecker {
-            allowed: BTreeSet::new(),
             fail: true,
+            ..FakeChecker::default()
         });
         let h = harness(db, failing);
         let response = list_project_groups(RequireAuth(admin()), State(h.state))
@@ -920,8 +1049,8 @@ mod tests {
             .append_query_results([vec![group_row(2, "Gated")]])
             .append_query_results([vec![member(20, 2)]]);
         let failing = Some(FakeChecker {
-            allowed: BTreeSet::new(),
             fail: true,
+            ..FakeChecker::default()
         });
         let h = harness(db, failing);
         let result = list_project_groups(RequireAuth(member_user()), State(h.state)).await;
@@ -997,11 +1126,11 @@ mod tests {
             RequireAuth(reader),
             State(h.state),
             Extension(metadata()),
-            Json(CreateProjectGroupRequest {
+            Ok(Json(CreateProjectGroupRequest {
                 name: "CRM".into(),
                 slug: None,
                 description: None,
-            }),
+            })),
         )
         .await;
         assert_eq!(status_of(result), StatusCode::FORBIDDEN);
@@ -1016,11 +1145,11 @@ mod tests {
             RequireAuth(member_user()),
             State(h.state),
             Extension(metadata()),
-            Json(CreateProjectGroupRequest {
+            Ok(Json(CreateProjectGroupRequest {
                 name: "CRM".into(),
                 slug: None,
                 description: None,
-            }),
+            })),
         )
         .await
         .expect("create succeeds");
@@ -1045,10 +1174,7 @@ mod tests {
             State(h.state.clone()),
             Extension(metadata()),
             Path(1),
-            Json(UpdateProjectGroupRequest {
-                name: Some("Renamed".into()),
-                description: None,
-            }),
+            rename(),
         )
         .await;
         assert_eq!(status_of(result), StatusCode::FORBIDDEN);
@@ -1176,6 +1302,164 @@ mod tests {
         )
         .await;
         assert_eq!(status_of(result), StatusCode::NOT_FOUND);
+    }
+
+    fn rename() -> Result<Json<UpdateProjectGroupRequest>, JsonRejection> {
+        Ok(Json(UpdateProjectGroupRequest {
+            name: Some("Renamed".into()),
+            description: None,
+        }))
+    }
+
+    /// The handler's own reads: the group, then its members.
+    fn group_with_members(id: i32, members: &[i32]) -> MockDatabase {
+        let rows: Vec<_> = members.iter().map(|p| member(*p, id)).collect();
+        MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results([vec![group_row(id, "Back")]])
+            .append_query_results([rows])
+    }
+
+    #[tokio::test]
+    async fn update_by_a_viewer_of_a_member_is_forbidden() {
+        let h = harness(group_with_members(1, &[10]), granted(&[10], VIEWER));
+        let result = update_project_group(
+            RequireAuth(member_user()),
+            State(h.state.clone()),
+            Extension(metadata()),
+            Path(1),
+            rename(),
+        )
+        .await;
+        let problem = result.err().expect("a viewer cannot rename");
+        assert_eq!(problem.status_code, StatusCode::FORBIDDEN);
+        assert_eq!(problem.body["title"], "Project Permission Denied");
+        assert!(h.audit.recorded().is_empty());
+    }
+
+    #[tokio::test]
+    async fn update_by_an_editor_of_every_member_succeeds() {
+        let db = group_with_members(1, &[10])
+            // Service: load, UPDATE ... RETURNING, members.
+            .append_query_results([vec![group_row(1, "Back")]])
+            .append_query_results([vec![group_row(1, "Renamed")]])
+            .append_query_results([vec![member(10, 1)]]);
+        let h = harness(db, granted(&[10], EDITOR));
+        let response = update_project_group(
+            RequireAuth(member_user()),
+            State(h.state.clone()),
+            Extension(metadata()),
+            Path(1),
+            rename(),
+        )
+        .await
+        .expect("an editor can rename");
+        let (status, body) = json_of(response).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["name"], "Renamed");
+        assert_eq!(h.audit.recorded()[0].0, "PROJECT_GROUP_UPDATED");
+    }
+
+    #[tokio::test]
+    async fn delete_needs_projects_delete_on_every_member() {
+        let write_only = [Permission::ProjectsRead, Permission::ProjectsWrite];
+        let h = harness(group_with_members(1, &[10]), granted(&[10], &write_only));
+        let result = delete_project_group(
+            RequireAuth(member_user()),
+            State(h.state),
+            Extension(metadata()),
+            Path(1),
+        )
+        .await;
+        assert_eq!(status_of(result), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn admin_bypasses_the_grant_role() {
+        let db = group_with_members(1, &[10]).append_exec_results([exec(1)]);
+        let h = harness(db, granted(&[10], &[]));
+        let response = delete_project_group(
+            RequireAuth(admin()),
+            State(h.state),
+            Extension(metadata()),
+            Path(1),
+        )
+        .await
+        .expect("admins are not narrowed by grants");
+        let (status, _) = json_of(response).await;
+        assert_eq!(status, StatusCode::NO_CONTENT);
+    }
+
+    #[tokio::test]
+    async fn assign_by_a_viewer_of_the_service_is_forbidden() {
+        let h = harness(group_with_members(1, &[]), granted(&[41], VIEWER));
+        let result = assign_project_to_group(
+            RequireAuth(member_user()),
+            State(h.state),
+            Extension(metadata()),
+            Path((1, 41)),
+        )
+        .await;
+        assert_eq!(status_of(result), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn unassign_by_a_viewer_of_the_service_is_forbidden() {
+        let h = harness(group_with_members(1, &[41]), granted(&[41], VIEWER));
+        let result = remove_project_from_group(
+            RequireAuth(member_user()),
+            State(h.state),
+            Extension(metadata()),
+            Path((1, 41)),
+        )
+        .await;
+        assert_eq!(status_of(result), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn permission_resolver_failure_fails_closed() {
+        let checker = Some(FakeChecker {
+            allowed: BTreeSet::from([41]),
+            fail_permissions: true,
+            ..FakeChecker::default()
+        });
+        let h = harness(group_with_members(1, &[]), checker);
+        let result = assign_project_to_group(
+            RequireAuth(member_user()),
+            State(h.state),
+            Extension(metadata()),
+            Path((1, 41)),
+        )
+        .await;
+        assert_eq!(status_of(result), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[tokio::test]
+    async fn unknown_fields_in_the_body_are_a_400() {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let h = harness(MockDatabase::new(DatabaseBackend::Postgres), None);
+        for (method, uri, body) in [
+            ("PATCH", "/project-groups/1", r#"{"slug":"renamed"}"#),
+            ("POST", "/project-groups", r#"{"name":"CRM","id":7}"#),
+        ] {
+            let mut request = Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .expect("valid request");
+            request.extensions_mut().insert(member_user());
+            request.extensions_mut().insert(metadata());
+            let response = router(h.state.clone())
+                .oneshot(request)
+                .await
+                .expect("router answers");
+            let (status, problem) = json_of(response).await;
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{method} {uri}: {problem}");
+            assert_eq!(problem["title"], "Validation Error");
+        }
     }
 
     #[test]
