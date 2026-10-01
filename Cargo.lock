@@ -10831,6 +10831,7 @@ dependencies = [
  "temps-observability",
  "temps-otel",
  "temps-plugin-sdk",
+ "temps-project-groups",
  "temps-projects",
  "temps-providers",
  "temps-proxy",
@@ -12468,6 +12469,28 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "temps-project-groups"
+version = "0.1.0-nextlw.1"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "sea-orm",
+ "serde",
+ "serde_json",
+ "temps-auth",
+ "temps-core",
+ "temps-entities",
+ "temps-migrations",
+ "testcontainers",
+ "thiserror 2.0.20",
+ "tokio",
+ "tower",
+ "tracing",
+ "utoipa",
 ]
 
 [[package]]

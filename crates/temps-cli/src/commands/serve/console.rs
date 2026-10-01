@@ -66,6 +66,7 @@ use temps_monitoring::{
 use temps_notifications::NotificationsPlugin;
 use temps_observability::ObservabilityPlugin;
 use temps_otel::plugin::OtelPlugin;
+use temps_project_groups::ProjectGroupsPlugin;
 use temps_projects::ProjectsPlugin;
 use temps_providers::ProvidersPlugin;
 use temps_proxy::ProxyPlugin;
@@ -3252,6 +3253,13 @@ pub async fn start_console_api(params: ConsoleApiParams) -> anyhow::Result<()> {
     debug!("Registering ProjectsPlugin");
     let projects_plugin = Box::new(ProjectsPlugin::new());
     plugin_manager.register_plugin(projects_plugin);
+
+    // 6.1. ProjectGroupsPlugin (fork, ADR-049) - groups of projects, shown as
+    // "Projects" in the console (depends on database, audit and the teams
+    // ProjectAccessChecker, all resolved by the time routes are configured)
+    debug!("Registering ProjectGroupsPlugin");
+    let project_groups_plugin = Box::new(ProjectGroupsPlugin::new());
+    plugin_manager.register_plugin(project_groups_plugin);
 
     // 7. DeployerPlugin - provides container deployment (depends on Docker)
     debug!("Registering DeployerPlugin");
