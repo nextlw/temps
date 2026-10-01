@@ -340,12 +340,23 @@ instance admins skip the check; a failing checker returns 500. This matters
 beyond the console: in F3 a group carries shared variables and previews, so a
 move becomes a write to the service's environment.
 
+An empty group has no member to check, so renaming or deleting it needs only
+the instance permission (`projects:write` / `projects:delete`). Moving a
+service out of group A needs `projects:write` on that service only: membership
+is an attribute of the service, and no other member of A changes. The reverse
+direction is the open question for F3: once a group carries shared variables or
+secrets, putting a service into it would let anyone with write on that service
+read the group's shared values from the service's environment, so joining a
+group with shared environment must also require permission on the group.
+
 Request bodies reject unknown fields (`deny_unknown_fields`): a `slug` in
 `PATCH` or an `id` in `POST` is a 400 problem+json, as is malformed JSON.
 
 Assign serialises on the service: it locks the `projects` row with
 `FOR NO KEY UPDATE` (which does not block foreign-key `FOR KEY SHARE`) and reads
-the group `FOR SHARE`, so the audited `previous_group_id` is exact under
+the group `FOR KEY SHARE` — not `FOR SHARE`, which the later `updated_at`
+update of the same row would have to upgrade, deadlocking two concurrent
+assigns into one group or two crossed moves — so the audited `previous_group_id` is exact under
 concurrent moves and a group deleted mid-request yields 404, not 500.
 
 ## Non-goals
