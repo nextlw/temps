@@ -5,6 +5,7 @@
 name = "temps-cloud-protocol"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 description = "Wire protocol between a self-hosted Temps instance and an optional managed backend."
 

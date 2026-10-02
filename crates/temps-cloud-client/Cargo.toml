@@ -5,6 +5,7 @@
 name = "temps-cloud-client"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 description = "Optional client that links a self-hosted Temps instance to a managed backend."
 

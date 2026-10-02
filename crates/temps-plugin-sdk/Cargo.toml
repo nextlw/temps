@@ -5,6 +5,7 @@
 name = "temps-plugin-sdk"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 description = "SDK for building external Temps plugins as standalone binaries"
 

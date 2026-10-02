@@ -116,6 +116,8 @@ members = [
 # 0.1.0, mas a partir daqui as correcoes sao nossas e o release e independente.
 version = "0.1.0-nextlw.1"
 edition = "2021"
+# `Atomic*::try_update`, usado no workspace, so e estavel a partir do 1.95.
+rust-version = "1.95"
 license = "MIT OR Apache-2.0"
 authors = ["Temps Contributors"]
 repository = "https://github.com/gotempsh/temps"
