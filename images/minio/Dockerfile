@@ -12,11 +12,14 @@
 #
 # Each source is pinned by release tag AND commit SHA: the build fails if
 # the tag ever points somewhere else. Bump both together, resolving the SHA
-# with `git ls-remote https://github.com/minio/<repo> 'refs/tags/<tag>^{}'`.
+# with `git ls-remote https://github.com/minio/<repo> 'refs/tags/<tag>*'`:
+# an annotated tag lists the commit on its `^{}` line; a lightweight tag
+# (minio RELEASE.2025-10-15T17-29-55Z is one) has no `^{}` line and the
+# plain ref is already the commit.
 # Base images are pinned by multi-arch index digest; resolve with
 #   docker buildx imagetools inspect <image>:<tag> --format '{{json .Manifest}}'
 #
-# The go.mod of minio RELEASE.2025-09-07T16-13-09Z asks for go1.24.2 and the
+# The go.mod of minio RELEASE.2025-10-15T17-29-55Z asks for go1.24.8 and the
 # one of mc RELEASE.2025-08-13T08-35-41Z for go1.23.10; each builder uses the
 # last patch release of that minor line. GOTOOLCHAIN=local forbids the go
 # command from downloading a different toolchain during the build.
@@ -25,8 +28,8 @@ ARG MINIO_GO_IMAGE=golang:1.24.13-alpine3.22@sha256:3641e0d9b931dc4f2f185dcd669c
 ARG MC_GO_IMAGE=golang:1.23.12-alpine3.22@sha256:383395b794dffa5b53012a212365d40c8e37109a626ca30d6151c8348d380b5f
 ARG RUNTIME_IMAGE=alpine:3.24.2@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6
 
-ARG MINIO_RELEASE=RELEASE.2025-09-07T16-13-09Z
-ARG MINIO_COMMIT=07c3a429bfed433e49018cb0f78a52145d4bedeb
+ARG MINIO_RELEASE=RELEASE.2025-10-15T17-29-55Z
+ARG MINIO_COMMIT=9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a
 ARG MC_RELEASE=RELEASE.2025-08-13T08-35-41Z
 ARG MC_COMMIT=7394ce0dd2a80935aded936b09fa12cbb3cb8096
 

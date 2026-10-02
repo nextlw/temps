@@ -14,11 +14,28 @@ same releases from the public source and publish them ourselves.
 
 | Image | Release | Source commit | Go |
 |---|---|---|---|
-| `minio` | `RELEASE.2025-09-07T16-13-09Z` | [`07c3a429bfed433e49018cb0f78a52145d4bedeb`](https://github.com/minio/minio/tree/07c3a429bfed433e49018cb0f78a52145d4bedeb) | 1.24.13 |
+| `minio` | `RELEASE.2025-10-15T17-29-55Z` | [`9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a`](https://github.com/minio/minio/tree/9e49d5e7a648f00e26f2246f4dc28e6b07f8c84a) | 1.24.13 |
 | `mc` | `RELEASE.2025-08-13T08-35-41Z` | [`7394ce0dd2a80935aded936b09fa12cbb3cb8096`](https://github.com/minio/mc/tree/7394ce0dd2a80935aded936b09fa12cbb3cb8096) | 1.23.12 |
 
 The image tag is the release name, the same tags Temps already references.
 The build fails if a release tag stops pointing to the pinned commit.
+
+### Release choice
+
+Both projects are archived upstream, so these are their last source
+releases. `RELEASE.2025-10-15T17-29-55Z` fixes CVE-2025-62506
+([GHSA-jjjj-jwhf-8rgr](https://github.com/minio/minio/security/advisories/GHSA-jjjj-jwhf-8rgr),
+high: privilege escalation via session policy bypass in service accounts and
+STS). `mc` has no release after `RELEASE.2025-08-13T08-35-41Z`.
+
+Later minio advisories (CVE-2026-33322, CVE-2026-33419, CVE-2026-34204,
+CVE-2026-39414, CVE-2026-40344, CVE-2026-41145, CVE-2026-42600) are fixed
+only in the proprietary MinIO AIStor; the open-source tree has no patch for
+them. They stay open in this image.
+
+The earlier image `RELEASE.2025-09-07T16-13-09Z` (commit
+`07c3a429bfed433e49018cb0f78a52145d4bedeb`) stays published; a volume it
+wrote is read by the newer server as-is.
 
 ## Source code (AGPL-3.0)
 
