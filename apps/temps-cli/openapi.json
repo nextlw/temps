@@ -35018,6 +35018,145 @@
         ],
         "type": "string"
       },
+      "PopulateRunListResponse": {
+        "description": "A page of populate runs.",
+        "properties": {
+          "page": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "page_size": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/PopulateRunResponse"
+            },
+            "type": "array"
+          },
+          "total": {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runs",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "type": "object"
+      },
+      "PopulateRunResponse": {
+        "description": "One populate run.",
+        "properties": {
+          "client_image": {
+            "description": "Client image of the transfer container (`postgres:<major>-alpine`,\nmajor version of the destination server).",
+            "type": "string"
+          },
+          "created_by": {
+            "format": "int32",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "database": {
+            "type": "string"
+          },
+          "database_size_bytes": {
+            "description": "Size of the destination database after a successful copy.",
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "duration_seconds": {
+            "description": "Set once the run finished.",
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "error_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "description": "ISO 8601, set once the run finished.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "replace": {
+            "type": "boolean"
+          },
+          "service_id": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "source_url_masked": {
+            "description": "Source URL with user and password replaced by `***`.",
+            "type": "string"
+          },
+          "started_at": {
+            "description": "ISO 8601",
+            "type": "string"
+          },
+          "status": {
+            "description": "`running`, `completed` or `failed`.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "service_id",
+          "database",
+          "source_url_masked",
+          "replace",
+          "status",
+          "client_image",
+          "started_at"
+        ],
+        "type": "object"
+      },
+      "PopulateServiceRequest": {
+        "description": "Copy an external PostgreSQL database into a database of this service.",
+        "properties": {
+          "database": {
+            "description": "Destination database inside the service, e.g. the per-environment\ndatabase of a project link (`<project>_<environment>`). Created when\nmissing, owned by the service user. Must match `[a-z_][a-z0-9_]{0,62}`.",
+            "example": "my_app_production",
+            "type": "string"
+          },
+          "replace": {
+            "description": "Drop and recreate the destination when it already has tables.\nWithout it, a non-empty destination is refused with 409.",
+            "type": "boolean"
+          },
+          "source_url": {
+            "description": "Source connection URL (`postgres://user:password@host:port/database`,\noptional `?sslmode=`). Must point at a publicly reachable server.\nNever stored, logged or returned.",
+            "example": "postgres://user:password@db.example.com:5432/app?sslmode=require",
+            "type": "string"
+          }
+        },
+        "required": [
+          "database",
+          "source_url"
+        ],
+        "type": "object"
+      },
       "PortMapping": {
         "description": "Port mapping",
         "properties": {
@@ -75457,6 +75596,328 @@
           }
         },
         "summary": "Reveal one sensitive service parameter. Service detail responses never\ncontain plaintext values; every successful reveal is recorded separately.",
+        "tags": [
+          "External Services"
+        ]
+      }
+    },
+    "/external-services/{id}/populate": {
+      "post": {
+        "operationId": "start_service_populate",
+        "parameters": [
+          {
+            "description": "External service ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PopulateServiceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PopulateRunResponse"
+                }
+              }
+            },
+            "description": "Copy started"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Invalid database name or source URL"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not an instance administrator"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Service not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Destination not empty (use replace) or a copy is already running"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Service is not a local standalone PostgreSQL"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Service database server unreachable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Start copying an external PostgreSQL database into a database of a\nmanaged PostgreSQL service. Returns at once with the run; poll\n`GET /external-services/{id}/populate-runs/{run_id}` for the outcome.",
+        "tags": [
+          "External Services"
+        ]
+      }
+    },
+    "/external-services/{id}/populate-runs": {
+      "get": {
+        "operationId": "list_service_populate_runs",
+        "parameters": [
+          {
+            "description": "External service ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "1-based page (default 1)",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Page size (default 20, max 100)",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PopulateRunListResponse"
+                }
+              }
+            },
+            "description": "Populate runs"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not an instance administrator"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Service not found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "List the populate runs of a service, newest first.",
+        "tags": [
+          "External Services"
+        ]
+      }
+    },
+    "/external-services/{id}/populate-runs/{run_id}": {
+      "get": {
+        "operationId": "get_service_populate_run",
+        "parameters": [
+          {
+            "description": "External service ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Populate run ID",
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PopulateRunResponse"
+                }
+              }
+            },
+            "description": "Populate run"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Not an instance administrator"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Run not found for this service"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "summary": "Get one populate run of a service.",
         "tags": [
           "External Services"
         ]
