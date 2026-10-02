@@ -114,7 +114,8 @@ pub const MC_IMAGE: &str = "ghcr.io/nextlw/mc:RELEASE.2025-08-13T08-35-41Z@sha25
 /// mc release built into [`MC_IMAGE`].
 const MC_RELEASE: &str = "RELEASE.2025-08-13T08-35-41Z";
 
-/// User the managed MinIO container runs as.
+/// User the managed MinIO container runs as when it uses our image or an
+/// official one.
 ///
 /// [`MINIO_IMAGE`] defaults to the non-root user 1000, but every volume
 /// created by the official image (and by Temps before this image) belongs
@@ -123,6 +124,28 @@ const MC_RELEASE: &str = "RELEASE.2025-08-13T08-35-41Z";
 /// new volumes working without touching their data, which is exactly the
 /// privilege the official image had.
 const MINIO_CONTAINER_USER: &str = "0:0";
+
+/// Registry prefixes under which the official MinIO images were published.
+const OFFICIAL_MINIO_REGISTRIES: [&str; 4] = ["", "docker.io/", "index.docker.io/", "quay.io/"];
+
+/// User for the managed MinIO container: [`MINIO_CONTAINER_USER`] for our
+/// image and the official one, `None` (the image's own user) for any other
+/// image an operator chose.
+fn minio_container_user(image: &str) -> Option<String> {
+    let without_digest = image.split('@').next().unwrap_or(image);
+    let repository = match without_digest.rsplit_once(':') {
+        Some((repository, tag)) if !tag.contains('/') => repository,
+        _ => without_digest,
+    };
+    let official = OFFICIAL_MINIO_REGISTRIES
+        .iter()
+        .any(|registry| repository == format!("{registry}minio/minio"));
+    if repository == MINIO_IMAGE_REPOSITORY || official {
+        Some(MINIO_CONTAINER_USER.to_string())
+    } else {
+        None
+    }
+}
 
 /// Rewrites a persisted reference to an official MinIO image that can no
 /// longer be pulled.
@@ -135,8 +158,9 @@ const MINIO_CONTAINER_USER: &str = "0:0";
 ///
 /// - The release Temps pins, or `latest`/no tag, from Docker Hub (bare or
 ///   `docker.io/`) or quay.io becomes the pinned GHCR image.
-/// - Any other bare tag or digest keeps the older behaviour of being
-///   qualified with `quay.io/`.
+/// - Any other official tag or digest still points at a registry that refuses
+///   it, so it is logged as a warning; a bare one keeps the older behaviour
+///   of being qualified with `quay.io/`.
 /// - Everything else (a private mirror, `ghcr.io/...`, a fork) is an explicit
 ///   operator choice and is left untouched.
 fn normalize_minio_registry(image: String) -> String {
@@ -144,7 +168,7 @@ fn normalize_minio_registry(image: String) -> String {
         ("minio/minio", MINIO_IMAGE, MINIO_RELEASE),
         ("minio/mc", MC_IMAGE, MC_RELEASE),
     ] {
-        for registry in ["", "docker.io/", "index.docker.io/", "quay.io/"] {
+        for registry in OFFICIAL_MINIO_REGISTRIES {
             let Some(rest) = image
                 .strip_prefix(registry)
                 .and_then(|unqualified| unqualified.strip_prefix(repository))
@@ -160,9 +184,16 @@ fn normalize_minio_registry(image: String) -> String {
             if tag == "latest" || tag == release {
                 return pinned.to_string();
             }
+            warn!(
+                "MinIO image '{}' is an official reference that can no longer be pulled \
+                 without authentication; switch the service to {}",
+                image,
+                pinned
+            );
             if registry.is_empty() {
                 return format!("quay.io/{repository}{rest}");
             }
+            return image;
         }
     }
     image
@@ -554,7 +585,7 @@ echo '[restore] complete'"#;
                     .collect(),
             ),
             cmd: Some(vec!["server".to_string(), "/data".to_string()]),
-            user: Some(MINIO_CONTAINER_USER.to_string()),
+            user: minio_container_user(&config.docker_image),
             host_config: Some(bollard::models::HostConfig {
                 restart_policy: Some(bollard::models::RestartPolicy {
                     name: Some(bollard::models::RestartPolicyNameEnum::ALWAYS),
@@ -3087,6 +3118,32 @@ mod tests {
         assert!(MINIO_IMAGE_TAG.starts_with(&tag_prefix));
         let mc_prefix = format!("ghcr.io/nextlw/mc:{MC_RELEASE}@sha256:");
         assert!(MC_IMAGE.starts_with(&mc_prefix));
+    }
+
+    #[test]
+    fn test_minio_container_user_only_for_our_and_official_images() {
+        for image in [
+            MINIO_IMAGE,
+            "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z",
+            "minio/minio",
+            "docker.io/minio/minio:latest",
+            "quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z",
+        ] {
+            assert_eq!(
+                minio_container_user(image).as_deref(),
+                Some("0:0"),
+                "for {image}"
+            );
+        }
+        // An image the operator chose keeps the user it was built with.
+        for image in [
+            "bitnami/minio:2025.7.23",
+            "registry.internal:5000/minio/minio:latest",
+            "ghcr.io/acme/minio:latest",
+            "quay.io/minio/minio-fork:latest",
+        ] {
+            assert_eq!(minio_container_user(image), None, "for {image}");
+        }
     }
 
     #[test]
