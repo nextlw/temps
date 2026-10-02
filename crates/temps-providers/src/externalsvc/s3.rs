@@ -114,6 +114,16 @@ pub const MC_IMAGE: &str = "ghcr.io/nextlw/mc:RELEASE.2025-08-13T08-35-41Z@sha25
 /// mc release built into [`MC_IMAGE`].
 const MC_RELEASE: &str = "RELEASE.2025-08-13T08-35-41Z";
 
+/// User the managed MinIO container runs as.
+///
+/// [`MINIO_IMAGE`] defaults to the non-root user 1000, but every volume
+/// created by the official image (and by Temps before this image) belongs
+/// to root, and MinIO refuses to start on it as 1000 ("file access denied
+/// ... Unable to write to the backend"). Running as root keeps both old and
+/// new volumes working without touching their data, which is exactly the
+/// privilege the official image had.
+const MINIO_CONTAINER_USER: &str = "0:0";
+
 /// Rewrites a persisted reference to an official MinIO image that can no
 /// longer be pulled.
 ///
@@ -544,6 +554,7 @@ echo '[restore] complete'"#;
                     .collect(),
             ),
             cmd: Some(vec!["server".to_string(), "/data".to_string()]),
+            user: Some(MINIO_CONTAINER_USER.to_string()),
             host_config: Some(bollard::models::HostConfig {
                 restart_policy: Some(bollard::models::RestartPolicy {
                     name: Some(bollard::models::RestartPolicyNameEnum::ALWAYS),
@@ -3403,6 +3414,144 @@ mod tests {
                 endpoint
             );
         }
+    }
+
+    // Every volume the official image created belongs to root, and the
+    // source-built image defaults to the non-root user 1000. The managed
+    // container must still start on such a volume and keep its data.
+    #[cfg(feature = "docker-tests")]
+    #[tokio::test]
+    async fn test_s3_service_starts_on_root_owned_volume() {
+        let docker = match Docker::connect_with_local_defaults() {
+            Ok(d) => Arc::new(d),
+            Err(e) => {
+                println!("Docker not available, skipping test: {}", e);
+                return;
+            }
+        };
+        if docker.ping().await.is_err() {
+            println!("Docker daemon not responding, skipping test");
+            return;
+        }
+        crate::utils::pull_image_with_retry(&docker, MINIO_IMAGE, None)
+            .await
+            .expect("pull the MinIO image");
+
+        let name = format!("root-volume-{}", chrono::Utc::now().timestamp_millis());
+        let volume_name = format!("minio_{name}_data");
+        docker
+            .create_volume(bollard::models::VolumeCreateRequest {
+                name: Some(volume_name.clone()),
+                ..Default::default()
+            })
+            .await
+            .expect("create the volume");
+
+        // Leave the volume the way the official image did: written by a
+        // MinIO running as root, with one bucket in it.
+        let seed_script = "minio server /data & pid=$!; \
+            until mc ready local >/dev/null 2>&1; do sleep 1; done; \
+            mc alias set seed http://localhost:9000 \"$MINIO_ROOT_USER\" \"$MINIO_ROOT_PASSWORD\" && \
+            mc mb seed/legacy; status=$?; kill $pid; wait $pid; exit $status";
+        let seed_name = format!("{name}-seed");
+        let seed = docker
+            .create_container(
+                Some(
+                    bollard::query_parameters::CreateContainerOptionsBuilder::new()
+                        .name(&seed_name)
+                        .build(),
+                ),
+                bollard::models::ContainerCreateBody {
+                    image: Some(MINIO_IMAGE.to_string()),
+                    user: Some("0:0".to_string()),
+                    entrypoint: Some(vec!["sh".to_string(), "-c".to_string()]),
+                    cmd: Some(vec![seed_script.to_string()]),
+                    env: Some(vec![
+                        "MINIO_ROOT_USER=rootvolumeadmin".to_string(),
+                        "MINIO_ROOT_PASSWORD=rootvolumesecret".to_string(),
+                    ]),
+                    host_config: Some(bollard::models::HostConfig {
+                        mounts: Some(vec![bollard::models::Mount {
+                            target: Some("/data".to_string()),
+                            source: Some(volume_name.clone()),
+                            typ: Some(bollard::models::MountTypeEnum::VOLUME),
+                            ..Default::default()
+                        }]),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("create the seed container");
+        docker
+            .start_container(
+                &seed.id,
+                None::<bollard::query_parameters::StartContainerOptions>,
+            )
+            .await
+            .expect("start the seed container");
+        let seed_exit = docker
+            .wait_container(&seed.id, None::<WaitContainerOptions>)
+            .try_collect::<Vec<_>>()
+            .await
+            .ok()
+            .and_then(|v| v.into_iter().next().map(|r| r.status_code));
+        let _ = docker
+            .remove_container(
+                &seed.id,
+                Some(bollard::query_parameters::RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await;
+
+        assert_eq!(seed_exit, Some(0), "seeding the root-owned volume failed");
+
+        let encryption_service =
+            Arc::new(EncryptionService::new("test_encryption_key_1234567890ab").unwrap());
+        let service = S3Service::new(name.clone(), docker.clone(), encryption_service);
+        let config = ServiceConfig {
+            name: name.clone(),
+            service_type: ServiceType::S3,
+            version: None,
+            parameters: serde_json::json!({
+                "host": "localhost",
+                "region": "us-east-1",
+                "access_key": "rootvolumeadmin",
+                "secret_key": "rootvolumesecret",
+                "docker_image": MINIO_IMAGE,
+            }),
+        };
+
+        let init = service.init(config).await;
+        let buckets = async {
+            let params = init.as_ref().map_err(|e| anyhow::anyhow!("{e}"))?;
+            let runtime = ServiceConfig {
+                name: name.clone(),
+                service_type: ServiceType::S3,
+                version: None,
+                parameters: serde_json::to_value(params)?,
+            };
+            let client = service.initialize_client(runtime).await?;
+            let output = client.list_buckets().send().await?;
+            let names: Vec<String> = output
+                .buckets()
+                .iter()
+                .filter_map(|bucket| bucket.name().map(str::to_string))
+                .collect();
+            anyhow::Ok(names)
+        }
+        .await;
+        let _ = service.remove().await;
+
+        init.expect("MinIO must start on a root-owned volume");
+        let buckets = buckets.expect("list buckets on the existing volume");
+        assert!(
+            buckets.iter().any(|bucket| bucket == "legacy"),
+            "existing bucket missing: {buckets:?}"
+        );
     }
 
     // `flavor = "multi_thread"` is required because `MinioTestContainer`'s
