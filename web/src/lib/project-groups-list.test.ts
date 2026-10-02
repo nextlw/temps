@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'bun:test'
 import { groupedProjectsView } from './project-groups-list'
-import type { ProjectGroupResponse } from './project-groups-types'
+import type { ProjectGroupResponse } from '@/api/client'
 
 const group = (
   id: number,

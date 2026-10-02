@@ -8,7 +8,7 @@
 
 import { projectPageCount } from './project-list-pagination'
 import { groupServices, type ServicesInGroup } from './project-groups'
-import type { ProjectGroupResponse } from './project-groups-types'
+import type { ProjectGroupResponse } from '@/api/client'
 
 interface ListedService {
   id: number

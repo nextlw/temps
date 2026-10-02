@@ -8,7 +8,7 @@ import {
   environmentState,
   servicesOfGroup,
 } from './project-group-overview'
-import type { ProjectGroupResponse } from './project-groups-types'
+import type { ProjectGroupResponse } from '@/api/client'
 
 const group = (
   id: number,

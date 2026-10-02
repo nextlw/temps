@@ -1,9 +1,8 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import type { ProjectResponse } from '@/api/client'
+import type { ProjectGroupResponse, ProjectResponse } from '@/api/client'
 import { projectGroupHref } from '@/lib/project-groups'
-import type { ProjectGroupResponse } from '@/lib/project-groups-types'
 import { ProjectAvatar, RecordLink } from '@temps-sdk/ds'
 import { Box } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
