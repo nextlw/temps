@@ -23,7 +23,7 @@ import {
   projectGroupErrorReason,
   projectGroupNameProblem,
 } from '@/lib/project-group-errors'
-import type { ProjectGroupResponse } from '@/lib/project-groups-types'
+import type { ProjectGroupResponse } from '@/api/client'
 import { Callout, Field, SettingsGroup } from '@temps-sdk/ds'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'

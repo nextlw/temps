@@ -9,7 +9,7 @@
 // helpers therefore treat "not in the list" as "does not exist", and only
 // place a service under a group when that service is in the given list too.
 
-import type { ProjectGroupResponse } from './project-groups-types'
+import type { ProjectGroupResponse } from '@/api/client'
 
 /** Base path of the Project pages (`/project-groups/:slug/*`). */
 export const PROJECT_GROUPS_PATH = '/project-groups'

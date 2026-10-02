@@ -7,7 +7,7 @@
 
 import type { StatusTone } from '@temps-sdk/ds'
 import { groupOfService, groupServices } from './project-groups'
-import type { ProjectGroupResponse } from './project-groups-types'
+import type { ProjectGroupResponse } from '@/api/client'
 
 interface NamedService {
   id: number

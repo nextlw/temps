@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import type { ProjectResponse } from '@/api/client'
+import type { ProjectGroupResponse, ProjectResponse } from '@/api/client'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -22,7 +22,6 @@ import {
 import { useAssignServiceToProjectGroup } from '@/hooks/useProjectGroups'
 import { projectGroupErrorReason } from '@/lib/project-group-errors'
 import { addableServices } from '@/lib/project-group-overview'
-import type { ProjectGroupResponse } from '@/lib/project-groups-types'
 import { Callout } from '@temps-sdk/ds'
 import { ArrowRightLeft, Box, Check } from 'lucide-react'
 import { useMemo, useState, type RefObject } from 'react'

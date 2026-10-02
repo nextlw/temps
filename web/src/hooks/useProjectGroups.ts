@@ -5,13 +5,19 @@
 // cached list query. The sidebar, the breadcrumb and the switchers all read
 // the same entry, and every mutation invalidates it, so a rename or a move
 // shows up everywhere without a reload.
-//
-// The endpoints are called through the generated client's transport (base
-// URL, bearer auth, error parsing) with local types until the client is
-// regenerated with the `Project Groups` tag.
 
+import {
+  assignProjectToGroup,
+  createProjectGroup,
+  deleteProjectGroup,
+  listProjectGroups,
+  removeProjectFromGroup,
+  updateProjectGroup,
+  type CreateProjectGroupRequest,
+  type ProjectGroupResponse,
+  type UpdateProjectGroupRequest,
+} from '@/api/client'
 import { getProjectBySlugOptions } from '@/api/client/@tanstack/react-query.gen'
-import { client } from '@/api/client/client.gen'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   findProjectGroupBySlug,
@@ -23,19 +29,12 @@ import {
   projectGroupErrorReason,
 } from '@/lib/project-group-errors'
 import { resolveSidebarMode } from '@/lib/sidebar-mode'
-import type {
-  CreateProjectGroupRequest,
-  ProjectGroupResponse,
-  UpdateProjectGroupRequest,
-} from '@/lib/project-groups-types'
 import {
   type QueryClient,
   useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query'
-
-const BEARER_SECURITY = [{ scheme: 'bearer', type: 'http' }] as const
 
 /** Prefix of every project-group query; invalidating it refreshes them all. */
 export const PROJECT_GROUPS_QUERY_KEY = ['project-groups'] as const
@@ -47,11 +46,7 @@ export const PROJECT_GROUPS_QUERY_KEY = ['project-groups'] as const
 export async function fetchProjectGroups(
   signal?: AbortSignal
 ): Promise<ProjectGroupResponse[]> {
-  const { data, error, response } = await client.get<unknown, unknown, false>({
-    security: [...BEARER_SECURITY],
-    url: '/project-groups',
-    signal,
-  })
+  const { data, error, response } = await listProjectGroups({ signal })
   if (response?.status === 404) return []
   if (error !== undefined) throw error
   return normalizeProjectGroups(data)
@@ -144,14 +139,7 @@ export function projectGroupMutations(queryClient: QueryClient) {
   return {
     create: {
       mutationFn: async (body: CreateProjectGroupRequest) =>
-        unwrap(
-          await client.post<ProjectGroupResponse, unknown, false>({
-            security: [...BEARER_SECURITY],
-            url: '/project-groups',
-            body,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        ),
+        unwrap(await createProjectGroup({ body })),
       onSuccess: invalidate,
       onError: refreshWhenStale(invalidate),
     },
@@ -162,28 +150,13 @@ export function projectGroupMutations(queryClient: QueryClient) {
       }: {
         id: number
         body: UpdateProjectGroupRequest
-      }) =>
-        unwrap(
-          await client.patch<ProjectGroupResponse, unknown, false>({
-            security: [...BEARER_SECURITY],
-            url: '/project-groups/{id}',
-            path: { id },
-            body,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        ),
+      }) => unwrap(await updateProjectGroup({ path: { id }, body })),
       onSuccess: invalidate,
       onError: refreshWhenStale(invalidate),
     },
     remove: {
       mutationFn: async (id: number) => {
-        unwrap(
-          await client.delete<unknown, unknown, false>({
-            security: [...BEARER_SECURITY],
-            url: '/project-groups/{id}',
-            path: { id },
-          })
-        )
+        unwrap(await deleteProjectGroup({ path: { id } }))
       },
       onSuccess: invalidate,
       onError: refreshWhenStale(invalidate),
@@ -191,9 +164,7 @@ export function projectGroupMutations(queryClient: QueryClient) {
     assign: {
       mutationFn: async ({ groupId, serviceId }: ServiceMembership) =>
         unwrap(
-          await client.put<ProjectGroupResponse, unknown, false>({
-            security: [...BEARER_SECURITY],
-            url: '/project-groups/{id}/projects/{project_id}',
+          await assignProjectToGroup({
             path: { id: groupId, project_id: serviceId },
           })
         ),
@@ -203,9 +174,7 @@ export function projectGroupMutations(queryClient: QueryClient) {
     unassign: {
       mutationFn: async ({ groupId, serviceId }: ServiceMembership) => {
         unwrap(
-          await client.delete<unknown, unknown, false>({
-            security: [...BEARER_SECURITY],
-            url: '/project-groups/{id}/projects/{project_id}',
+          await removeProjectFromGroup({
             path: { id: groupId, project_id: serviceId },
           })
         )

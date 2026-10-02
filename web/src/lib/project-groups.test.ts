@@ -10,7 +10,7 @@ import {
   projectGroupHref,
   sortProjectGroups,
 } from './project-groups'
-import type { ProjectGroupResponse } from './project-groups-types'
+import type { ProjectGroupResponse } from '@/api/client'
 
 const group = (
   id: number,

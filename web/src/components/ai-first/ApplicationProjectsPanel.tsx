@@ -21,6 +21,7 @@ import {
   setApplicationPrimaryProject,
   unlinkApplicationProject,
   type ApplicationResponse,
+  type ProjectGroupResponse,
   type ProjectResponse,
 } from '@/api/client'
 import { getProjectsOptions } from '@/api/client/@tanstack/react-query.gen'
@@ -30,7 +31,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useProjectGroups } from '@/hooks/useProjectGroups'
 import { groupOfService } from '@/lib/project-groups'
-import type { ProjectGroupResponse } from '@/lib/project-groups-types'
 import { useQuery } from '@tanstack/react-query'
 import { ApplicationDataServicesPanel } from './ApplicationDataServicesPanel'
 import { RichProjectPicker, type ProjectPickerItem } from './RichProjectPicker'

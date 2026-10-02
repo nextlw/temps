@@ -1717,6 +1717,42 @@ export type AppSettings = {
     observability_retention?: ObservabilityRetentionSettings;
     on_demand_tls?: OnDemandTlsSettings;
     /**
+     * Whether an email + password login may be used on this instance.
+     *
+     * - `None` (default) / `Some(true)` — password login works as it always
+     * has.
+     * - `Some(false)` — the server refuses password logins, so SSO is the only
+     * way in. For an instance whose console is reachable from the internet
+     * and whose accounts live in a corporate IdP: leaving a password path
+     * open there means every account's password is a way in, whether or not
+     * the login page still offers the fields.
+     *
+     * `Option<bool>`, not `bool`, because `AppSettings` carries
+     * `#[serde(default)]` and a bare `bool` defaults to `false`: a stored
+     * settings row written before this field existed would deserialize as
+     * "password login disabled" and lock every operator out of an instance
+     * nobody had configured for SSO. The tri-state makes the absent case
+     * unambiguous.
+     *
+     * Refusal is conditional on an enabled OIDC provider actually existing —
+     * see `temps-auth`'s login gate. That is what stops this from being a foot
+     * gun: disable the last provider, or have it deleted, and password login
+     * comes back on its own rather than leaving an instance with no way in.
+     *
+     * Break glass, for an operator with a shell on the host when the IdP
+     * itself is the thing that is down:
+     *
+     * ```sql
+     * UPDATE settings
+     * SET data = jsonb_set(data, '{password_login_enabled}', 'true')
+     * WHERE id = 1;
+     * ```
+     *
+     * It takes effect on the next login attempt — the value is read per
+     * request, not cached at startup.
+     */
+    password_login_enabled?: boolean | null;
+    /**
      * Share verified external-plugin installation counts with the official
      * registry. Defaults to off; each plugin receives an unlinkable ID.
      */
@@ -5720,6 +5756,19 @@ export type CreateProjectFromTemplateResponse = {
     template_slug: string;
 };
 
+/**
+ * Unknown fields are refused so a typo (or an attempt to send `id`) is a
+ * 400, not a silently ignored field.
+ */
+export type CreateProjectGroupRequest = {
+    description?: string | null;
+    name: string;
+    /**
+     * Generated from `name` when omitted. Immutable afterwards.
+     */
+    slug?: string | null;
+};
+
 export type CreateProjectRequest = {
     automatic_deploy?: boolean | null;
     build_command?: string | null;
@@ -6485,6 +6534,27 @@ export type DeploymentConfig = {
      * Stored as JSONB so absent key → `None` (inherit), never silently defaults to false.
      */
     automaticDeploy?: boolean | null;
+    /**
+     * Absolute path to a build program this host runs instead of building on
+     * the local Docker daemon.
+     *
+     * Present means a build for this project or environment is spawned as a
+     * child process with a cleared environment and its own process group, and
+     * reports back a result envelope. Absent — the default, and what every
+     * existing row means — keeps the build exactly where it is today.
+     *
+     * **A path and not a flag.** What runs is operator configuration, so the
+     * decision of *which program* is theirs and cannot be influenced by a
+     * build request. A flag would force this host to guess, and guessing at
+     * an executable is how a request ends up choosing one.
+     *
+     * `Option<String>` so an environment inherits the project's setting
+     * (`None`) or overrides it, matching `cross_architecture_builds`. The
+     * per-field inheritance here is why build placement lives in this config
+     * and not in `AppSettings`, whose shallow merge resets an omitted field
+     * to its default.
+     */
+    buildProgram?: string | null;
     /**
      * Enable container exec/shell access (disabled by default for security)
      */
@@ -8094,6 +8164,15 @@ export type EmailStatsResponse = {
 export type EmailStatusResponse = {
     email_configured: boolean;
     oidc_providers: Array<OidcProviderSummary>;
+    /**
+     * Whether the login page should offer the email + password fields.
+     *
+     * Computed by the same function the login gate uses
+     * ([`password_login_permitted`]), so the page never offers a credential
+     * the server is going to refuse. It is presentation only — hiding the
+     * fields is not the control; the server refusing them is.
+     */
+    password_login_enabled: boolean;
     password_reset_available: boolean;
 };
 
@@ -16316,6 +16395,33 @@ export type ProjectEnvVarInput = {
 };
 
 /**
+ * A project group as the caller may see it. `service_ids` and
+ * `service_count` only cover the projects the caller can reach.
+ */
+export type ProjectGroupResponse = {
+    /**
+     * Unix epoch milliseconds.
+     */
+    created_at: number;
+    description?: string | null;
+    id: number;
+    name: string;
+    /**
+     * Always `service_ids.len()`.
+     */
+    service_count: number;
+    /**
+     * Visible member project ids, ascending.
+     */
+    service_ids: Array<number>;
+    slug: string;
+    /**
+     * Unix epoch milliseconds.
+     */
+    updated_at: number;
+};
+
+/**
  * Health summary for a single project over the requested time range.
  */
 export type ProjectHealthSummary = {
@@ -23808,6 +23914,16 @@ export type UpdateProjectCloudTelemetryRequest = {
     attribute_allowlist?: Array<string> | null;
     fidelity?: null | CloudTelemetryFidelity;
     write_mode?: null | CloudTelemetryWriteMode;
+};
+
+/**
+ * Only the fields present are changed. Absent and `null` both mean "not
+ * provided"; an empty `description` clears it. Unknown fields are refused,
+ * so sending `slug` (immutable) is a 400 rather than a silent no-op.
+ */
+export type UpdateProjectGroupRequest = {
+    description?: string | null;
+    name?: string | null;
 };
 
 /**
@@ -46707,6 +46823,300 @@ export type UpgradePreviewGatewayResponses = {
 };
 
 export type UpgradePreviewGatewayResponse = UpgradePreviewGatewayResponses[keyof UpgradePreviewGatewayResponses];
+
+export type ListProjectGroupsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/project-groups';
+};
+
+export type ListProjectGroupsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Insufficient permissions or deployment token
+     */
+    403: unknown;
+    /**
+     * Access check or database failure
+     */
+    500: unknown;
+};
+
+export type ListProjectGroupsResponses = {
+    /**
+     * Visible project groups, ordered by name
+     */
+    200: Array<ProjectGroupResponse>;
+};
+
+export type ListProjectGroupsResponse = ListProjectGroupsResponses[keyof ListProjectGroupsResponses];
+
+export type CreateProjectGroupData = {
+    body: CreateProjectGroupRequest;
+    path?: never;
+    query?: never;
+    url: '/project-groups';
+};
+
+export type CreateProjectGroupErrors = {
+    /**
+     * Empty or over-long name, invalid slug, or malformed body (unknown fields included)
+     */
+    400: unknown;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Insufficient permissions or deployment token
+     */
+    403: unknown;
+    /**
+     * Slug already taken
+     */
+    409: unknown;
+};
+
+export type CreateProjectGroupResponses = {
+    /**
+     * Project group created
+     */
+    201: ProjectGroupResponse;
+};
+
+export type CreateProjectGroupResponse = CreateProjectGroupResponses[keyof CreateProjectGroupResponses];
+
+export type GetProjectGroupBySlugData = {
+    body?: never;
+    path: {
+        /**
+         * Project group slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/project-groups/by-slug/{slug}';
+};
+
+export type GetProjectGroupBySlugErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Insufficient permissions or deployment token
+     */
+    403: unknown;
+    /**
+     * Not found, or every service in it is hidden from the caller
+     */
+    404: unknown;
+};
+
+export type GetProjectGroupBySlugResponses = {
+    /**
+     * Project group
+     */
+    200: ProjectGroupResponse;
+};
+
+export type GetProjectGroupBySlugResponse = GetProjectGroupBySlugResponses[keyof GetProjectGroupBySlugResponses];
+
+export type DeleteProjectGroupData = {
+    body?: never;
+    path: {
+        /**
+         * Project group ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/project-groups/{id}';
+};
+
+export type DeleteProjectGroupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Insufficient permissions, deployment token, a service in the group is hidden from the caller, or the caller's role on one of its services lacks projects:delete
+     */
+    403: unknown;
+    /**
+     * Not found, or every service in it is hidden from the caller
+     */
+    404: unknown;
+};
+
+export type DeleteProjectGroupResponses = {
+    /**
+     * Project group deleted; its services are kept, ungrouped
+     */
+    204: void;
+};
+
+export type DeleteProjectGroupResponse = DeleteProjectGroupResponses[keyof DeleteProjectGroupResponses];
+
+export type GetProjectGroupData = {
+    body?: never;
+    path: {
+        /**
+         * Project group ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/project-groups/{id}';
+};
+
+export type GetProjectGroupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Insufficient permissions or deployment token
+     */
+    403: unknown;
+    /**
+     * Not found, or every service in it is hidden from the caller
+     */
+    404: unknown;
+};
+
+export type GetProjectGroupResponses = {
+    /**
+     * Project group
+     */
+    200: ProjectGroupResponse;
+};
+
+export type GetProjectGroupResponse = GetProjectGroupResponses[keyof GetProjectGroupResponses];
+
+export type UpdateProjectGroupData = {
+    body: UpdateProjectGroupRequest;
+    path: {
+        /**
+         * Project group ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/project-groups/{id}';
+};
+
+export type UpdateProjectGroupErrors = {
+    /**
+     * Empty or over-long name, or malformed body (unknown fields such as slug included)
+     */
+    400: unknown;
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Insufficient permissions, deployment token, a service in the group is hidden from the caller, or the caller's role on one of its services lacks projects:write
+     */
+    403: unknown;
+    /**
+     * Not found, or every service in it is hidden from the caller
+     */
+    404: unknown;
+};
+
+export type UpdateProjectGroupResponses = {
+    /**
+     * Project group updated
+     */
+    200: ProjectGroupResponse;
+};
+
+export type UpdateProjectGroupResponse = UpdateProjectGroupResponses[keyof UpdateProjectGroupResponses];
+
+export type RemoveProjectFromGroupData = {
+    body?: never;
+    path: {
+        /**
+         * Project group ID
+         */
+        id: number;
+        /**
+         * Project (service) ID
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/project-groups/{id}/projects/{project_id}';
+};
+
+export type RemoveProjectFromGroupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Insufficient permissions, deployment token, no access to the service, or the caller's role on it lacks projects:write
+     */
+    403: unknown;
+    /**
+     * Group not found or hidden, or the service is not in this group
+     */
+    404: unknown;
+};
+
+export type RemoveProjectFromGroupResponses = {
+    /**
+     * Service removed from the group; it is kept, ungrouped
+     */
+    204: void;
+};
+
+export type RemoveProjectFromGroupResponse = RemoveProjectFromGroupResponses[keyof RemoveProjectFromGroupResponses];
+
+export type AssignProjectToGroupData = {
+    body?: never;
+    path: {
+        /**
+         * Project group ID
+         */
+        id: number;
+        /**
+         * Project (service) ID
+         */
+        project_id: number;
+    };
+    query?: never;
+    url: '/project-groups/{id}/projects/{project_id}';
+};
+
+export type AssignProjectToGroupErrors = {
+    /**
+     * Unauthorized
+     */
+    401: unknown;
+    /**
+     * Insufficient permissions, deployment token, no access to the service, or the caller's role on it lacks projects:write
+     */
+    403: unknown;
+    /**
+     * Group or service not found, or the group is hidden from the caller
+     */
+    404: unknown;
+};
+
+export type AssignProjectToGroupResponses = {
+    /**
+     * Service is in the group (moved from another group if needed)
+     */
+    200: ProjectGroupResponse;
+};
+
+export type AssignProjectToGroupResponse = AssignProjectToGroupResponses[keyof AssignProjectToGroupResponses];
 
 export type GetProjectsData = {
     body?: never;
