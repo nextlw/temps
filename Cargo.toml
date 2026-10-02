@@ -377,16 +377,21 @@ woothee = "0.13.0"
 testcontainers =  "0.27.2"
 
 
+# `codegen-units = 1` compiled the final `temps-cli` crate on a single core
+# (~20 min with the rest of an 80-core build host idle). 32 units keep that
+# step parallel; with the default `lto = false`, rustc still runs thin-local
+# LTO across the units of each crate, which recovers most of the inlining the
+# split would otherwise lose. The runtime cost is small for an I/O-bound
+# control plane and proxy.
 [profile.release]
-codegen-units = 1
+codegen-units = 32
 opt-level = 3
 
 # Fast non-debug build for local "just run it" workflows. Inherits release
-# semantics but parallelizes codegen, drops debug info, and strips symbols
-# so link time is a fraction of `--release`. Use: `cargo run --profile fast`.
+# semantics but drops debug info and strips symbols so link time is a fraction
+# of `--release`. Use: `cargo run --profile fast`.
 [profile.fast]
 inherits = "release"
-codegen-units = 16
 debug = false
 strip = "symbols"
 lto = false
