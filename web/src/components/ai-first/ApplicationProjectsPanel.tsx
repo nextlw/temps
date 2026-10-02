@@ -24,9 +24,13 @@ import {
   type ProjectResponse,
 } from '@/api/client'
 import { getProjectsOptions } from '@/api/client/@tanstack/react-query.gen'
+import { ProjectGroupBadge } from '@/components/project-groups/ProjectGroupBadge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useProjectGroups } from '@/hooks/useProjectGroups'
+import { groupOfService } from '@/lib/project-groups'
+import type { ProjectGroupResponse } from '@/lib/project-groups-types'
 import { useQuery } from '@tanstack/react-query'
 import { ApplicationDataServicesPanel } from './ApplicationDataServicesPanel'
 import { RichProjectPicker, type ProjectPickerItem } from './RichProjectPicker'
@@ -46,6 +50,10 @@ export function ApplicationProjectsPanel({
   const [linkId, setLinkId] = useState<number | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // The workspace stays its own entity (ADR-048 rule 6); it only shows the
+  // Project each linked service belongs to (ADR-049, DF2-4).
+  const { groups } = useProjectGroups()
 
   const projectsQuery = useQuery({
     ...getProjectsOptions({ query: { page: 1, per_page: 100 } }),
@@ -127,6 +135,7 @@ export function ApplicationProjectsPanel({
                   >
                     {project.name}
                   </Link>
+                  <ServiceGroupBadge groups={groups} serviceId={project.id} />
                   {project.is_primary && (
                     <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                       Primary
@@ -274,7 +283,9 @@ export function ApplicationProjectsPanel({
                 ariaLabel={t('workspace.linkExistingLabel')}
                 disabled={busy !== null}
                 onValueChange={setLinkId}
-                projects={unlinked.map(projectPickerItem)}
+                projects={unlinked.map((project) =>
+                  projectPickerItem(project, groups)
+                )}
                 value={linkId}
               />
               <Button
@@ -315,14 +326,30 @@ export function ApplicationProjectsPanel({
   )
 }
 
-function projectPickerItem(project: ProjectResponse): ProjectPickerItem {
+function projectPickerItem(
+  project: ProjectResponse,
+  groups: readonly ProjectGroupResponse[]
+): ProjectPickerItem {
   return {
     id: project.id,
     name: project.name,
     slug: project.slug,
     status: project.last_deployment ? 'Deployed' : 'Not deployed',
     tone: project.last_deployment ? 'healthy' : 'neutral',
+    projectGroupName: groupOfService(groups, project.id)?.name,
   }
+}
+
+/** The Project a linked service is in; nothing for an ungrouped one. */
+function ServiceGroupBadge({
+  groups,
+  serviceId,
+}: {
+  groups: readonly ProjectGroupResponse[]
+  serviceId: number
+}) {
+  const group = groupOfService(groups, serviceId)
+  return group ? <ProjectGroupBadge name={group.name} /> : null
 }
 
 function StatusCell({

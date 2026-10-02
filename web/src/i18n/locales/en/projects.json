@@ -1,6 +1,5 @@
 {
   "list": {
-    "title": "$t(terms:project.plural)",
     "description": "Manage your $t(terms:project.pluralLower) and their settings",
     "newProject": "New $t(terms:project.singular)",
     "searchLabel": "Filter $t(terms:project.pluralLower) by name or slug",

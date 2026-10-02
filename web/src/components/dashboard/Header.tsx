@@ -8,10 +8,22 @@ import {
 import { AiAssistantButton } from '@/components/ai/AiAssistantButton'
 import { BackupAlertsButton } from '@/components/dashboard/BackupAlertsButton'
 import { DropButton } from '@/components/dashboard/DropButton'
+import { ProjectGroupSwitcher } from '@/components/dashboard/ProjectGroupSwitcher'
 import { FeatureMaturityBadge } from '@/components/feature-maturity/FeatureMaturityBadge'
 import { ProjectAvatar } from '@/components/project/ProjectAvatar'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
+import {
+  useProjectGroupForPath,
+  useProjectGroups,
+} from '@/hooks/useProjectGroups'
+import {
+  isProjectGroupCrumb,
+  isServiceCrumb,
+  withProjectGroupCrumb,
+} from '@/lib/breadcrumb-trail'
 import { featureKeyForPath } from '@/lib/feature-maturity'
+import { groupServices } from '@/lib/project-groups'
+import { resolveSidebarMode } from '@/lib/sidebar-mode'
 import { useConsoleExtensions } from '@temps-sdk/console-kit'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronsUpDown, Plus } from 'lucide-react'
@@ -82,7 +94,7 @@ function ProjectSwitcher({
   label: string
 }) {
   const navigate = useNavigate()
-  const { t } = useTranslation('nav')
+  const { t } = useTranslation(['nav', 'projectGroups'])
   const [open, setOpen] = useState(false)
   const { data } = useQuery({
     ...getProjectsOptions({ query: { page: 1, per_page: 100 } }),
@@ -97,6 +109,32 @@ function ProjectSwitcher({
         ),
     [data?.projects]
   )
+  // Services listed under their Project, then the ungrouped ones. Without any
+  // Project in the list, it stays the single flat list it always was.
+  const { groups } = useProjectGroups()
+  const sections = useMemo(() => {
+    const grouped = groupServices(groups, projects)
+    const withServices = grouped.groups.filter((g) => g.services.length > 0)
+    if (withServices.length === 0) {
+      return [{ key: 'all', heading: undefined, services: projects }]
+    }
+    return [
+      ...withServices.map((g) => ({
+        key: `group-${g.group.id}`,
+        heading: g.group.name,
+        services: g.services,
+      })),
+      ...(grouped.ungrouped.length > 0
+        ? [
+            {
+              key: 'ungrouped',
+              heading: t('projectGroups:ungrouped'),
+              services: grouped.ungrouped,
+            },
+          ]
+        : []),
+    ]
+  }, [groups, projects, t])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -122,29 +160,31 @@ function ProjectSwitcher({
           <CommandInput placeholder={t('switcher.find')} />
           <CommandList>
             <CommandEmpty>{t('switcher.empty')}</CommandEmpty>
-            <CommandGroup>
-              {projects.map((p) => {
-                const isCurrent = p.slug === currentSlug
-                return (
-                  <CommandItem
-                    key={p.id}
-                    value={`${p.name} ${p.slug}`}
-                    onSelect={() => {
-                      setOpen(false)
-                      if (!isCurrent) {
-                        navigate(`/projects/${p.slug}`)
-                      }
-                    }}
-                  >
-                    <ProjectRowIcon projectId={p.id} name={p.name} />
-                    <span className="flex-1 truncate">{p.name}</span>
-                    {isCurrent && (
-                      <Check className="size-4 text-muted-foreground" />
-                    )}
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
+            {sections.map((section) => (
+              <CommandGroup key={section.key} heading={section.heading}>
+                {section.services.map((p) => {
+                  const isCurrent = p.slug === currentSlug
+                  return (
+                    <CommandItem
+                      key={p.id}
+                      value={`${p.name} ${p.slug}`}
+                      onSelect={() => {
+                        setOpen(false)
+                        if (!isCurrent) {
+                          navigate(`/projects/${p.slug}`)
+                        }
+                      }}
+                    >
+                      <ProjectRowIcon projectId={p.id} name={p.name} />
+                      <span className="flex-1 truncate">{p.name}</span>
+                      {isCurrent && (
+                        <Check className="size-4 text-muted-foreground" />
+                      )}
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            ))}
             <CommandSeparator />
             <CommandGroup>
               <CommandItem
@@ -178,6 +218,11 @@ export function Header() {
       ? projectSlugMatch[1]
       : null
   const featureKey = featureKeyForPath(location.pathname)
+  // The page owns its trail; the header only adds the service's Project.
+  const projectGroup = useProjectGroupForPath(location.pathname)
+  const onGroupPage =
+    resolveSidebarMode(location.pathname).kind === 'projectGroup'
+  const trail = withProjectGroupCrumb(breadcrumbs, projectSlug, projectGroup)
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
@@ -187,16 +232,26 @@ export function Header() {
           <Separator orientation="vertical" className="mr-2 h-4 shrink-0" />
           <Breadcrumb className="min-w-0">
             <BreadcrumbList className="flex-nowrap min-w-0">
-              {breadcrumbs.map((item, index) => {
-                const isLast = index === breadcrumbs.length - 1
+              {trail.map((item, index) => {
+                const isLast = index === trail.length - 1
+                // The Project crumb is matched first: a Project and a service
+                // can share a name or slug.
+                const isGroupCrumb =
+                  !!projectGroup &&
+                  isProjectGroupCrumb(item, projectGroup, onGroupPage)
                 const isProjectCrumb =
+                  !isGroupCrumb &&
                   projectSlug !== null &&
-                  (item.label === projectSlug ||
-                    item.href === `/projects/${projectSlug}`)
+                  isServiceCrumb(item, projectSlug)
                 return (
                   <React.Fragment key={index}>
                     <BreadcrumbItem className="min-w-0">
-                      {isProjectCrumb ? (
+                      {isGroupCrumb && projectGroup ? (
+                        <ProjectGroupSwitcher
+                          currentSlug={projectGroup.slug}
+                          label={item.label}
+                        />
+                      ) : isProjectCrumb && projectSlug !== null ? (
                         <ProjectSwitcher
                           currentSlug={projectSlug}
                           label={item.label}

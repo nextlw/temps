@@ -47,6 +47,8 @@ test('sidebar follows the URL through back links and browser history', async ({
         role: 'admin',
         mfa_enabled: false,
       }
+    // The service is in no Project (project group).
+    else if (path === '/project-groups') body = []
     else if (path === '/projects/by-slug/example-app' || path === '/projects/1')
       body = project
     else if (path === '/projects')
@@ -62,14 +64,16 @@ test('sidebar follows the URL through back links and browser history', async ({
   await page.goto('/projects/example-app/environment-variables')
   const projectNav = page.getByRole('list', { name: 'Service navigation' })
   await expect(projectNav).toBeVisible()
-  const back = page.getByRole('link', { name: 'Back to services', exact: true })
+  // The service is in no Project (`/project-groups` answers `[]`), so its nav
+  // leads back to the Projects list.
+  const back = page.getByRole('link', { name: 'Back to projects', exact: true })
   await expect(back).toHaveAttribute('href', '/projects')
   const breadcrumbs = page.getByRole('navigation', {
     name: 'breadcrumb',
     exact: true,
   })
   await expect(
-    breadcrumbs.getByRole('link', { name: 'Services', exact: true })
+    breadcrumbs.getByRole('link', { name: 'Projects', exact: true })
   ).toHaveAttribute('href', '/projects')
   await expect(
     breadcrumbs.getByRole('button', { name: 'Switch service' })

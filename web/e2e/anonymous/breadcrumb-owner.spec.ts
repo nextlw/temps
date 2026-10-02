@@ -42,6 +42,8 @@ test('deployment detail keeps its own trail on direct entry and hands it back', 
         mfa_enabled: false,
         role: 'admin',
       }
+    // No Projects (project groups): the trail stays `Projects › service › …`.
+    else if (path === '/api/project-groups') json = []
     else if (path === '/api/projects/by-slug/trail-test') {
       // Slow enough that the layout's effect re-runs after the page mounted.
       await new Promise((resolve) => setTimeout(resolve, 300))

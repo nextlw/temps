@@ -21,6 +21,7 @@ import observability from './locales/en/observability.json'
 import audit from './locales/en/audit.json'
 import storage from './locales/en/storage.json'
 import ai from './locales/en/ai.json'
+import projectGroups from './locales/en/projectGroups.json'
 
 export const FALLBACK_LANGUAGE = 'en'
 export const SUPPORTED_LANGUAGES = ['en', 'pt-BR'] as const
@@ -36,6 +37,7 @@ export const NAMESPACES = [
   'audit',
   'storage',
   'ai',
+  'projectGroups',
 ] as const
 export const DEFAULT_NAMESPACE = 'common'
 
@@ -50,6 +52,7 @@ export const resources = {
     audit,
     storage,
     ai,
+    projectGroups,
   },
 } as const
 

@@ -5,10 +5,19 @@ import { i18n } from '@/i18n'
 import { type SearchableSelectOption } from '@/components/ui/searchable-select'
 
 import { PERMISSION_DENIED_FILTER } from '@/lib/audit-operation-filters'
+import {
+  PROJECT_GROUP_AUDIT_GROUP,
+  PROJECT_GROUP_AUDIT_OPERATIONS,
+  resolveAuditLabel,
+  type AuditKey,
+  type AuditLabel,
+} from '@/lib/project-group-audit'
 
+// Labels are text or, for newer entries, an `audit` key that
+// `buildOperationOptions` translates when the page renders (F6.0).
 export type OperationGroup = {
-  label: string
-  operations: { value: string; label: string }[]
+  label: AuditLabel
+  operations: { value: string; label: AuditLabel }[]
 }
 
 export const OPERATION_GROUPS: OperationGroup[] = [
@@ -190,6 +199,10 @@ export const OPERATION_GROUPS: OperationGroup[] = [
     ],
   },
   {
+    label: PROJECT_GROUP_AUDIT_GROUP,
+    operations: [...PROJECT_GROUP_AUDIT_OPERATIONS],
+  },
+  {
     label: i18n.t('audit:groups.externalServices'),
     operations: [
       {
@@ -329,16 +342,19 @@ export const OPERATION_GROUPS: OperationGroup[] = [
 ]
 
 // Pure option builder is exported for focused coverage of the audit vocabulary.
-export function buildOperationOptions(): SearchableSelectOption[] {
+export function buildOperationOptions(
+  translate: (key: AuditKey) => string = (key) => i18n.t(`audit:${key}`)
+): SearchableSelectOption[] {
   const options: SearchableSelectOption[] = [
     { value: ALL_FILTER, label: 'All types' },
   ]
   for (const group of OPERATION_GROUPS) {
+    const groupLabel = resolveAuditLabel(group.label, translate)
     for (const operation of group.operations) {
       options.push({
         value: operation.value,
-        label: operation.label,
-        group: group.label,
+        label: resolveAuditLabel(operation.label, translate),
+        group: groupLabel,
         keywords: operation.value,
       })
     }

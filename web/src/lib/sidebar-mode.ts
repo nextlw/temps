@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import { projectGroupHref } from '@/lib/project-groups'
 import { WORKER_NODES_URL } from '@/lib/worker-nodes'
 
 // The sidebar is a pure function of the URL. Which nav it shows is derived
@@ -13,6 +14,10 @@ export type SidebarMode =
   | { kind: 'settings' }
   | { kind: 'ai' }
   | { kind: 'project'; slug: string }
+  // A project group (UI: Project, docs/adr/049-project-groups.md). Which
+  // group a service belongs to is data, not URL: the service nav stays
+  // `project`, and only its back link points at the group.
+  | { kind: 'projectGroup'; slug: string }
 
 // The AI area's several pages read as one drill-down instead of scattered
 // sidebar entries, mirroring the settings swap.
@@ -30,6 +35,7 @@ const NON_PROJECT_SEGMENTS = new Set(['new', 'import-wizard', 'import'])
 
 export const SIDEBAR_BACK_TARGET = {
   project: '/projects',
+  projectGroup: '/projects',
   // `/` only redirects to the project list; link there directly.
   settings: '/projects',
   ai: '/tools',
@@ -59,9 +65,36 @@ export function resolveSidebarMode(pathname: string): SidebarMode {
   if (AI_MODE_PREFIXES.some((prefix) => isUnder(pathname, prefix))) {
     return { kind: 'ai' }
   }
+  const groupMatch = pathname.match(/^\/project-groups\/([^/]+)(?:\/.*)?$/)
+  if (groupMatch) {
+    return { kind: 'projectGroup', slug: decodeSegment(groupMatch[1]) }
+  }
   const projectMatch = pathname.match(/^\/projects\/([^/]+)(?:\/.*)?$/)
   if (projectMatch && !NON_PROJECT_SEGMENTS.has(projectMatch[1])) {
     return { kind: 'project', slug: decodeSegment(projectMatch[1]) }
   }
   return { kind: 'default' }
+}
+
+/**
+ * Where the service nav's back link goes: the service's Project when it has
+ * one, otherwise the Projects list. Only the target depends on data; the nav
+ * shown is still `resolveSidebarMode(pathname)`.
+ */
+export function projectNavBackTarget(group?: { slug: string }): string {
+  return group ? projectGroupHref(group.slug) : SIDEBAR_BACK_TARGET.project
+}
+
+export type ProjectGroupSection = 'overview' | 'settings'
+
+/** The Project nav entry a `/project-groups/:slug/*` path belongs to. */
+export function resolveProjectGroupSection(
+  pathname: string
+): ProjectGroupSection | null {
+  const prefix = pathname.match(/^\/project-groups\/[^/]+/)
+  if (!prefix) return null
+  const rest = pathname.slice(prefix[0].length)
+  if (rest === '' || rest === '/') return 'overview'
+  if (isUnder(rest, '/settings')) return 'settings'
+  return null
 }

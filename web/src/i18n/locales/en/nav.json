@@ -1,5 +1,5 @@
 {
-  "projects": "$t(terms:project.plural)",
+  "projects": "$t(terms:projectGroup.plural)",
   "projectDetails": "$t(terms:project.singular) details",
   "groups": {
     "buildDeliver": "Build & deliver",
@@ -57,8 +57,20 @@
     "settings": "Settings",
     "settingsTooltip": "$t(terms:project.singular) settings"
   },
+  "projectGroup": {
+    "navigationLabel": "$t(terms:projectGroup.singular) navigation",
+    "overview": "Overview",
+    "settings": "Settings",
+    "settingsTooltip": "$t(terms:projectGroup.singular) settings",
+    "services": "$t(terms:project.plural)",
+    "servicesLabel": "$t(terms:project.plural) in this $t(terms:projectGroup.singularLower)",
+    "noServices": "No $t(terms:project.pluralLower) yet",
+    "moreServices_one": "{{count}} more $t(terms:project.singularLower) not shown",
+    "moreServices_other": "{{count}} more $t(terms:project.pluralLower) not shown"
+  },
   "back": {
-    "toProjects": "Back to $t(terms:project.pluralLower)",
+    "toProjects": "Back to $t(terms:projectGroup.pluralLower)",
+    "toProjectGroup": "Back to {{name}}",
     "mainMenu": "Main menu",
     "toMainMenu": "Back to main menu",
     "platformTools": "Platform tools",
@@ -114,7 +126,7 @@
     "repositoryFallback": "Repository"
   },
   "tools": {
-    "projects": "$t(terms:project.plural)",
+    "projects": "$t(terms:projectGroup.plural)",
     "domainsDescription": "Attach domains to $t(terms:project.pluralLower) and compose containers.",
     "dataDescription": "Manage databases, backups, email, and domains.",
     "databasesDescription": "Create and operate managed databases.",

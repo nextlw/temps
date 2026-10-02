@@ -9,6 +9,8 @@ export type ProjectPickerItem = {
   slug: string
   status: string
   tone: ProjectPickerTone
+  /** Name of the Project (code: project group) the service is in, if any. */
+  projectGroupName?: string
 }
 
 export function projectFaviconUrl(projectId: number): string {

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2024-2026 Temps Contributors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-import { useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useBreadcrumbs } from '@/contexts/BreadcrumbContext'
 import { useTranslation } from 'react-i18next'
 import { useDashboardAnalytics } from '@/hooks/useDashboardAnalytics'
@@ -9,6 +9,13 @@ import { useDashboardHealth } from '@/hooks/useDashboardHealth'
 import { useProjectsMonitorHealth } from '@/hooks/useProjectsMonitorHealth'
 import { useLatestDeploymentMedia } from '@/hooks/useLatestDeploymentMedia'
 import { usePageTitle } from '@/hooks/usePageTitle'
+import { useProjectGroups } from '@/hooks/useProjectGroups'
+import { useServiceCatalog } from '@/hooks/useServiceCatalog'
+import { CreateProjectGroupCallout } from '@/components/project-groups/CreateProjectGroupCallout'
+import { CreateProjectGroupDialog } from '@/components/project-groups/CreateProjectGroupDialog'
+import { GroupedProjects } from '@/components/project-groups/GroupedProjects'
+import { groupedProjectsView } from '@/lib/project-groups-list'
+import { Callout } from '@temps-sdk/ds'
 import { FirstProjectOnboarding } from '@/components/dashboard/FirstProjectOnboarding'
 import { SIMULATE_EMPTY_INSTALL } from '@/lib/devSimulate'
 import { ProjectCard } from '@/components/dashboard/ProjectCard'
@@ -48,6 +55,7 @@ export function Projects() {
   const { setBreadcrumbs } = useBreadcrumbs()
   const { t } = useTranslation('nav')
   const { t: tp } = useTranslation('projects')
+  const { t: tg } = useTranslation('projectGroups')
   const [searchParams, setSearchParams] = useSearchParams()
   const { page, pageSize } = readProjectPagination(searchParams)
   const projectSearch = searchParams.get('q') ?? ''
@@ -57,6 +65,20 @@ export function Projects() {
     })
   }
   const normalizedProjectSearch = projectSearch.trim().toLowerCase()
+
+  // Projects (code: project groups, ADR-049): once one exists the list puts
+  // the services under them, and pages only the ungrouped ones; until then
+  // it stays the list of services it was.
+  const projectGroups = useProjectGroups()
+  const grouped = projectGroups.groups.length > 0
+  const catalog = useServiceCatalog({ enabled: grouped })
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  // Two buttons open the create dialog; focus returns to the one used.
+  const createOpener = useRef<HTMLElement | null>(null)
+  const openCreateGroup = (trigger: HTMLElement) => {
+    createOpener.current = trigger
+    setCreatingGroup(true)
+  }
 
   const {
     data: rawProjectsData,
@@ -73,6 +95,9 @@ export function Projects() {
         per_page: normalizedProjectSearch ? SEARCH_CATALOG_LIMIT : pageSize,
       },
     }),
+    // With Projects the list reads the whole catalogue instead; this page is
+    // only asked for once it is known there are none.
+    enabled: !projectGroups.isLoading && !grouped,
   })
 
   const { data: rawGitProviders, isLoading: gitProvidersLoading } = useQuery({
@@ -86,11 +111,32 @@ export function Projects() {
     ? ({ ...rawProjectsData, projects: [], total: 0 } as typeof rawProjectsData)
     : rawProjectsData
   const gitProviders = SIMULATE_EMPTY_INSTALL ? [] : rawGitProviders
-  const totalPages = projectPageCount(projectsData?.total ?? 0, pageSize)
+  const groupedView = useMemo(
+    () =>
+      grouped
+        ? groupedProjectsView(
+            projectGroups.groups,
+            catalog.services,
+            normalizedProjectSearch,
+            page,
+            pageSize
+          )
+        : null,
+    [
+      catalog.services,
+      grouped,
+      normalizedProjectSearch,
+      page,
+      pageSize,
+      projectGroups.groups,
+    ]
+  )
+  const listTotal = groupedView
+    ? groupedView.ungroupedTotal
+    : (projectsData?.total ?? 0)
+  const totalPages = projectPageCount(listTotal, pageSize)
   const isPageOutOfRange =
-    !normalizedProjectSearch &&
-    Boolean(projectsData?.total) &&
-    page > totalPages
+    !normalizedProjectSearch && listTotal > 0 && page > totalPages
 
   const setPagination = useCallback(
     (nextPage: number, nextPageSize = pageSize, replace = false) => {
@@ -130,11 +176,16 @@ export function Projects() {
     )
   }, [normalizedProjectSearch, projectsData?.projects])
 
+  // The cards below: the matching services, or the page of ungrouped ones.
+  const listedProjects = groupedView
+    ? groupedView.ungroupedPage
+    : visibleProjects
+
   useEffect(() => {
     setBreadcrumbs([{ label: t('projects') }])
   }, [setBreadcrumbs, t])
 
-  usePageTitle(tp('list.title'))
+  usePageTitle(t('projects'))
 
   // Batch fetch analytics for all visible projects
   const { startDate, endDate } = useMemo(() => {
@@ -145,8 +196,8 @@ export function Projects() {
   }, [])
 
   const projectIds = useMemo(
-    () => visibleProjects.map((project) => project.id),
-    [visibleProjects]
+    () => listedProjects.map((project) => project.id),
+    [listedProjects]
   )
 
   const dashboardAnalytics = useDashboardAnalytics(
@@ -162,7 +213,7 @@ export function Projects() {
   const latestDeploymentMedia = useLatestDeploymentMedia(projectIds)
 
   const renderProjectCards = () =>
-    visibleProjects.map((project) => (
+    listedProjects.map((project) => (
       <ProjectCard
         key={project.id}
         project={project}
@@ -184,13 +235,58 @@ export function Projects() {
       />
     ))
 
+  const servicesSummary = !projectsData
+    ? isError
+      ? tp('list.countUnavailable')
+      : tp('list.loading')
+    : normalizedProjectSearch
+      ? tp('list.matching', {
+          count: visibleProjects.length,
+          loaded: projectsData.projects.length,
+          total: projectsData.total,
+        })
+      : tp('list.total', { count: projectsData.total })
+  // With no Project yet, the call to action is the one way to create one,
+  // so the header does not offer a second, differently worded button.
+  const showCreateCallout =
+    !grouped &&
+    !projectGroups.isLoading &&
+    !projectGroups.isError &&
+    (projectsData?.total ?? 0) > 0
+  const groupedSummary = !groupedView
+    ? undefined
+    : !catalog.data
+      ? tp('list.loading')
+      : tg('list.summary', {
+          projects: tg('list.projectsCount', {
+            count: groupedView.groups.length,
+          }),
+          services: tp('list.total', {
+            count: normalizedProjectSearch
+              ? groupedView.groups.reduce(
+                  (sum, group) => sum + group.services.length,
+                  groupedView.ungroupedTotal
+                )
+              : catalog.services.length,
+          }),
+        })
+
   return (
     <PageContainer innerClassName="space-y-6">
       {/* Header */}
       <ProjectsHeader
+        grouped={grouped}
         actions={
           <>
             <PlatformStrip />
+            {!showCreateCallout && (
+              <Button
+                variant="outline"
+                onClick={(event) => openCreateGroup(event.currentTarget)}
+              >
+                {tg('list.newProject')}
+              </Button>
+            )}
             <CreateActionButton
               to="/projects/new"
               label={tp('list.newProject')}
@@ -202,27 +298,43 @@ export function Projects() {
       {/* Nothing here can be built or deployed until something can run it. */}
       <WorkerNodeRequiredBanner />
 
-      {(projectsData?.total ?? 0) > 0 && <OnboardingNextStepCard />}
+      {(projectsData?.total ?? catalog.data?.length ?? 0) > 0 && (
+        <OnboardingNextStepCard />
+      )}
 
-      {((projectsData?.total ?? 0) > 0 || Boolean(projectSearch)) && (
+      {projectGroups.isError && (
+        <Callout tone="warning">
+          <span>{tg('list.groupsFailed')} </span>
+          <Button
+            variant="link"
+            size="sm"
+            className="h-auto p-0"
+            onClick={() => void projectGroups.refetch()}
+          >
+            {tg('list.retry')}
+          </Button>
+        </Callout>
+      )}
+
+      {showCreateCallout && (
+        <CreateProjectGroupCallout onCreate={openCreateGroup} />
+      )}
+
+      {((projectsData?.total ?? 0) > 0 ||
+        Boolean(projectSearch) ||
+        grouped) && (
         <ListToolbar
-          searchLabel={tp('list.searchLabel')}
-          placeholder={tp('list.searchPlaceholder')}
+          searchLabel={
+            grouped ? tg('list.searchLabel') : tp('list.searchLabel')
+          }
+          placeholder={
+            grouped
+              ? tg('list.searchPlaceholder')
+              : tp('list.searchPlaceholder')
+          }
           value={projectSearch}
           onChange={setProjectSearch}
-          summary={
-            !projectsData
-              ? isError
-                ? tp('list.countUnavailable')
-                : tp('list.loading')
-              : normalizedProjectSearch
-                ? tp('list.matching', {
-                    count: visibleProjects.length,
-                    loaded: projectsData.projects.length,
-                    total: projectsData.total,
-                  })
-                : tp('list.total', { count: projectsData.total })
-          }
+          summary={groupedSummary ?? servicesSummary}
         />
       )}
 
@@ -252,6 +364,7 @@ export function Projects() {
       )}
 
       {isLoading ||
+      projectGroups.isLoading ||
       (projectsData?.total === 0 && gitProvidersLoading) ||
       isPageOutOfRange ? (
         <div
@@ -263,6 +376,17 @@ export function Projects() {
             <ProjectCardSkeleton key={i} layout="compact" />
           ))}
         </div>
+      ) : groupedView ? (
+        <GroupedProjects
+          groups={groupedView.groups}
+          ungroupedTotal={groupedView.ungroupedTotal}
+          ungroupedCards={renderProjectCards()}
+          loading={catalog.isLoading}
+          failed={catalog.isError && !catalog.data}
+          onRetry={() => void catalog.refetch()}
+          query={projectSearch.trim()}
+          onClearQuery={() => setProjectSearch('')}
+        />
       ) : isError && !projectsData ? null : projectsData?.total === 0 ? (
         // First-run onboarding. The component is context-aware: when a Git
         // provider is already connected it routes straight into the import
@@ -293,14 +417,14 @@ export function Projects() {
       )}
 
       {/* Pagination - Only show if there are projects */}
-      {projectsData &&
-        projectsData.total > 0 &&
+      {(groupedView ? catalog.data : projectsData) &&
+        listTotal > 0 &&
         !normalizedProjectSearch &&
         !isPageOutOfRange && (
           <ResponsivePagination
             page={page}
             pageSize={pageSize}
-            total={projectsData.total}
+            total={listTotal}
             totalPages={totalPages}
             pageSizeOptions={PROJECT_PAGE_SIZE_OPTIONS}
             ariaLabel={tp('list.paginationLabel')}
@@ -310,6 +434,12 @@ export function Projects() {
             onPageSizeChange={(nextPageSize) => setPagination(1, nextPageSize)}
           />
         )}
+
+      <CreateProjectGroupDialog
+        open={creatingGroup}
+        onOpenChange={setCreatingGroup}
+        opener={createOpener}
+      />
     </PageContainer>
   )
 }
@@ -318,12 +448,24 @@ export function Projects() {
  * Projects page header. The title block is fixed; `actions` is what the
  * migration-entry-point variants swap out.
  */
-function ProjectsHeader({ actions }: { actions: React.ReactNode }) {
-  const { t } = useTranslation('projects')
+function ProjectsHeader({
+  actions,
+  grouped,
+}: {
+  actions: React.ReactNode
+  grouped: boolean
+}) {
+  const { t } = useTranslation(['nav', 'projects', 'projectGroups'])
+  // "Projects", as the sidebar and the breadcrumb call this page, with or
+  // without Projects in it (ADR-049, DF2-2).
   return (
     <PageHeader
-      title={t('list.title')}
-      description={t('list.description')}
+      title={t('nav:projects')}
+      description={
+        grouped
+          ? t('projectGroups:list.description')
+          : t('projects:list.description')
+      }
       actions={actions}
     />
   )

@@ -4,12 +4,18 @@
 import { describe, expect, it } from 'bun:test'
 import {
   SIDEBAR_BACK_TARGET,
+  projectNavBackTarget,
+  resolveProjectGroupSection,
   resolveSidebarMode,
   type SidebarMode,
 } from './sidebar-mode'
 import { WORKER_NODES_URL } from './worker-nodes'
 
 const project = (slug: string): SidebarMode => ({ kind: 'project', slug })
+const projectGroup = (slug: string): SidebarMode => ({
+  kind: 'projectGroup',
+  slug,
+})
 const DEFAULT: SidebarMode = { kind: 'default' }
 
 describe('resolveSidebarMode', () => {
@@ -108,5 +114,80 @@ describe('resolveSidebarMode', () => {
     expect(SIDEBAR_BACK_TARGET.settings).toBe('/projects')
     expect(resolveSidebarMode(SIDEBAR_BACK_TARGET.settings)).toEqual(DEFAULT)
     expect(resolveSidebarMode(SIDEBAR_BACK_TARGET.ai)).toEqual(DEFAULT)
+  })
+})
+
+describe('project groups in the sidebar', () => {
+  it('enters the Project nav on any page inside a project group', () => {
+    expect(resolveSidebarMode('/project-groups/crm')).toEqual(
+      projectGroup('crm')
+    )
+    expect(resolveSidebarMode('/project-groups/crm/settings')).toEqual(
+      projectGroup('crm')
+    )
+    expect(resolveSidebarMode('/project-groups/caf%C3%A9')).toEqual(
+      projectGroup('café')
+    )
+  })
+
+  it('keeps the default nav on /project-groups itself and look-alikes', () => {
+    expect(resolveSidebarMode('/project-groups')).toEqual(DEFAULT)
+    expect(resolveSidebarMode('/project-groups/')).toEqual(DEFAULT)
+    expect(resolveSidebarMode('/project-groupsx/crm')).toEqual(DEFAULT)
+  })
+
+  it('leaves a project group for the Projects list, which shows the default nav', () => {
+    expect(SIDEBAR_BACK_TARGET.projectGroup).toBe('/projects')
+    expect(resolveSidebarMode(SIDEBAR_BACK_TARGET.projectGroup)).toEqual(
+      DEFAULT
+    )
+  })
+
+  it('keeps the service nav for a service, whatever group it is in', () => {
+    // The group is data: the URL alone still selects the service nav.
+    expect(resolveSidebarMode('/projects/web-app/deployments')).toEqual(
+      project('web-app')
+    )
+  })
+
+  it('backs out of a service to its group, or to the list without one', () => {
+    expect(projectNavBackTarget({ slug: 'crm' })).toBe('/project-groups/crm')
+    expect(projectNavBackTarget(undefined)).toBe(SIDEBAR_BACK_TARGET.project)
+    expect(resolveSidebarMode(projectNavBackTarget({ slug: 'crm' }))).toEqual(
+      projectGroup('crm')
+    )
+  })
+
+  it('walks service → group → list → back again from the URL alone', () => {
+    const history = [
+      '/projects/web-app/deployments',
+      '/project-groups/crm',
+      '/projects',
+      '/project-groups/crm',
+      '/projects/web-app/deployments',
+    ]
+    expect(history.map(resolveSidebarMode)).toEqual([
+      project('web-app'),
+      projectGroup('crm'),
+      DEFAULT,
+      projectGroup('crm'),
+      project('web-app'),
+    ])
+  })
+
+  it('maps project group paths to their nav entry', () => {
+    expect(resolveProjectGroupSection('/project-groups/crm')).toBe('overview')
+    expect(resolveProjectGroupSection('/project-groups/crm/')).toBe('overview')
+    expect(resolveProjectGroupSection('/project-groups/crm/settings')).toBe(
+      'settings'
+    )
+    expect(
+      resolveProjectGroupSection('/project-groups/crm/settings/danger')
+    ).toBe('settings')
+    expect(resolveProjectGroupSection('/project-groups/crm/settingsx')).toBe(
+      null
+    )
+    expect(resolveProjectGroupSection('/project-groups/crm/other')).toBe(null)
+    expect(resolveProjectGroupSection('/projects/crm')).toBe(null)
   })
 })

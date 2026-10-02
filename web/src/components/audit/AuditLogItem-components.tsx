@@ -26,6 +26,11 @@ import {
   categorize,
   CATEGORY_META,
 } from './AuditLogItem-shared'
+import { isProjectGroupOperation } from '@/lib/project-group-audit'
+import {
+  AuditKeyLabel,
+  ProjectGroupAuditDescription,
+} from '@/components/project-groups/ProjectGroupAuditText'
 
 function truncateDisplay(value: string, maxLength = 80): string {
   return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value
@@ -538,12 +543,23 @@ export function AuditLogItemRow({
             className={cn('gap-1 font-medium', meta.tone)}
           >
             <Icon className="h-3 w-3" />
-            {meta.label}
+            {typeof meta.label === 'string' ? (
+              meta.label
+            ) : (
+              <AuditKeyLabel labelKey={meta.label.key} />
+            )}
           </Badge>
         </TableCell>
         <TableCell className="min-w-0">
           <div className="font-medium text-sm">
-            {describe(operation_type, data, user)}
+            {isProjectGroupOperation(operation_type) ? (
+              <ProjectGroupAuditDescription
+                operation={operation_type}
+                data={data}
+              />
+            ) : (
+              describe(operation_type, data, user)
+            )}
           </div>
           <div className="text-xs text-muted-foreground font-mono mt-0.5">
             {operation_type}
