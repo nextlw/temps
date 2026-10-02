@@ -1717,6 +1717,42 @@ export type AppSettings = {
     observability_retention?: ObservabilityRetentionSettings;
     on_demand_tls?: OnDemandTlsSettings;
     /**
+     * Whether an email + password login may be used on this instance.
+     *
+     * - `None` (default) / `Some(true)` — password login works as it always
+     * has.
+     * - `Some(false)` — the server refuses password logins, so SSO is the only
+     * way in. For an instance whose console is reachable from the internet
+     * and whose accounts live in a corporate IdP: leaving a password path
+     * open there means every account's password is a way in, whether or not
+     * the login page still offers the fields.
+     *
+     * `Option<bool>`, not `bool`, because `AppSettings` carries
+     * `#[serde(default)]` and a bare `bool` defaults to `false`: a stored
+     * settings row written before this field existed would deserialize as
+     * "password login disabled" and lock every operator out of an instance
+     * nobody had configured for SSO. The tri-state makes the absent case
+     * unambiguous.
+     *
+     * Refusal is conditional on an enabled OIDC provider actually existing —
+     * see `temps-auth`'s login gate. That is what stops this from being a foot
+     * gun: disable the last provider, or have it deleted, and password login
+     * comes back on its own rather than leaving an instance with no way in.
+     *
+     * Break glass, for an operator with a shell on the host when the IdP
+     * itself is the thing that is down:
+     *
+     * ```sql
+     * UPDATE settings
+     * SET data = jsonb_set(data, '{password_login_enabled}', 'true')
+     * WHERE id = 1;
+     * ```
+     *
+     * It takes effect on the next login attempt — the value is read per
+     * request, not cached at startup.
+     */
+    password_login_enabled?: boolean | null;
+    /**
      * Share verified external-plugin installation counts with the official
      * registry. Defaults to off; each plugin receives an unlinkable ID.
      */
@@ -6485,6 +6521,27 @@ export type DeploymentConfig = {
      * Stored as JSONB so absent key → `None` (inherit), never silently defaults to false.
      */
     automaticDeploy?: boolean | null;
+    /**
+     * Absolute path to a build program this host runs instead of building on
+     * the local Docker daemon.
+     *
+     * Present means a build for this project or environment is spawned as a
+     * child process with a cleared environment and its own process group, and
+     * reports back a result envelope. Absent — the default, and what every
+     * existing row means — keeps the build exactly where it is today.
+     *
+     * **A path and not a flag.** What runs is operator configuration, so the
+     * decision of *which program* is theirs and cannot be influenced by a
+     * build request. A flag would force this host to guess, and guessing at
+     * an executable is how a request ends up choosing one.
+     *
+     * `Option<String>` so an environment inherits the project's setting
+     * (`None`) or overrides it, matching `cross_architecture_builds`. The
+     * per-field inheritance here is why build placement lives in this config
+     * and not in `AppSettings`, whose shallow merge resets an omitted field
+     * to its default.
+     */
+    buildProgram?: string | null;
     /**
      * Enable container exec/shell access (disabled by default for security)
      */

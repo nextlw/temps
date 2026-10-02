@@ -3769,6 +3769,14 @@
               }
             ]
           },
+          "password_login_enabled": {
+            "default": null,
+            "description": "Whether an email + password login may be used on this instance.\n\n- `None` (default) / `Some(true)` — password login works as it always\n  has.\n- `Some(false)` — the server refuses password logins, so SSO is the only\n  way in. For an instance whose console is reachable from the internet\n  and whose accounts live in a corporate IdP: leaving a password path\n  open there means every account's password is a way in, whether or not\n  the login page still offers the fields.\n\n`Option<bool>`, not `bool`, because `AppSettings` carries\n`#[serde(default)]` and a bare `bool` defaults to `false`: a stored\nsettings row written before this field existed would deserialize as\n\"password login disabled\" and lock every operator out of an instance\nnobody had configured for SSO. The tri-state makes the absent case\nunambiguous.\n\nRefusal is conditional on an enabled OIDC provider actually existing —\nsee `temps-auth`'s login gate. That is what stops this from being a foot\ngun: disable the last provider, or have it deleted, and password login\ncomes back on its own rather than leaving an instance with no way in.\n\nBreak glass, for an operator with a shell on the host when the IdP\nitself is the thing that is down:\n\n```sql\nUPDATE settings\n   SET data = jsonb_set(data, '{password_login_enabled}', 'true')\n WHERE id = 1;\n```\n\nIt takes effect on the next login attempt — the value is read per\nrequest, not cached at startup.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
           "plugin_installation_reporting_enabled": {
             "default": false,
             "description": "Share verified external-plugin installation counts with the official\nregistry. Defaults to off; each plugin receives an unlinkable ID.",
@@ -13876,6 +13884,13 @@
               "null"
             ]
           },
+          "buildProgram": {
+            "description": "Absolute path to a build program this host runs instead of building on\nthe local Docker daemon.\n\nPresent means a build for this project or environment is spawned as a\nchild process with a cleared environment and its own process group, and\nreports back a result envelope. Absent — the default, and what every\nexisting row means — keeps the build exactly where it is today.\n\n**A path and not a flag.** What runs is operator configuration, so the\ndecision of *which program* is theirs and cannot be influenced by a\nbuild request. A flag would force this host to guess, and guessing at\nan executable is how a request ends up choosing one.\n\n`Option<String>` so an environment inherits the project's setting\n(`None`) or overrides it, matching `cross_architecture_builds`. The\nper-field inheritance here is why build placement lives in this config\nand not in `AppSettings`, whose shallow merge resets an omitted field\nto its default.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "containerExecEnabled": {
             "description": "Enable container exec/shell access (disabled by default for security)",
             "type": "boolean"
@@ -17548,6 +17563,10 @@
             },
             "type": "array"
           },
+          "password_login_enabled": {
+            "description": "Whether the login page should offer the email + password fields.\n\nComputed by the same function the login gate uses\n([`password_login_permitted`]), so the page never offers a credential\nthe server is going to refuse. It is presentation only — hiding the\nfields is not the control; the server refusing them is.",
+            "type": "boolean"
+          },
           "password_reset_available": {
             "type": "boolean"
           }
@@ -17555,7 +17574,8 @@
         "required": [
           "email_configured",
           "password_reset_available",
-          "oidc_providers"
+          "oidc_providers",
+          "password_login_enabled"
         ],
         "type": "object"
       },
