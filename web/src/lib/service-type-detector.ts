@@ -13,7 +13,7 @@ import { ServiceTypeRoute } from '@/api/client/types.gen'
  * - "mysql:8" → "mariadb"
  * - "rustfs/rustfs:1.0.0" → "rustfs"
  * - "minio/minio:latest" → "minio" (legacy)
- * - "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:…" → "minio"
+ * - "ghcr.io/nextlw/minio:RELEASE.2025-10-15T17-29-55Z@sha256:…" → "minio"
  */
 export function extractServiceTypeFromImage(
   image: string

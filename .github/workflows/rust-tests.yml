@@ -1045,7 +1045,7 @@ jobs:
 
       - name: Pull E2E images
         run: |
-          timeout 10m docker pull ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64
+          timeout 10m docker pull ghcr.io/nextlw/minio:RELEASE.2025-10-15T17-29-55Z@sha256:59d53179a0b4d3e17592dd0d4e1b0fdc8e042b9a22e7b7b36a63d2c3ab5da05b
           timeout 10m docker build --pull \
             --build-arg MARIADB_VERSION=11.4 \
             --tag ghcr.io/gotempsh/mariadb-walg:11.4 \

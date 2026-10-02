@@ -62,7 +62,7 @@ pub struct S3InputConfig {
     #[schemars(example = example_region(), default = "default_region")]
     pub region: String,
 
-    /// Docker image to use for MinIO (e.g., ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z)
+    /// Docker image to use for MinIO (e.g., ghcr.io/nextlw/minio:RELEASE.2025-10-15T17-29-55Z)
     #[serde(default = "default_image")]
     #[schemars(example = example_image(), default = "default_image")]
     pub docker_image: String,
@@ -101,13 +101,21 @@ pub struct S3Config {
 /// `minio/mc` images anonymously any more, so this repository builds the same
 /// releases from the public source (`images/minio/`) and publishes them to
 /// GHCR. Pinned by tag and digest.
-pub const MINIO_IMAGE: &str = "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64";
+pub const MINIO_IMAGE: &str = "ghcr.io/nextlw/minio:RELEASE.2025-10-15T17-29-55Z@sha256:59d53179a0b4d3e17592dd0d4e1b0fdc8e042b9a22e7b7b36a63d2c3ab5da05b";
 /// Repository half of [`MINIO_IMAGE`].
 pub const MINIO_IMAGE_REPOSITORY: &str = "ghcr.io/nextlw/minio";
 /// `tag@digest` half of [`MINIO_IMAGE`], for APIs that take the tag apart.
-pub const MINIO_IMAGE_TAG: &str = "RELEASE.2025-09-07T16-13-09Z@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64";
+pub const MINIO_IMAGE_TAG: &str = "RELEASE.2025-10-15T17-29-55Z@sha256:59d53179a0b4d3e17592dd0d4e1b0fdc8e042b9a22e7b7b36a63d2c3ab5da05b";
 /// MinIO release built into [`MINIO_IMAGE`].
-pub const MINIO_RELEASE: &str = "RELEASE.2025-09-07T16-13-09Z";
+pub const MINIO_RELEASE: &str = "RELEASE.2025-10-15T17-29-55Z";
+/// MinIO release Temps pinned before [`MINIO_RELEASE`]. It is vulnerable to
+/// CVE-2025-62506 (GHSA-jjjj-jwhf-8rgr), so persisted references to it are
+/// moved to [`MINIO_IMAGE`]; a volume it wrote is read by the newer server
+/// as-is.
+const PREVIOUS_MINIO_RELEASE: &str = "RELEASE.2025-09-07T16-13-09Z";
+/// Digest of our GHCR build of [`PREVIOUS_MINIO_RELEASE`].
+const PREVIOUS_MINIO_DIGEST: &str =
+    "sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64";
 /// MinIO client image for the one-shot `mc` containers (backup mirror,
 /// restore, migration). Same origin and pinning as [`MINIO_IMAGE`].
 pub const MC_IMAGE: &str = "ghcr.io/nextlw/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a01697eeb88e3c3475ce01f0ae7b46ba759ee94faff05faa500db5e18b7b7f36";
@@ -148,7 +156,7 @@ fn minio_container_user(image: &str) -> Option<String> {
 }
 
 /// Rewrites a persisted reference to an official MinIO image that can no
-/// longer be pulled.
+/// longer be pulled, or to our build of a superseded release.
 ///
 /// Docker Hub and quay.io stopped serving `minio/minio` and `minio/mc`
 /// anonymously, so a service whose `docker_image` was persisted with one of
@@ -156,17 +164,27 @@ fn minio_container_user(image: &str) -> Option<String> {
 /// `init()`/container recreation, since `create_container_once` always
 /// re-pulls before checking whether the container already exists.
 ///
-/// - The release Temps pins, or `latest`/no tag, from Docker Hub (bare or
-///   `docker.io/`) or quay.io becomes the pinned GHCR image.
+/// - The release Temps pins, the previous one ([`PREVIOUS_MINIO_RELEASE`],
+///   minio only), or `latest`/no tag, from Docker Hub (bare, `docker.io/` or
+///   `index.docker.io/`) or quay.io becomes the pinned GHCR image.
+/// - Our GHCR build of [`PREVIOUS_MINIO_RELEASE`], by tag alone or by tag and
+///   its own digest, becomes [`MINIO_IMAGE`] too, so services created with it
+///   get the CVE-2025-62506 fix on their next `init()`.
 /// - Any other official tag or digest still points at a registry that refuses
 ///   it, so it is logged as a warning; a bare one keeps the older behaviour
 ///   of being qualified with `quay.io/`.
-/// - Everything else (a private mirror, `ghcr.io/...`, a fork) is an explicit
-///   operator choice and is left untouched.
+/// - Everything else (a private mirror, another `ghcr.io/...` tag or digest,
+///   a fork) is an explicit operator choice and is left untouched.
 fn normalize_minio_registry(image: String) -> String {
-    for (repository, pinned, release) in [
-        ("minio/minio", MINIO_IMAGE, MINIO_RELEASE),
-        ("minio/mc", MC_IMAGE, MC_RELEASE),
+    let previous_ours = format!("{MINIO_IMAGE_REPOSITORY}:{PREVIOUS_MINIO_RELEASE}");
+    if image == previous_ours || image == format!("{previous_ours}@{PREVIOUS_MINIO_DIGEST}") {
+        return MINIO_IMAGE.to_string();
+    }
+    let minio_releases = [MINIO_RELEASE, PREVIOUS_MINIO_RELEASE];
+    let mc_releases = [MC_RELEASE];
+    for (repository, pinned, releases) in [
+        ("minio/minio", MINIO_IMAGE, &minio_releases[..]),
+        ("minio/mc", MC_IMAGE, &mc_releases[..]),
     ] {
         for registry in OFFICIAL_MINIO_REGISTRIES {
             let Some(rest) = image
@@ -181,7 +199,7 @@ fn normalize_minio_registry(image: String) -> String {
                 None if rest.starts_with('@') => "",
                 None => continue,
             };
-            if tag == "latest" || tag == release {
+            if tag == "latest" || releases.contains(&tag) {
                 return pinned.to_string();
             }
             warn!(
@@ -3173,12 +3191,34 @@ mod tests {
         // container already exists) and neither Docker Hub nor quay.io
         // serves these repositories anonymously any more.
         for (persisted, expected) in [
-            ("minio/minio:RELEASE.2025-09-07T16-13-09Z", MINIO_IMAGE),
             ("minio/minio:latest", MINIO_IMAGE),
             ("minio/minio", MINIO_IMAGE),
             ("docker.io/minio/minio:latest", MINIO_IMAGE),
-            ("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z", MINIO_IMAGE),
+            ("index.docker.io/minio/minio", MINIO_IMAGE),
             ("quay.io/minio/minio:latest", MINIO_IMAGE),
+            // The release Temps pins now.
+            ("minio/minio:RELEASE.2025-10-15T17-29-55Z", MINIO_IMAGE),
+            ("docker.io/minio/minio:RELEASE.2025-10-15T17-29-55Z", MINIO_IMAGE),
+            ("quay.io/minio/minio:RELEASE.2025-10-15T17-29-55Z", MINIO_IMAGE),
+            // The release Temps pinned before (CVE-2025-62506) moves to the
+            // new one, with or without a digest.
+            ("minio/minio:RELEASE.2025-09-07T16-13-09Z", MINIO_IMAGE),
+            ("docker.io/minio/minio:RELEASE.2025-09-07T16-13-09Z", MINIO_IMAGE),
+            (
+                "index.docker.io/minio/minio:RELEASE.2025-09-07T16-13-09Z",
+                MINIO_IMAGE,
+            ),
+            ("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z", MINIO_IMAGE),
+            (
+                "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:0123",
+                MINIO_IMAGE,
+            ),
+            // Our build of that release, by tag or by tag and its digest.
+            ("ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z", MINIO_IMAGE),
+            (
+                "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64",
+                MINIO_IMAGE,
+            ),
             ("minio/mc:latest", MC_IMAGE),
             (
                 "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727",
@@ -3222,6 +3262,13 @@ mod tests {
             "minio-fork/minio:latest",
             "quay.io/minio/minio-fork:latest",
             MINIO_IMAGE,
+            // Other references to our repository are explicit choices too.
+            "ghcr.io/nextlw/minio:RELEASE.2025-10-15T17-29-55Z",
+            "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:0123",
+            "ghcr.io/nextlw/minio@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64",
+            "ghcr.io/nextlw/minio:latest",
+            // The mc release Temps pins has no "previous" mapping.
+            "ghcr.io/nextlw/mc:RELEASE.2025-08-13T08-35-41Z",
         ] {
             let input_config = S3InputConfig {
                 port: Some("9000".to_string()),
@@ -3346,7 +3393,7 @@ mod tests {
                 "secret_key": "minioadmin",
                 "host": "localhost",
                 "region": "us-east-1",
-                "image": "minio/minio:RELEASE.2025-09-07T16-13-09Z"
+                "image": "minio/minio:RELEASE.2025-10-15T17-29-55Z"
             }),
         };
 
@@ -3367,8 +3414,8 @@ mod tests {
             "Old image should contain 2025-06-01"
         );
         assert!(
-            new_image.contains("2025-09-07"),
-            "New image should contain 2025-09-07"
+            new_image.contains("2025-10-15"),
+            "New image should contain 2025-10-15"
         );
         assert_ne!(old_image, new_image, "Images should be different");
     }
