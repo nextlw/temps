@@ -34,9 +34,19 @@ the upstream `LICENSE` and `CREDITS` in `/licenses/`.
   `/bin/sh`, because Temps runs `sh -c` in the mc image and a `CMD-SHELL`
   healthcheck (`mc ready local`) in the minio image.
 - Both images run as the non-root user `1000:1000`. `/data` belongs to that
-  user, so named and anonymous volumes work as-is. A bind mount or an existing
-  volume written by the official image (root-owned) has to be `chown`ed to
-  `1000:1000` first.
+  user, so new named and anonymous volumes work as-is. A bind mount or an
+  existing volume written by the official image (root-owned) has to be
+  `chown`ed to `1000:1000` first, or the container run as root.
+- The S3 managed service of Temps (`crates/temps-providers/src/externalsvc/s3.rs`)
+  creates its MinIO container with `user: 0:0` whenever the image is this one
+  or an official one, the same privilege the official image had, so volumes
+  created before this image keep working without touching their data. An
+  image the operator picked keeps its own user.
+- Known limitation: services created on a remote node (multi-node) go through
+  `RemoteServiceCreateParams`, which has no `user` field. There the container
+  runs as `1000:1000`, so a remote volume written by the official image fails
+  to start until it is `chown`ed. That path belongs to the deprecated `Minio`
+  service type.
 - `MC_CONFIG_DIR=/tmp/.mc`, since the non-root user has no writable home.
 - Unchanged: `ENTRYPOINT`/`CMD` (`docker-entrypoint.sh minio` and `mc`),
   `EXPOSE 9000`, `VOLUME /data`, the `MINIO_*_FILE` defaults, and `mc` bundled
