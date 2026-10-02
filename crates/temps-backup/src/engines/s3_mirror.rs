@@ -16,7 +16,7 @@
 //!    per-service bucket at all), enumerate the account's buckets via
 //!    `ListBuckets` over `aws-sdk-s3` and mirror each one individually --
 //!    see "Why not `mc mirror source/`" below.
-//! 4. For each bucket mirrored, run a one-shot `minio/mc` container in
+//! 4. For each bucket mirrored, run a one-shot `mc` container in
 //!    `host` network mode with `MC_HOST_source` and `MC_HOST_dest` env vars.
 //!    The container's entrypoint is
 //!    `mc mirror --overwrite source/<bucket>/ dest/<bucket>/<prefix>/[<bucket>/]`.
@@ -52,7 +52,7 @@ use temps_backup_core::engine_v2::{BackupContext, BackupEngine, BackupError, Bac
 use temps_providers::externalsvc::SensitiveValues;
 
 pub(crate) const ENGINE_KEY: &str = "s3_mirror";
-const MC_IMAGE: &str = "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727";
+const MC_IMAGE: &str = temps_providers::externalsvc::s3::MC_IMAGE;
 
 pub struct S3MirrorDeps {
     pub db: Arc<DatabaseConnection>,
@@ -507,9 +507,10 @@ mod tests {
 
     #[test]
     fn minio_client_image_is_release_and_digest_pinned() {
-        assert!(MC_IMAGE.contains("minio/mc:RELEASE.2025-08-13T08-35-41Z@"));
+        assert!(MC_IMAGE.starts_with("ghcr.io/nextlw/mc:"));
+        assert!(MC_IMAGE.contains(":RELEASE.2025-08-13T08-35-41Z@"));
         assert!(MC_IMAGE
-            .contains("sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727"));
+            .contains("sha256:a01697eeb88e3c3475ce01f0ae7b46ba759ee94faff05faa500db5e18b7b7f36"));
         assert!(MC_IMAGE.contains("@sha256:"));
     }
 }

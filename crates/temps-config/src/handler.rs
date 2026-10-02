@@ -3377,8 +3377,10 @@ mod tests {
     }
 
     fn settings_row_holding_cluster_ca() -> temps_entities::settings::Model {
-        let mut app_settings = AppSettings::default();
-        app_settings.preview_domain = "apps.example.com".to_string();
+        let mut app_settings = AppSettings {
+            preview_domain: "apps.example.com".to_string(),
+            ..AppSettings::default()
+        };
         app_settings.multi_node.cluster_ca_cert_pem = Some("stored-cert".to_string());
         app_settings.multi_node.cluster_ca_key_encrypted = Some("stored-key".to_string());
         app_settings.multi_node.require_mtls = true;

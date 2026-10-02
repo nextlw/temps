@@ -5,6 +5,7 @@
 name = "temps-cloud"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 description = "Host integration for the optional Temps managed control plane."
 

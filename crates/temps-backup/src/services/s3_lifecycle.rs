@@ -766,22 +766,22 @@ mod tests {
             println!("Docker not available, skipping MinIO lifecycle test");
             return;
         }
+        use temps_providers::externalsvc::s3::{MINIO_IMAGE_REPOSITORY, MINIO_IMAGE_TAG};
         use testcontainers::{runners::AsyncRunner, GenericImage, ImageExt};
 
-        let container =
-            match GenericImage::new("quay.io/minio/minio", "RELEASE.2025-09-07T16-13-09Z")
-                .with_env_var("MINIO_ROOT_USER", "minioadmin")
-                .with_env_var("MINIO_ROOT_PASSWORD", "minioadmin")
-                .with_cmd(vec!["server", "/data", "--console-address", ":9001"])
-                .start()
-                .await
-            {
-                Ok(c) => c,
-                Err(e) => {
-                    println!("Failed to start MinIO container ({}), skipping", e);
-                    return;
-                }
-            };
+        let container = match GenericImage::new(MINIO_IMAGE_REPOSITORY, MINIO_IMAGE_TAG)
+            .with_env_var("MINIO_ROOT_USER", "minioadmin")
+            .with_env_var("MINIO_ROOT_PASSWORD", "minioadmin")
+            .with_cmd(vec!["server", "/data", "--console-address", ":9001"])
+            .start()
+            .await
+        {
+            Ok(c) => c,
+            Err(e) => {
+                println!("Failed to start MinIO container ({}), skipping", e);
+                return;
+            }
+        };
 
         let port = container
             .get_host_port_ipv4(9000)

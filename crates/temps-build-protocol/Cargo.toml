@@ -5,6 +5,7 @@
 name = "temps-build-protocol"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 description = "Wire contract between Temps and a build runner, independent of why the build was requested."
 

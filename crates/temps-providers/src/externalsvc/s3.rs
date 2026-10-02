@@ -62,7 +62,7 @@ pub struct S3InputConfig {
     #[schemars(example = example_region(), default = "default_region")]
     pub region: String,
 
-    /// Docker image to use for MinIO (e.g., quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z)
+    /// Docker image to use for MinIO (e.g., ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z)
     #[serde(default = "default_image")]
     #[schemars(example = example_image(), default = "default_image")]
     pub docker_image: String,
@@ -95,25 +95,105 @@ pub struct S3Config {
     pub container_name: Option<String>,
 }
 
-/// Rewrites a bare (unqualified, i.e. Docker-Hub-resolved) `minio/minio` or
-/// `minio/mc` reference to its `quay.io` equivalent, preserving the tag.
+/// MinIO server image for the S3 managed service and the S3 tests.
 ///
-/// Docker Hub stopped serving these repositories entirely in 2026 ("pull
-/// access denied ... repository does not exist"), so any service whose
-/// `docker_image` was persisted before this fix — created back when
-/// `default_image()`/`MC_IMAGE` still pointed at Docker Hub — would otherwise
-/// keep retrying that dead reference on every `init()`/container recreation
-/// forever, since `create_container_once` always re-pulls before checking
-/// whether the container already exists. Only the exact former built-in
-/// defaults are rewritten; an already-qualified reference (`quay.io/...`,
-/// a private mirror, `ghcr.io/...`) is left untouched since it reflects an
-/// explicit operator choice, not our old default.
+/// Neither Docker Hub nor quay.io serves the official `minio/minio` and
+/// `minio/mc` images anonymously any more, so this repository builds the same
+/// releases from the public source (`images/minio/`) and publishes them to
+/// GHCR. Pinned by tag and digest.
+pub const MINIO_IMAGE: &str = "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64";
+/// Repository half of [`MINIO_IMAGE`].
+pub const MINIO_IMAGE_REPOSITORY: &str = "ghcr.io/nextlw/minio";
+/// `tag@digest` half of [`MINIO_IMAGE`], for APIs that take the tag apart.
+pub const MINIO_IMAGE_TAG: &str = "RELEASE.2025-09-07T16-13-09Z@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64";
+/// MinIO release built into [`MINIO_IMAGE`].
+pub const MINIO_RELEASE: &str = "RELEASE.2025-09-07T16-13-09Z";
+/// MinIO client image for the one-shot `mc` containers (backup mirror,
+/// restore, migration). Same origin and pinning as [`MINIO_IMAGE`].
+pub const MC_IMAGE: &str = "ghcr.io/nextlw/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a01697eeb88e3c3475ce01f0ae7b46ba759ee94faff05faa500db5e18b7b7f36";
+/// mc release built into [`MC_IMAGE`].
+const MC_RELEASE: &str = "RELEASE.2025-08-13T08-35-41Z";
+
+/// User the managed MinIO container runs as when it uses our image or an
+/// official one.
+///
+/// [`MINIO_IMAGE`] defaults to the non-root user 1000, but every volume
+/// created by the official image (and by Temps before this image) belongs
+/// to root, and MinIO refuses to start on it as 1000 ("file access denied
+/// ... Unable to write to the backend"). Running as root keeps both old and
+/// new volumes working without touching their data, which is exactly the
+/// privilege the official image had.
+const MINIO_CONTAINER_USER: &str = "0:0";
+
+/// Registry prefixes under which the official MinIO images were published.
+const OFFICIAL_MINIO_REGISTRIES: [&str; 4] = ["", "docker.io/", "index.docker.io/", "quay.io/"];
+
+/// User for the managed MinIO container: [`MINIO_CONTAINER_USER`] for our
+/// image and the official one, `None` (the image's own user) for any other
+/// image an operator chose.
+fn minio_container_user(image: &str) -> Option<String> {
+    let without_digest = image.split('@').next().unwrap_or(image);
+    let repository = match without_digest.rsplit_once(':') {
+        Some((repository, tag)) if !tag.contains('/') => repository,
+        _ => without_digest,
+    };
+    let official = OFFICIAL_MINIO_REGISTRIES
+        .iter()
+        .any(|registry| repository == format!("{registry}minio/minio"));
+    if repository == MINIO_IMAGE_REPOSITORY || official {
+        Some(MINIO_CONTAINER_USER.to_string())
+    } else {
+        None
+    }
+}
+
+/// Rewrites a persisted reference to an official MinIO image that can no
+/// longer be pulled.
+///
+/// Docker Hub and quay.io stopped serving `minio/minio` and `minio/mc`
+/// anonymously, so a service whose `docker_image` was persisted with one of
+/// the former built-in defaults would keep retrying a dead reference on every
+/// `init()`/container recreation, since `create_container_once` always
+/// re-pulls before checking whether the container already exists.
+///
+/// - The release Temps pins, or `latest`/no tag, from Docker Hub (bare or
+///   `docker.io/`) or quay.io becomes the pinned GHCR image.
+/// - Any other official tag or digest still points at a registry that refuses
+///   it, so it is logged as a warning; a bare one keeps the older behaviour
+///   of being qualified with `quay.io/`.
+/// - Everything else (a private mirror, `ghcr.io/...`, a fork) is an explicit
+///   operator choice and is left untouched.
 fn normalize_minio_registry(image: String) -> String {
-    for repo in ["minio/minio", "minio/mc"] {
-        if let Some(rest) = image.strip_prefix(repo) {
-            if rest.is_empty() || rest.starts_with(':') || rest.starts_with('@') {
-                return format!("quay.io/{repo}{rest}");
+    for (repository, pinned, release) in [
+        ("minio/minio", MINIO_IMAGE, MINIO_RELEASE),
+        ("minio/mc", MC_IMAGE, MC_RELEASE),
+    ] {
+        for registry in OFFICIAL_MINIO_REGISTRIES {
+            let Some(rest) = image
+                .strip_prefix(registry)
+                .and_then(|unqualified| unqualified.strip_prefix(repository))
+            else {
+                continue;
+            };
+            let tag = match rest.strip_prefix(':') {
+                Some(tag) => tag.split('@').next().unwrap_or(tag),
+                None if rest.is_empty() => "latest",
+                None if rest.starts_with('@') => "",
+                None => continue,
+            };
+            if tag == "latest" || tag == release {
+                return pinned.to_string();
             }
+            warn!(
+                "MinIO image '{}' is an official reference that can no longer be pulled \
+                 without authentication; switch the service to {}",
+                image,
+                pinned
+            );
+            if registry.is_empty() {
+                return format!("quay.io/{repository}{rest}");
+            }
+            return image;
         }
     }
     image
@@ -209,11 +289,11 @@ fn example_region() -> &'static str {
 }
 
 fn default_image() -> String {
-    "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z".to_string()
+    MINIO_IMAGE.to_string()
 }
 
 fn example_image() -> &'static str {
-    "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z"
+    MINIO_IMAGE
 }
 
 use super::port_util::{find_available_port, find_available_port_async, is_port_conflict_error};
@@ -230,9 +310,9 @@ pub struct S3Service {
 
 impl S3Service {
     /// MinIO Client (mc) utility image - used for temporary operations like migration and copy.
-    /// Pinned to an immutable release tag — never use `:latest` here to prevent
+    /// Pinned by tag and digest — never use `:latest` here to prevent
     /// supply-chain / MITM attacks on floating tags.
-    const MC_IMAGE: &'static str = "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z";
+    const MC_IMAGE: &'static str = MC_IMAGE;
 
     /// Shell script executed inside a disposable mc container by `restore_in_place`.
     ///
@@ -505,6 +585,7 @@ echo '[restore] complete'"#;
                     .collect(),
             ),
             cmd: Some(vec!["server".to_string(), "/data".to_string()]),
+            user: minio_container_user(&config.docker_image),
             host_config: Some(bollard::models::HostConfig {
                 restart_policy: Some(bollard::models::RestartPolicy {
                     name: Some(bollard::models::RestartPolicyNameEnum::ALWAYS),
@@ -2683,8 +2764,8 @@ impl ExternalService for S3Service {
         // Return (image_name, version)
         // Default MinIO image and release version
         (
-            "quay.io/minio/minio".to_string(),
-            "RELEASE.2025-09-07T16-13-09Z".to_string(),
+            MINIO_IMAGE_REPOSITORY.to_string(),
+            MINIO_RELEASE.to_string(),
         )
     }
 
@@ -2706,6 +2787,9 @@ impl ExternalService for S3Service {
 
         // Get the image from the container's inspection data
         if let Some(image) = container.config.and_then(|c| c.image) {
+            // The digest of a `name:tag@sha256:...` reference is not part of
+            // the version.
+            let image = image.split('@').next().unwrap_or(&image).to_string();
             // Parse image name and tag from the full image string
             if let Some((name, tag)) = image.split_once(':') {
                 Ok((name.to_string(), tag.to_string()))
@@ -2720,7 +2804,7 @@ impl ExternalService for S3Service {
     }
 
     fn get_default_version(&self) -> String {
-        "RELEASE.2025-09-07T16-13-09Z".to_string()
+        MINIO_RELEASE.to_string()
     }
 
     async fn get_current_version(&self) -> Result<String> {
@@ -2791,9 +2875,11 @@ impl ExternalService for S3Service {
             anyhow::anyhow!("Could not determine image for container '{}'", container_id)
         })?;
 
-        // Extract version from image name (e.g., "minio/minio:latest" -> "latest")
-        let version = if let Some(tag_pos) = image.rfind(':') {
-            image[tag_pos + 1..].to_string()
+        // Extract version from image name (e.g., "minio/minio:latest" -> "latest").
+        // A trailing `@sha256:...` digest is not part of the version.
+        let tagged = image.split('@').next().unwrap_or(&image);
+        let version = if let Some(tag_pos) = tagged.rfind(':') {
+            tagged[tag_pos + 1..].to_string()
         } else {
             "latest".to_string()
         };
@@ -3015,13 +3101,49 @@ mod tests {
         let service = S3Service::new("test-image".to_string(), docker, encryption_service);
         let (image_name, version) = service.get_default_docker_image();
         assert_eq!(
-            image_name, "quay.io/minio/minio",
-            "Default image should be quay.io/minio/minio"
+            image_name, "ghcr.io/nextlw/minio",
+            "Default image should be ghcr.io/nextlw/minio"
         );
         assert!(
             version.starts_with("RELEASE."),
             "Default version should be a MinIO release tag"
         );
+    }
+
+    #[test]
+    fn test_pinned_minio_images_agree() {
+        let joined = format!("{MINIO_IMAGE_REPOSITORY}:{MINIO_IMAGE_TAG}");
+        assert_eq!(MINIO_IMAGE, joined);
+        let tag_prefix = format!("{MINIO_RELEASE}@sha256:");
+        assert!(MINIO_IMAGE_TAG.starts_with(&tag_prefix));
+        let mc_prefix = format!("ghcr.io/nextlw/mc:{MC_RELEASE}@sha256:");
+        assert!(MC_IMAGE.starts_with(&mc_prefix));
+    }
+
+    #[test]
+    fn test_minio_container_user_only_for_our_and_official_images() {
+        for image in [
+            MINIO_IMAGE,
+            "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z",
+            "minio/minio",
+            "docker.io/minio/minio:latest",
+            "quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z",
+        ] {
+            assert_eq!(
+                minio_container_user(image).as_deref(),
+                Some("0:0"),
+                "for {image}"
+            );
+        }
+        // An image the operator chose keeps the user it was built with.
+        for image in [
+            "bitnami/minio:2025.7.23",
+            "registry.internal:5000/minio/minio:latest",
+            "ghcr.io/acme/minio:latest",
+            "quay.io/minio/minio-fork:latest",
+        ] {
+            assert_eq!(minio_container_user(image), None, "for {image}");
+        }
     }
 
     #[test]
@@ -3033,7 +3155,7 @@ mod tests {
             secret_key: Some("minioadmin".to_string()),
             host: "localhost".to_string(),
             region: "us-east-1".to_string(),
-            docker_image: "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z".to_string(),
+            docker_image: MINIO_IMAGE.to_string(),
             container_name: None,
         };
 
@@ -3041,26 +3163,40 @@ mod tests {
         let runtime_config: S3Config = input_config.into();
 
         // Verify an already-qualified docker_image is preserved as-is
-        assert_eq!(
-            runtime_config.docker_image,
-            "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z"
-        );
+        assert_eq!(runtime_config.docker_image, MINIO_IMAGE);
     }
 
     #[test]
-    fn test_legacy_docker_hub_minio_image_is_normalized_to_quay_io() {
-        // Services created before the Docker Hub -> quay.io migration have
-        // this bare reference persisted in the database. It must be rewritten
-        // on load, since `create_container_once` always re-pulls the image
-        // (even when the container already exists) and Docker Hub now
-        // denies these repositories outright.
+    fn test_legacy_official_minio_image_is_normalized_to_ghcr() {
+        // Services created with an official MinIO image have that reference
+        // persisted in the database. It must be rewritten on load, since
+        // `create_container_once` always re-pulls the image (even when the
+        // container already exists) and neither Docker Hub nor quay.io
+        // serves these repositories anonymously any more.
         for (persisted, expected) in [
+            ("minio/minio:RELEASE.2025-09-07T16-13-09Z", MINIO_IMAGE),
+            ("minio/minio:latest", MINIO_IMAGE),
+            ("minio/minio", MINIO_IMAGE),
+            ("docker.io/minio/minio:latest", MINIO_IMAGE),
+            ("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z", MINIO_IMAGE),
+            ("quay.io/minio/minio:latest", MINIO_IMAGE),
+            ("minio/mc:latest", MC_IMAGE),
             (
-                "minio/minio:RELEASE.2025-09-07T16-13-09Z",
-                "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z",
+                "quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727",
+                MC_IMAGE,
             ),
-            ("minio/minio:latest", "quay.io/minio/minio:latest"),
-            ("minio/mc:latest", "quay.io/minio/mc:latest"),
+            // Releases this repository does not build keep the older
+            // behaviour: a bare reference is qualified with quay.io and a
+            // qualified one is left alone.
+            (
+                "minio/minio:RELEASE.2024-11-07T00-52-20Z",
+                "quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z",
+            ),
+            (
+                "quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z",
+                "quay.io/minio/minio:RELEASE.2024-11-07T00-52-20Z",
+            ),
+            ("minio/mc@sha256:0123", "quay.io/minio/mc@sha256:0123"),
         ] {
             let input_config = S3InputConfig {
                 port: Some("9000".to_string()),
@@ -3080,12 +3216,13 @@ mod tests {
     #[test]
     fn test_custom_registry_minio_image_is_not_rewritten() {
         // An operator-configured mirror or fork must never be silently
-        // redirected to quay.io -- only the exact former bare Docker Hub
-        // defaults are normalized.
+        // redirected -- only references to the official images are normalized.
         for custom in [
             "registry.internal:5000/minio/minio:latest",
             "ghcr.io/acme/minio:latest",
             "minio-fork/minio:latest",
+            "quay.io/minio/minio-fork:latest",
+            MINIO_IMAGE,
         ] {
             let input_config = S3InputConfig {
                 port: Some("9000".to_string()),
@@ -3336,6 +3473,144 @@ mod tests {
         }
     }
 
+    // Every volume the official image created belongs to root, and the
+    // source-built image defaults to the non-root user 1000. The managed
+    // container must still start on such a volume and keep its data.
+    #[cfg(feature = "docker-tests")]
+    #[tokio::test]
+    async fn test_s3_service_starts_on_root_owned_volume() {
+        let docker = match Docker::connect_with_local_defaults() {
+            Ok(d) => Arc::new(d),
+            Err(e) => {
+                println!("Docker not available, skipping test: {}", e);
+                return;
+            }
+        };
+        if docker.ping().await.is_err() {
+            println!("Docker daemon not responding, skipping test");
+            return;
+        }
+        crate::utils::pull_image_with_retry(&docker, MINIO_IMAGE, None)
+            .await
+            .expect("pull the MinIO image");
+
+        let name = format!("root-volume-{}", chrono::Utc::now().timestamp_millis());
+        let volume_name = format!("minio_{name}_data");
+        docker
+            .create_volume(bollard::models::VolumeCreateRequest {
+                name: Some(volume_name.clone()),
+                ..Default::default()
+            })
+            .await
+            .expect("create the volume");
+
+        // Leave the volume the way the official image did: written by a
+        // MinIO running as root, with one bucket in it.
+        let seed_script = "minio server /data & pid=$!; \
+            until mc ready local >/dev/null 2>&1; do sleep 1; done; \
+            mc alias set seed http://localhost:9000 \"$MINIO_ROOT_USER\" \"$MINIO_ROOT_PASSWORD\" && \
+            mc mb seed/legacy; status=$?; kill $pid; wait $pid; exit $status";
+        let seed_name = format!("{name}-seed");
+        let seed = docker
+            .create_container(
+                Some(
+                    bollard::query_parameters::CreateContainerOptionsBuilder::new()
+                        .name(&seed_name)
+                        .build(),
+                ),
+                bollard::models::ContainerCreateBody {
+                    image: Some(MINIO_IMAGE.to_string()),
+                    user: Some("0:0".to_string()),
+                    entrypoint: Some(vec!["sh".to_string(), "-c".to_string()]),
+                    cmd: Some(vec![seed_script.to_string()]),
+                    env: Some(vec![
+                        "MINIO_ROOT_USER=rootvolumeadmin".to_string(),
+                        "MINIO_ROOT_PASSWORD=rootvolumesecret".to_string(),
+                    ]),
+                    host_config: Some(bollard::models::HostConfig {
+                        mounts: Some(vec![bollard::models::Mount {
+                            target: Some("/data".to_string()),
+                            source: Some(volume_name.clone()),
+                            typ: Some(bollard::models::MountTypeEnum::VOLUME),
+                            ..Default::default()
+                        }]),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("create the seed container");
+        docker
+            .start_container(
+                &seed.id,
+                None::<bollard::query_parameters::StartContainerOptions>,
+            )
+            .await
+            .expect("start the seed container");
+        let seed_exit = docker
+            .wait_container(&seed.id, None::<WaitContainerOptions>)
+            .try_collect::<Vec<_>>()
+            .await
+            .ok()
+            .and_then(|v| v.into_iter().next().map(|r| r.status_code));
+        let _ = docker
+            .remove_container(
+                &seed.id,
+                Some(bollard::query_parameters::RemoveContainerOptions {
+                    force: true,
+                    ..Default::default()
+                }),
+            )
+            .await;
+
+        assert_eq!(seed_exit, Some(0), "seeding the root-owned volume failed");
+
+        let encryption_service =
+            Arc::new(EncryptionService::new("test_encryption_key_1234567890ab").unwrap());
+        let service = S3Service::new(name.clone(), docker.clone(), encryption_service);
+        let config = ServiceConfig {
+            name: name.clone(),
+            service_type: ServiceType::S3,
+            version: None,
+            parameters: serde_json::json!({
+                "host": "localhost",
+                "region": "us-east-1",
+                "access_key": "rootvolumeadmin",
+                "secret_key": "rootvolumesecret",
+                "docker_image": MINIO_IMAGE,
+            }),
+        };
+
+        let init = service.init(config).await;
+        let buckets = async {
+            let params = init.as_ref().map_err(|e| anyhow::anyhow!("{e}"))?;
+            let runtime = ServiceConfig {
+                name: name.clone(),
+                service_type: ServiceType::S3,
+                version: None,
+                parameters: serde_json::to_value(params)?,
+            };
+            let client = service.initialize_client(runtime).await?;
+            let output = client.list_buckets().send().await?;
+            let names: Vec<String> = output
+                .buckets()
+                .iter()
+                .filter_map(|bucket| bucket.name().map(str::to_string))
+                .collect();
+            anyhow::Ok(names)
+        }
+        .await;
+        let _ = service.remove().await;
+
+        init.expect("MinIO must start on a root-owned volume");
+        let buckets = buckets.expect("list buckets on the existing volume");
+        assert!(
+            buckets.iter().any(|bucket| bucket == "legacy"),
+            "existing bucket missing: {buckets:?}"
+        );
+    }
+
     // `flavor = "multi_thread"` is required because `MinioTestContainer`'s
     // `Drop` impl calls `tokio::task::block_in_place`, which panics on the
     // default current-thread runtime.
@@ -3412,7 +3687,7 @@ mod tests {
             "access_key": source_minio.access_key.clone(),
             "secret_key": source_minio.secret_key.clone(),
             "region": "us-east-1",
-            "docker_image": "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z",
+            "docker_image": MINIO_IMAGE,
         });
 
         let s3_config = ServiceConfig {

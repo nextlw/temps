@@ -1011,7 +1011,8 @@ fn depends_on_names(value: &serde_yaml::Value) -> Vec<String> {
 /// worth introducing for it.
 fn detect_service_family(image: &str) -> Option<temps_entities::preset::ComposeServiceFamily> {
     use temps_entities::preset::ComposeServiceFamily::*;
-    let without_tag = image.split(':').next().unwrap_or(image);
+    let without_digest = image.split('@').next().unwrap_or(image);
+    let without_tag = without_digest.split(':').next().unwrap_or(without_digest);
     let basename = without_tag.rsplit('/').next().unwrap_or(without_tag);
     match basename {
         "postgres" | "postgresql" | "timescaledb" | "pgvector" => Some(Postgres),
@@ -1115,6 +1116,17 @@ services:
             ("valkey/valkey:8", Redis, true),
             ("keydb/keydb:latest", Redis, true),
             ("minio/minio:latest", S3, false),
+            ("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z", S3, false),
+            (
+                "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64",
+                S3,
+                false,
+            ),
+            (
+                "ghcr.io/nextlw/minio@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64",
+                S3,
+                false,
+            ),
         ];
         for (image, expected_family, expect_database_flag) in cases {
             let yaml = format!("services:\n  svc:\n    image: {image}\n");

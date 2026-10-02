@@ -3231,8 +3231,10 @@ mod tests {
         let service = ConfigService::new(test_config(), Arc::new(db));
 
         // What the console holds after a masked GET: no CA, one edit.
-        let mut payload = AppSettings::default();
-        payload.preview_domain = "apps.example.com".to_string();
+        let payload = AppSettings {
+            preview_domain: "apps.example.com".to_string(),
+            ..AppSettings::default()
+        };
         assert!(payload.multi_node.cluster_ca_cert_pem.is_none());
 
         service

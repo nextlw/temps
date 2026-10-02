@@ -101,9 +101,7 @@ mod tests {
             current_version: "v0.1.0".to_string(),
             latest_version: latest.to_string(),
             channel: "stable".to_string(),
-            release_url: format!(
-                "https://github.com/{RELEASES_REPOSITORY}/releases/tag/{latest}"
-            ),
+            release_url: format!("https://github.com/{RELEASES_REPOSITORY}/releases/tag/{latest}"),
             checked_at: Utc::now(),
         }
     }
