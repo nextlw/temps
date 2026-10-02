@@ -32,8 +32,8 @@ test.describe('console boot', () => {
 
     // A specific piece of app-rendered content, not just "something rendered".
     await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible()
-    await expect(page.getByLabel('E-mail corporativo')).toBeVisible()
-    await expect(page.getByLabel('Senha')).toBeVisible()
+    await expect(page.getByLabel('E-mail corporativo', { exact: true })).toBeVisible()
+    await expect(page.getByLabel('Senha', { exact: true })).toBeVisible()
 
     expect(consoleErrors).toEqual([])
   })

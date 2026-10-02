@@ -46,7 +46,7 @@ test.describe('authentication', () => {
     await expect(page).toHaveURL(URL_LOGIN)
 
     const feedback = page
-      .getByText(/invalid|incorrect|failed|unauthor/i)
+      .getByText(/invalid|incorrect|failed|unauthor|falha/i)
       .first()
     await expect(
       feedback,
