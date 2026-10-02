@@ -12359,6 +12359,32 @@
         ],
         "type": "object"
       },
+      "CreateProjectGroupRequest": {
+        "additionalProperties": false,
+        "description": "Unknown fields are refused so a typo (or an attempt to send `id`) is a\n400, not a silently ignored field.",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "description": "Generated from `name` when omitted. Immutable afterwards.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "CreateProjectRequest": {
         "properties": {
           "automatic_deploy": {
@@ -35798,6 +35824,62 @@
         ],
         "type": "object"
       },
+      "ProjectGroupResponse": {
+        "description": "A project group as the caller may see it. `service_ids` and\n`service_count` only cover the projects the caller can reach.",
+        "properties": {
+          "created_at": {
+            "description": "Unix epoch milliseconds.",
+            "example": 1790812800000,
+            "format": "int64",
+            "type": "integer"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "service_count": {
+            "description": "Always `service_ids.len()`.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "service_ids": {
+            "description": "Visible member project ids, ascending.",
+            "items": {
+              "format": "int32",
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "updated_at": {
+            "description": "Unix epoch milliseconds.",
+            "example": 1790812860000,
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "service_ids",
+          "service_count",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "ProjectHealthSummary": {
         "description": "Health summary for a single project over the requested time range.",
         "properties": {
@@ -52119,6 +52201,25 @@
               {
                 "$ref": "#/components/schemas/CloudTelemetryWriteMode"
               }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "UpdateProjectGroupRequest": {
+        "additionalProperties": false,
+        "description": "Only the fields present are changed. Absent and `null` both mean \"not\nprovided\"; an empty `description` clears it. Unknown fields are refused,\nso sending `slug` (immutable) is a 400 rather than a silent no-op.",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
             ]
           }
         },
@@ -92146,6 +92247,376 @@
         ]
       }
     },
+    "/project-groups": {
+      "get": {
+        "operationId": "list_project_groups",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProjectGroupResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Visible project groups, ordered by name"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Insufficient permissions or deployment token"
+          },
+          "500": {
+            "description": "Access check or database failure"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "Project Groups"
+        ]
+      },
+      "post": {
+        "operationId": "create_project_group",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectGroupResponse"
+                }
+              }
+            },
+            "description": "Project group created"
+          },
+          "400": {
+            "description": "Empty or over-long name, invalid slug, or malformed body (unknown fields included)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Insufficient permissions or deployment token"
+          },
+          "409": {
+            "description": "Slug already taken"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "Project Groups"
+        ]
+      }
+    },
+    "/project-groups/by-slug/{slug}": {
+      "get": {
+        "operationId": "get_project_group_by_slug",
+        "parameters": [
+          {
+            "description": "Project group slug",
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectGroupResponse"
+                }
+              }
+            },
+            "description": "Project group"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Insufficient permissions or deployment token"
+          },
+          "404": {
+            "description": "Not found, or every service in it is hidden from the caller"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "Project Groups"
+        ]
+      }
+    },
+    "/project-groups/{id}": {
+      "delete": {
+        "operationId": "delete_project_group",
+        "parameters": [
+          {
+            "description": "Project group ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Project group deleted; its services are kept, ungrouped"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Insufficient permissions, deployment token, a service in the group is hidden from the caller, or the caller's role on one of its services lacks projects:delete"
+          },
+          "404": {
+            "description": "Not found, or every service in it is hidden from the caller"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "Project Groups"
+        ]
+      },
+      "get": {
+        "operationId": "get_project_group",
+        "parameters": [
+          {
+            "description": "Project group ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectGroupResponse"
+                }
+              }
+            },
+            "description": "Project group"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Insufficient permissions or deployment token"
+          },
+          "404": {
+            "description": "Not found, or every service in it is hidden from the caller"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "Project Groups"
+        ]
+      },
+      "patch": {
+        "operationId": "update_project_group",
+        "parameters": [
+          {
+            "description": "Project group ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectGroupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectGroupResponse"
+                }
+              }
+            },
+            "description": "Project group updated"
+          },
+          "400": {
+            "description": "Empty or over-long name, or malformed body (unknown fields such as slug included)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Insufficient permissions, deployment token, a service in the group is hidden from the caller, or the caller's role on one of its services lacks projects:write"
+          },
+          "404": {
+            "description": "Not found, or every service in it is hidden from the caller"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "Project Groups"
+        ]
+      }
+    },
+    "/project-groups/{id}/projects/{project_id}": {
+      "delete": {
+        "operationId": "remove_project_from_group",
+        "parameters": [
+          {
+            "description": "Project group ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Project (service) ID",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Service removed from the group; it is kept, ungrouped"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Insufficient permissions, deployment token, no access to the service, or the caller's role on it lacks projects:write"
+          },
+          "404": {
+            "description": "Group not found or hidden, or the service is not in this group"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "Project Groups"
+        ]
+      },
+      "put": {
+        "operationId": "assign_project_to_group",
+        "parameters": [
+          {
+            "description": "Project group ID",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Project (service) ID",
+            "in": "path",
+            "name": "project_id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectGroupResponse"
+                }
+              }
+            },
+            "description": "Service is in the group (moved from another group if needed)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Insufficient permissions, deployment token, no access to the service, or the caller's role on it lacks projects:write"
+          },
+          "404": {
+            "description": "Group or service not found, or the group is hidden from the caller"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ],
+        "tags": [
+          "Project Groups"
+        ]
+      }
+    },
     "/projects": {
       "get": {
         "operationId": "get_projects",
@@ -120158,6 +120629,10 @@
     {
       "description": "Custom domain management for projects",
       "name": "Custom Domains"
+    },
+    {
+      "description": "Groups of projects, shown as Projects in the console (ADR-049)",
+      "name": "Project Groups"
     },
     {
       "description": "Error tracking data fetching endpoints",
