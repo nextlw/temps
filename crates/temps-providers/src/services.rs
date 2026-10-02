@@ -9158,7 +9158,9 @@ echo "[restore] Pre-seed complete"
 
         // Probe fresh against the new container. Best-effort.
         let service_config = self.get_service_config(service_id).await?;
-        let Some(conn_str) = postgres_wal_health::build_conn_str(&service_config.parameters) else {
+        let Some(conn_str) =
+            postgres_wal_health::admin_conn_str(&service.name, &service_config.parameters).await
+        else {
             return Ok(());
         };
         let Some(snapshot) = postgres_wal_health::probe_wal_health(&conn_str).await else {
@@ -9832,6 +9834,50 @@ echo "[restore] Pre-seed complete"
             .to_string();
 
         Ok((container_name, internal_port, host_port))
+    }
+
+    /// Endereço que o processo do control plane usa para abrir conexões de
+    /// administração com um serviço standalone (navegador de dados,
+    /// pg_stat_statements, populate). A regra é a de
+    /// [`temps_core::admin_endpoint`]: nome do container e porta interna
+    /// quando o control plane roda em container e esse nome resolve;
+    /// `host:port` (os do serviço, que o chamador já leu dos parâmetros)
+    /// caso contrário.
+    ///
+    /// Não falha: sem container conhecido (processo sem Docker, serviço que
+    /// some no meio) fica com `host:port`, que é o comportamento de antes.
+    ///
+    /// Segurança da rota: o endereço devolvido só é o nome do container
+    /// quando o DNS da rede Docker o resolveu agora. MariaDB, MongoDB, Redis e
+    /// S3 seguem conectando sem TLS, como já faziam com `localhost:<porta>`:
+    /// o tráfego fica na rede Docker que o control plane divide com o
+    /// serviço, a mesma que os apps usam. O Postgres passa pela escada TLS de
+    /// `temps-query-postgres` com `TransportPolicy::ManagedContainer`.
+    pub async fn get_service_admin_endpoint(
+        &self,
+        service_id: i32,
+        host: &str,
+        port: &str,
+    ) -> temps_core::admin_endpoint::AdminEndpoint {
+        match self.get_service_effective_address(service_id).await {
+            Ok((container_name, internal_port, _)) => {
+                temps_core::admin_endpoint::resolve_admin_endpoint(
+                    &container_name,
+                    &internal_port,
+                    host,
+                    port,
+                )
+                .await
+            }
+            Err(e) => {
+                debug!(
+                    service_id,
+                    error = %e,
+                    "No known container for service; falling back to host:port from parameters"
+                );
+                temps_core::admin_endpoint::choose_admin_endpoint(false, "", "", host, port)
+            }
+        }
     }
 
     /// Docker name of the multi-host overlay network. Fixed in

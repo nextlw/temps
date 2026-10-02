@@ -264,6 +264,25 @@ impl From<PostgresInputConfig> for PostgresConfig {
     }
 }
 
+pub use temps_core::admin_endpoint::postgres_container_name;
+
+/// Endereço que o control plane usa para abrir conexões de administração com
+/// um Postgres gerenciado. Ver [`temps_core::admin_endpoint`]: nome do
+/// container e porta interna quando o control plane roda em container e o nome
+/// resolve; `config.host:config.port` caso contrário.
+pub async fn postgres_admin_endpoint(
+    service_name: &str,
+    config: &PostgresConfig,
+) -> temps_core::admin_endpoint::AdminEndpoint {
+    temps_core::admin_endpoint::resolve_admin_endpoint(
+        &postgres_container_name(service_name, config.container_name.as_deref()),
+        POSTGRES_INTERNAL_PORT,
+        &config.host,
+        &config.port,
+    )
+    .await
+}
+
 /// Treats a blank string the same as an absent value — see
 /// `PostgresInputConfig::container_name`.
 fn deserialize_optional_non_empty<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
@@ -569,7 +588,7 @@ impl PostgresService {
         Ok(postgres_config)
     }
     fn get_container_name(&self) -> String {
-        format!("postgres-{}", self.name)
+        postgres_container_name(&self.name, None)
     }
 
     /// The container this service actually runs in: the imported container's
@@ -1593,18 +1612,29 @@ impl PostgresService {
         Self::validate_database_name(name)?;
 
         let config: PostgresConfig = self.get_postgres_config(service_config)?;
+        // Endereço do control plane, não `config.host:config.port`: com o
+        // control plane em container, `localhost:<porta publicada>` é o próprio
+        // container dele e o deploy de um projeto ligado ao serviço falhava aqui.
+        let endpoint = postgres_admin_endpoint(&self.name, &config).await;
         let connection_string = format!(
             "postgres://{}:{}@{}:{}/postgres?sslmode=disable",
             urlencoding::encode(&config.username),
             urlencoding::encode(&config.password),
-            config.host,
-            config.port
+            endpoint.host,
+            endpoint.port
         );
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(config.max_connections)
             .connect(&connection_string)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to connect to postgres: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to connect to postgres at {}:{}: {}",
+                    endpoint.host,
+                    endpoint.port,
+                    e
+                )
+            })?;
 
         // Check if database exists using parameterized query
         let exists = sqlx::query("SELECT 1 FROM pg_database WHERE datname = $1")
@@ -2898,7 +2928,7 @@ fn postgres_recovery_target_setting(recovery_target: Option<&super::RecoveryTarg
 }
 
 /// Internal port used by PostgreSQL inside the container
-const POSTGRES_INTERNAL_PORT: &str = "5432";
+pub const POSTGRES_INTERNAL_PORT: &str = temps_core::admin_endpoint::POSTGRES_INTERNAL_PORT;
 
 /// Docker-free, static metadata about this engine.
 ///
@@ -3114,23 +3144,13 @@ impl ExternalService for PostgresService {
             }
         };
 
-        // Endereço resolvido pelo ambiente onde ESTE processo roda, e não os
-        // campos crus de `parameters`. Em Docker o control-plane alcança o
-        // banco pelo nome do container na rede interna; `localhost:<porta
-        // publicada>` aponta para o próprio container do temps, onde não há
-        // Postgres algum — e o probe marcava Down um serviço saudável desde o
-        // primeiro check. É a mesma resolução que o deploy usa para montar
-        // POSTGRES_URL, então monitor e workload passam a enxergar o mesmo
-        // endereço.
-        let (host, port) = match self.get_effective_address(service_config) {
-            Ok(endereco) => endereco,
-            Err(e) => {
-                return Ok(HealthProbeResult::down(format!(
-                    "invalid postgres address: {}",
-                    e
-                )))
-            }
-        };
+        // Endereço de administração do control plane (ver
+        // `temps_core::admin_endpoint`), e não os campos crus de `parameters`:
+        // com o control plane em container, `localhost:<porta publicada>` é o
+        // próprio container do temps, onde não há Postgres algum — e o probe
+        // marcava Down um serviço saudável desde o primeiro check.
+        let endpoint = postgres_admin_endpoint(&self.name, &cfg).await;
+        let (host, port) = (endpoint.host, endpoint.port);
 
         let conn_str = format!(
             "host={} port={} user={} password={} dbname={} connect_timeout=3",
@@ -3937,32 +3957,6 @@ impl ExternalService for PostgresService {
             .unwrap_or("5432")
             .to_string();
 
-        // Verify connection to the imported service. Connects directly with
-        // `.await` on the current runtime — spinning up a nested
-        // `tokio::runtime::Runtime` and calling `block_on` here panics with
-        // "Cannot start a runtime from within a runtime", since this
-        // `async fn` is already driven by one.
-        let connection_url = format!(
-            "postgresql://{}:{}@localhost:{}/{}",
-            urlencoding::encode(&username),
-            urlencoding::encode(&password),
-            port,
-            urlencoding::encode(&database)
-        );
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(1)
-            .connect(&connection_url)
-            .await
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to connect to PostgreSQL at localhost:{} with provided credentials: {}",
-                    port,
-                    e
-                )
-            })?;
-        pool.close().await;
-        info!("Successfully verified PostgreSQL connection for import");
-
         let network_ready = match ensure_network_exists(&self.docker).await {
             Ok(()) => true,
             Err(e) => {
@@ -3996,6 +3990,45 @@ impl ExternalService for PostgresService {
                 ),
             }
         }
+
+        // Verify connection to the imported service. Connects directly with
+        // `.await` on the current runtime — spinning up a nested
+        // `tokio::runtime::Runtime` and calling `block_on` here panics with
+        // "Cannot start a runtime from within a runtime", since this
+        // `async fn` is already driven by one.
+        //
+        // Roda depois de ligar o container à rede do temps: com o control plane
+        // em container, o banco só é alcançável pelo nome do container nessa
+        // rede (ver `temps_core::admin_endpoint`).
+        let endpoint = temps_core::admin_endpoint::resolve_admin_endpoint(
+            &imported_container_name,
+            POSTGRES_INTERNAL_PORT,
+            "localhost",
+            &port,
+        )
+        .await;
+        let connection_url = format!(
+            "postgresql://{}:{}@{}:{}/{}",
+            urlencoding::encode(&username),
+            urlencoding::encode(&password),
+            endpoint.host,
+            endpoint.port,
+            urlencoding::encode(&database)
+        );
+        let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(1)
+            .connect(&connection_url)
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to connect to PostgreSQL at {}:{} with provided credentials: {}",
+                    endpoint.host,
+                    endpoint.port,
+                    e
+                )
+            })?;
+        pool.close().await;
+        info!("Successfully verified PostgreSQL connection for import");
 
         // Build the ServiceConfig for registration
         let config = ServiceConfig {

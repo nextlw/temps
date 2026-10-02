@@ -315,7 +315,15 @@ impl PostgresSource {
         password: &str,
         database: &str,
     ) -> Result<Self> {
-        Self::connect_with_policy(host, port, username, password, database, false).await
+        Self::connect_with_policy(
+            host,
+            port,
+            username,
+            password,
+            database,
+            TransportPolicy::VerifiedPublicAllowed,
+        )
+        .await
     }
 
     /// Create a PostgreSQL data source for a managed endpoint that must remain
@@ -327,7 +335,36 @@ impl PostgresSource {
         password: &str,
         database: &str,
     ) -> Result<Self> {
-        Self::connect_with_policy(host, port, username, password, database, true).await
+        Self::connect_with_policy(
+            host,
+            port,
+            username,
+            password,
+            database,
+            TransportPolicy::PrivateOnly,
+        )
+        .await
+    }
+
+    /// Create a PostgreSQL data source for a managed service reached by its
+    /// container name on the Docker network the control plane shares with it.
+    /// See [`connect_with_managed_container_tls_ladder`].
+    pub async fn connect_managed_container(
+        host: &str,
+        port: u16,
+        username: &str,
+        password: &str,
+        database: &str,
+    ) -> Result<Self> {
+        Self::connect_with_policy(
+            host,
+            port,
+            username,
+            password,
+            database,
+            TransportPolicy::ManagedContainer,
+        )
+        .await
     }
 
     async fn connect_with_policy(
@@ -336,7 +373,7 @@ impl PostgresSource {
         username: &str,
         password: &str,
         database: &str,
-        private_only: bool,
+        policy: TransportPolicy,
     ) -> Result<Self> {
         // SECURITY: build the config with typed setters, never `format!`.
         //
@@ -363,11 +400,9 @@ impl PostgresSource {
             "Connecting to PostgreSQL: {}@{}:{}/{}",
             username, host, port, database
         );
-        let client = if private_only {
-            connect_with_private_tls_ladder(host, port, username, password, database).await?
-        } else {
-            connect_with_tls_ladder(host, port, username, password, database).await?
-        };
+        let client =
+            connect_with_tls_ladder_policy(host, port, username, password, database, policy)
+                .await?;
 
         debug!(
             "Successfully connected to PostgreSQL database: {}",
@@ -522,13 +557,26 @@ impl ResolvedHost {
     }
 }
 
+/// [`resolve_host_once_with`] with the ordinary (relative) lookup.
+#[cfg(test)]
+async fn resolve_host_once(host: &str, port: u16) -> Result<ResolvedHost> {
+    resolve_host_once_with(host, port, false).await
+}
+
 /// Resolve a PostgreSQL host exactly once for the whole TLS ladder.
 ///
 /// The resulting addresses are installed in `Config::hostaddr`, so
 /// tokio-postgres dials the addresses approved here instead of resolving the
 /// hostname again after the private-network decision. The original hostname
 /// remains in `Config::host` for certificate/SNI verification.
-async fn resolve_host_once(host: &str, port: u16) -> Result<ResolvedHost> {
+///
+/// With `absolute`, the name is looked up as `<name>.` so no `resolv.conf`
+/// search domain is appended. The
+/// [`TransportPolicy::ManagedContainer`] route uses it: the control plane chose
+/// that container name with the same absolute lookup
+/// (`temps_core::admin_endpoint`), and the connection must dial what that
+/// lookup saw, not a search-domain match. IP literals are looked up as-is.
+async fn resolve_host_once_with(host: &str, port: u16, absolute: bool) -> Result<ResolvedHost> {
     let host = host.trim();
     if host.is_empty() {
         return Err(DataError::ConnectionFailed(
@@ -545,7 +593,12 @@ async fn resolve_host_once(host: &str, port: u16) -> Result<ResolvedHost> {
         .and_then(|host| host.strip_suffix(']'))
         .unwrap_or(host)
         .to_string();
-    let resolved = tokio::net::lookup_host((hostname.as_str(), port))
+    let lookup_name = if absolute && hostname.parse::<std::net::IpAddr>().is_err() {
+        format!("{}.", hostname.trim_end_matches('.'))
+    } else {
+        hostname.clone()
+    };
+    let resolved = tokio::net::lookup_host((lookup_name.as_str(), port))
         .await
         .map_err(|error| {
             DataError::ConnectionFailed(format!(
@@ -678,10 +731,58 @@ pub async fn connect_with_private_tls_ladder(
     .await
 }
 
+/// Connect to a managed PostgreSQL container by its container name, on the
+/// Docker network the control plane shares with it.
+///
+/// The caller vouches for the route: the name was just resolved by the
+/// container network's DNS (see `temps_core::admin_endpoint`), the same
+/// address the deploy hands to the apps in `POSTGRES_URL`. Docker networks
+/// may use subnets outside RFC 1918 — the compose default for workloads is
+/// `198.20.255.0/24` — so the private-address check cannot tell this route
+/// apart from a public host; the unverified rungs are allowed here because the
+/// route, not the address, is what is trusted. A name that resolves to nothing
+/// is still refused.
+pub async fn connect_with_managed_container_tls_ladder(
+    host: &str,
+    port: u16,
+    username: &str,
+    password: &str,
+    database: &str,
+) -> Result<Client> {
+    connect_with_tls_ladder_policy(
+        host,
+        port,
+        username,
+        password,
+        database,
+        TransportPolicy::ManagedContainer,
+    )
+    .await
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum TransportPolicy {
     VerifiedPublicAllowed,
     PrivateOnly,
+    /// Container name on the shared Docker network; see
+    /// [`connect_with_managed_container_tls_ladder`].
+    ManagedContainer,
+}
+
+impl TransportPolicy {
+    /// Whether the unverified-certificate and cleartext rungs may be used for
+    /// `resolved`.
+    fn permits_unverified_transport(self, resolved: &ResolvedHost) -> bool {
+        match self {
+            Self::VerifiedPublicAllowed | Self::PrivateOnly => {
+                resolved.permits_unverified_transport()
+            }
+            Self::ManagedContainer => match resolved {
+                ResolvedHost::UnixSocket(_) => true,
+                ResolvedHost::Tcp { addresses, .. } => !addresses.is_empty(),
+            },
+        }
+    }
 }
 
 async fn connect_with_tls_ladder_policy(
@@ -692,8 +793,11 @@ async fn connect_with_tls_ladder_policy(
     database: &str,
     policy: TransportPolicy,
 ) -> Result<Client> {
-    let resolved_host = resolve_host_once(host, port).await?;
-    if policy == TransportPolicy::PrivateOnly && !resolved_host.permits_unverified_transport() {
+    let resolved_host =
+        resolve_host_once_with(host, port, policy == TransportPolicy::ManagedContainer).await?;
+    if policy == TransportPolicy::PrivateOnly
+        && !policy.permits_unverified_transport(&resolved_host)
+    {
         return Err(DataError::ConnectionFailed(format!(
             "Managed PostgreSQL endpoint '{host}' resolved outside the private network; refusing \
              to send cluster credentials even over verified TLS"
@@ -717,7 +821,7 @@ async fn connect_with_tls_ladder_policy(
             // Both weaker rungs are restricted to the exact addresses resolved
             // above. The driver receives those same addresses through
             // `hostaddr`, so DNS cannot change the destination after this gate.
-            if !resolved_host.permits_unverified_transport() {
+            if !policy.permits_unverified_transport(&resolved_host) {
                 return Err(DataError::ConnectionFailed(format!(
                     "PostgreSQL at '{host}' did not present a certificate that validates \
                      against the system roots, and at least one resolved address is outside \
@@ -2617,6 +2721,55 @@ mod tests {
                 "should NOT be treated as private: {ip}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn absolute_lookup_resolves_names_and_keeps_ip_literals() {
+        // Same answer as the relative lookup for a real name, and the original
+        // hostname (no trailing dot) is what the TLS layer keeps.
+        match resolve_host_once_with("localhost", 5432, true)
+            .await
+            .expect("absolute localhost should resolve")
+        {
+            ResolvedHost::Tcp {
+                hostname,
+                addresses,
+            } => {
+                assert_eq!(hostname, "localhost");
+                assert!(addresses.iter().all(|address| address.is_loopback()));
+            }
+            other => panic!("unexpected resolution: {other:?}"),
+        }
+        assert!(resolve_host_once_with("127.0.0.1", 5432, true)
+            .await
+            .is_ok());
+        assert!(resolve_host_once_with("no-such-host.invalid", 5432, true)
+            .await
+            .is_err());
+    }
+
+    #[test]
+    fn managed_container_policy_trusts_the_route_not_the_address() {
+        // The compose default for the workload network is 198.20.255.0/24,
+        // outside RFC 1918. A managed container there must still get the
+        // self-signed/cleartext rungs when reached by its container name...
+        let workload_network = ResolvedHost::Tcp {
+            hostname: "postgres-app-db".to_string(),
+            addresses: vec!["198.20.255.3".parse().expect("test address should parse")],
+        };
+        assert!(TransportPolicy::ManagedContainer.permits_unverified_transport(&workload_network));
+        // ...while the other policies keep classifying by address.
+        assert!(
+            !TransportPolicy::VerifiedPublicAllowed.permits_unverified_transport(&workload_network)
+        );
+        assert!(!TransportPolicy::PrivateOnly.permits_unverified_transport(&workload_network));
+
+        // A name that resolved to nothing is never trusted.
+        let unresolved = ResolvedHost::Tcp {
+            hostname: "postgres-gone".to_string(),
+            addresses: Vec::new(),
+        };
+        assert!(!TransportPolicy::ManagedContainer.permits_unverified_transport(&unresolved));
     }
 
     #[tokio::test]

@@ -235,19 +235,31 @@ impl RedisService {
             config.port
         );
 
+        // Endereço de administração do control plane (ver
+        // `temps_core::admin_endpoint`): nome do container e porta interna
+        // quando o control plane roda em container; `localhost:<porta
+        // publicada>` quando roda no host, como antes.
+        let endpoint = temps_core::admin_endpoint::resolve_admin_endpoint(
+            &self.get_live_container_name(&config),
+            REDIS_INTERNAL_PORT,
+            "localhost",
+            &config.port,
+        )
+        .await;
         let connection_url = if config.password.is_empty() {
-            format!("redis://localhost:{}", config.port)
+            format!("redis://{}:{}", endpoint.host, endpoint.port)
         } else {
             format!(
-                "redis://:{}@localhost:{}",
+                "redis://:{}@{}:{}",
                 urlencoding::encode(&config.password),
-                config.port
+                endpoint.host,
+                endpoint.port
             )
         };
 
         info!(
-            "RedisService::get_connection - creating client for URL (password masked): redis://...@localhost:{}",
-            config.port
+            "RedisService::get_connection - creating client for URL (password masked): redis://...@{}:{}",
+            endpoint.host, endpoint.port
         );
 
         let client = Client::open(connection_url.as_str())
@@ -275,7 +287,7 @@ impl RedisService {
     /// callers reasoning about the container should ask rather than re-derive
     /// `redis-{name}` themselves. See `externalsvc::naming`.
     pub fn get_container_name(&self) -> String {
-        format!("redis-{}", self.name)
+        temps_core::admin_endpoint::redis_container_name(&self.name, None)
     }
 
     /// The container this service actually runs in: the imported container's
@@ -2027,7 +2039,7 @@ impl RedisService {
 }
 
 /// Internal port used by Redis inside the container
-const REDIS_INTERNAL_PORT: &str = "6379";
+const REDIS_INTERNAL_PORT: &str = temps_core::admin_endpoint::REDIS_INTERNAL_PORT;
 
 /// Docker-free, static metadata about this engine.
 ///
@@ -2182,14 +2194,24 @@ impl ExternalService for RedisService {
             }
         };
 
+        // Endereço de administração do control plane (ver
+        // `temps_core::admin_endpoint`): com o control plane em container,
+        // `localhost:<porta publicada>` é o próprio container dele.
+        let endpoint = temps_core::admin_endpoint::resolve_admin_endpoint(
+            &self.get_live_container_name(&cfg),
+            REDIS_INTERNAL_PORT,
+            &cfg.host,
+            &cfg.port,
+        )
+        .await;
         let url = if cfg.password.is_empty() {
-            format!("redis://{}:{}", cfg.host, cfg.port)
+            format!("redis://{}:{}", endpoint.host, endpoint.port)
         } else {
             format!(
                 "redis://:{}@{}:{}",
                 urlencoding::encode(&cfg.password),
-                cfg.host,
-                cfg.port
+                endpoint.host,
+                endpoint.port
             )
         };
 
@@ -2228,13 +2250,13 @@ impl ExternalService for RedisService {
         match tokio::time::timeout(PROBE_TIMEOUT, probe).await {
             Err(_) => Ok(HealthProbeResult::down(format!(
                 "redis probe to {}:{} timed out after {}s",
-                cfg.host,
-                cfg.port,
+                endpoint.host,
+                endpoint.port,
                 PROBE_TIMEOUT.as_secs()
             ))),
             Ok(Err(msg)) => Ok(HealthProbeResult::down(format!(
                 "redis probe to {}:{} {}",
-                cfg.host, cfg.port, msg
+                endpoint.host, endpoint.port, msg
             ))),
             Ok(Ok(())) => {
                 let elapsed_ms = start.elapsed().as_millis();

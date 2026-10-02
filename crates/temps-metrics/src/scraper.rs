@@ -229,6 +229,7 @@ impl MetricsScraper {
                 let result = async {
                     // Build a connection string from the encrypted service config.
                     let connection_string = build_connection_string(&service, &encryption)
+                        .await
                         .map_err(|e| {
                             warn!(
                                 service_id,
@@ -409,7 +410,7 @@ async fn apply_delta(
 /// Parses the decrypted JSON parameters and produces an appropriate URI or
 /// DSN for the service type.  Returns an error if the config cannot be
 /// decrypted or does not contain the required parameters.
-fn build_connection_string(
+async fn build_connection_string(
     service: &external_services::Model,
     encryption: &EncryptionService,
 ) -> Result<String, String> {
@@ -442,6 +443,30 @@ fn build_connection_string(
         }
     };
 
+    // Endereço de administração do control plane (ver
+    // `temps_core::admin_endpoint`): com o control plane em container,
+    // `localhost:<porta publicada>` é o próprio container dele e a coleta
+    // falhava com "postgres connection failed; skipping scrape".
+    let admin_host_port = |port: String| {
+        let host = host.clone();
+        let container = admin_container(&service.service_type, &service.name, &params);
+        async move {
+            match container {
+                Some((container_name, internal_port)) => {
+                    let endpoint = temps_core::admin_endpoint::resolve_admin_endpoint(
+                        &container_name,
+                        internal_port,
+                        &host,
+                        &port,
+                    )
+                    .await;
+                    (endpoint.host, endpoint.port)
+                }
+                None => (host, port),
+            }
+        }
+    };
+
     match service.service_type.to_lowercase().as_str() {
         "postgres" => {
             let port = get_str("port");
@@ -450,6 +475,7 @@ fn build_connection_string(
             } else {
                 port
             };
+            let (host, port) = admin_host_port(port).await;
             let username = get_str("username");
             let username = if username.is_empty() {
                 "postgres".to_string()
@@ -487,6 +513,7 @@ fn build_connection_string(
             } else {
                 port
             };
+            let (host, port) = admin_host_port(port).await;
             let password = get_str("password");
 
             if password.is_empty() {
@@ -507,6 +534,7 @@ fn build_connection_string(
             } else {
                 port
             };
+            let (host, port) = admin_host_port(port).await;
             let username = get_str("username");
             let password = get_str("password");
 
@@ -578,6 +606,34 @@ fn build_connection_string(
         other => Err(format!(
             "MetricsScraper: no connection string builder for service type '{other}'"
         )),
+    }
+}
+
+/// Container e porta interna de um serviço gerenciado, para os engines cujo
+/// container o scraper sabe nomear. A derivação é a de
+/// `temps_core::admin_endpoint`, a mesma que os providers usam.
+/// S3/RustFS ficam de fora: o container depende do backend (RustFS ou MinIO).
+fn admin_container(
+    service_type: &str,
+    service_name: &str,
+    params: &HashMap<String, serde_json::Value>,
+) -> Option<(String, &'static str)> {
+    use temps_core::admin_endpoint as admin;
+    let imported = params.get("container_name").and_then(|v| v.as_str());
+    match service_type.to_lowercase().as_str() {
+        "postgres" => Some((
+            admin::postgres_container_name(service_name, imported),
+            admin::POSTGRES_INTERNAL_PORT,
+        )),
+        "redis" => Some((
+            admin::redis_container_name(service_name, imported),
+            admin::REDIS_INTERNAL_PORT,
+        )),
+        "mongodb" => Some((
+            admin::mongodb_container_name(service_name, imported),
+            admin::MONGODB_INTERNAL_PORT,
+        )),
+        _ => None,
     }
 }
 
@@ -655,6 +711,34 @@ mod tests {
     // We can't test build_connection_string directly with a real EncryptionService
     // in unit tests because it requires a real encryption key. Instead, we test
     // the urlencoded helper and apply_delta logic directly.
+
+    #[test]
+    fn admin_container_derives_the_provider_container_names() {
+        let empty = HashMap::new();
+        assert_eq!(
+            admin_container("postgres", "app-db", &empty),
+            Some(("postgres-app-db".to_string(), "5432"))
+        );
+        assert_eq!(
+            admin_container("redis", "cache", &empty),
+            Some(("redis-cache".to_string(), "6379"))
+        );
+        assert_eq!(
+            admin_container("mongodb", "docs", &empty),
+            Some(("temps-mongodb-docs".to_string(), "27017"))
+        );
+        assert_eq!(admin_container("s3", "blob", &empty), None);
+
+        let mut imported = HashMap::new();
+        imported.insert(
+            "container_name".to_string(),
+            serde_json::Value::String("legacy-pg".to_string()),
+        );
+        assert_eq!(
+            admin_container("postgres", "app", &imported),
+            Some(("legacy-pg".to_string(), "5432"))
+        );
+    }
 
     #[test]
     fn urlencoded_slash() {

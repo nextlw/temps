@@ -874,7 +874,8 @@ impl ExternalServiceHealthMonitor {
             }
         };
 
-        let conn_str = postgres_wal_health::build_conn_str(&service_config.parameters)?;
+        let conn_str =
+            postgres_wal_health::admin_conn_str(&service.name, &service_config.parameters).await?;
         postgres_wal_health::probe_wal_health(&conn_str).await
     }
 

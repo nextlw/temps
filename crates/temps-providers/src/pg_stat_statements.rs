@@ -57,6 +57,9 @@ const RESET_FUNCTION_LOOKUP_SQL: &str = r#"
 enum PgStatConnectionPolicy {
     Standard,
     ManagedPrivate,
+    /// Nome do container na rede Docker compartilhada (ver
+    /// `temps_core::admin_endpoint`).
+    ManagedContainer,
 }
 
 impl PgStatConnectionPolicy {
@@ -81,6 +84,12 @@ impl PgStatConnectionPolicy {
                 )
                 .await
             }
+            Self::ManagedContainer => {
+                temps_query_postgres::connect_with_managed_container_tls_ladder(
+                    host, port, username, password, database,
+                )
+                .await
+            }
         }
     }
 }
@@ -89,9 +98,15 @@ fn pg_stat_connection_target(
     cluster_primary: Option<(String, u16)>,
     standalone_host: String,
     standalone_port: u16,
+    standalone_via_container_network: bool,
 ) -> (String, u16, PgStatConnectionPolicy) {
     match cluster_primary {
         Some((host, port)) => (host, port, PgStatConnectionPolicy::ManagedPrivate),
+        None if standalone_via_container_network => (
+            standalone_host,
+            standalone_port,
+            PgStatConnectionPolicy::ManagedContainer,
+        ),
         None => (
             standalone_host,
             standalone_port,
@@ -475,17 +490,29 @@ impl PgStatStatementsService {
                     Some((primary_host, primary_port)),
                     config.host.clone(),
                     5432,
+                    false,
                 )
             }
             Ok(None) => {
-                let port_str = config.port.clone().unwrap_or_else(|| "5432".to_string());
-                let port = port_str.parse::<u16>().map_err(|e| {
+                // Endereço de administração do control plane: container:5432
+                // quando ele roda em container, host:porta publicada no host.
+                let stored_port = config.port.clone().unwrap_or_else(|| "5432".to_string());
+                let endpoint = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &stored_port)
+                    .await;
+                let port = endpoint.port_number().ok_or_else(|| {
                     PgStatStatementsError::ConfigurationError {
                         service_id,
-                        reason: format!("invalid port '{}': {}", port_str, e),
+                        reason: format!("invalid port '{}'", endpoint.port),
                     }
                 })?;
-                pg_stat_connection_target(None, config.host.clone(), port)
+                pg_stat_connection_target(
+                    None,
+                    endpoint.host.clone(),
+                    port,
+                    endpoint.via_container_network(),
+                )
             }
             Err(e) => {
                 return Err(PgStatStatementsError::ConnectionFailed {
@@ -1055,15 +1082,21 @@ mod tests {
             Some(("10.0.0.9".to_string(), 6432)),
             "public.example".to_string(),
             5432,
+            false,
         );
         assert_eq!(cluster.0, "10.0.0.9");
         assert_eq!(cluster.1, 6432);
         assert_eq!(cluster.2, PgStatConnectionPolicy::ManagedPrivate);
 
-        let standalone = pg_stat_connection_target(None, "public.example".to_string(), 5433);
+        let standalone = pg_stat_connection_target(None, "public.example".to_string(), 5433, false);
         assert_eq!(standalone.0, "public.example");
         assert_eq!(standalone.1, 5433);
         assert_eq!(standalone.2, PgStatConnectionPolicy::Standard);
+
+        let container = pg_stat_connection_target(None, "postgres-app-db".to_string(), 5432, true);
+        assert_eq!(container.0, "postgres-app-db");
+        assert_eq!(container.1, 5432);
+        assert_eq!(container.2, PgStatConnectionPolicy::ManagedContainer);
     }
 
     #[tokio::test]
