@@ -156,9 +156,9 @@ export async function login(
   password = ADMIN_PASSWORD
 ) {
   await page.goto('/login')
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(password)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByLabel('E-mail corporativo', { exact: true }).fill(email)
+  await page.getByLabel('Senha', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click()
 }
 
 /**
