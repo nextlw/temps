@@ -16183,6 +16183,10 @@ export type PopulateRunResponse = {
      */
     database_size_bytes?: number | null;
     /**
+     * Whether the replace could terminate the destination's sessions.
+     */
+    disconnect_clients: boolean;
+    /**
      * Set once the run finished.
      */
     duration_seconds?: number | null;
@@ -16218,6 +16222,12 @@ export type PopulateServiceRequest = {
      * missing, owned by the service user. Must match `[a-z_][a-z0-9_]{0,62}`.
      */
     database: string;
+    /**
+     * With `replace`: terminate the sessions of the destination when the
+     * copy is swapped in. Without it, a destination with open sessions is
+     * refused with 409.
+     */
+    disconnect_clients?: boolean;
     /**
      * Drop and recreate the destination when it already has tables.
      * Without it, a non-empty destination is refused with 409.
@@ -37375,11 +37385,11 @@ export type StartServicePopulateErrors = {
      */
     404: ProblemDetails;
     /**
-     * Destination not empty (use replace) or a copy is already running
+     * Destination not empty (use replace), destination has open sessions (use disconnect_clients) or a copy is already running
      */
     409: ProblemDetails;
     /**
-     * Service is not a local standalone PostgreSQL
+     * Service is not a local standalone PostgreSQL, or is the control plane's own database server
      */
     422: ProblemDetails;
     /**
