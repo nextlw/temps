@@ -7,7 +7,11 @@
 name: MinIO images
 
 on:
+  # Branches only: a pushed git tag (a Temps release) carries the same
+  # images/minio/ and would queue behind main in the same concurrency group,
+  # which makes GitHub cancel the run waiting there.
   push:
+    branches: ['**']
     paths:
       - images/minio/**
       - .github/workflows/minio-images.yml
@@ -16,10 +20,11 @@ on:
 permissions:
   contents: read
 
-# One run at a time across every branch: two runs must never race to
-# publish the same tag.
+# Only main publishes, so main runs one at a time: two of them must never race
+# to publish the same tag. Other refs build and smoke-test only and get a
+# group per ref, so they never wait on (or displace) a pending main run.
 concurrency:
-  group: minio-images
+  group: ${{ github.ref == 'refs/heads/main' && 'minio-images-main' || format('minio-images-{0}', github.ref) }}
   cancel-in-progress: false
 
 jobs:

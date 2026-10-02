@@ -35,7 +35,10 @@ them. They stay open in this image.
 
 The earlier image `RELEASE.2025-09-07T16-13-09Z` (commit
 `07c3a429bfed433e49018cb0f78a52145d4bedeb`) stays published; a volume it
-wrote is read by the newer server as-is.
+wrote is read by the newer server as-is. The S3 managed service rewrites a
+persisted reference to that release (official `minio/minio` or our
+`ghcr.io/nextlw/minio` tag, with or without its digest) to the current image,
+so existing services pick up the CVE-2025-62506 fix on their next start.
 
 ## Source code (AGPL-3.0)
 

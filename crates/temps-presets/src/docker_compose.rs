@@ -1118,12 +1118,12 @@ services:
             ("minio/minio:latest", S3, false),
             ("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z", S3, false),
             (
-                "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64",
+                "ghcr.io/nextlw/minio:RELEASE.2025-10-15T17-29-55Z@sha256:59d53179a0b4d3e17592dd0d4e1b0fdc8e042b9a22e7b7b36a63d2c3ab5da05b",
                 S3,
                 false,
             ),
             (
-                "ghcr.io/nextlw/minio@sha256:ab56307e607a5ad52647fd26942164c8816252fb279daead61078e174cad6e64",
+                "ghcr.io/nextlw/minio@sha256:59d53179a0b4d3e17592dd0d4e1b0fdc8e042b9a22e7b7b36a63d2c3ab5da05b",
                 S3,
                 false,
             ),
