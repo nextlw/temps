@@ -30,7 +30,9 @@ use serde::Serialize;
 use temps_auth::{deny_deployment_token, permission_guard, AuthContext, Permission, RequireAuth};
 use temps_core::error_builder::ErrorBuilder;
 use temps_core::problemdetails::{PermissionDenialKind, Problem};
-use temps_core::{AuditContext, AuditLogger, AuditOperation, ProjectAccessChecker, RequestMetadata};
+use temps_core::{
+    AuditContext, AuditLogger, AuditOperation, ProjectAccessChecker, RequestMetadata,
+};
 use utoipa::{OpenApi, ToSchema};
 
 use crate::service::{
@@ -271,8 +273,7 @@ fn visible_or_not_found(
     access: &ServiceAccess,
 ) -> Result<ProjectGroupWithMembers, Problem> {
     let group_id = group.group.id;
-    visible_group(group, access)
-        .ok_or_else(|| ProjectGroupError::NotFound { group_id }.into())
+    visible_group(group, access).ok_or_else(|| ProjectGroupError::NotFound { group_id }.into())
 }
 
 /// Like [`visible_or_not_found`], for a group loaded by slug.
@@ -281,8 +282,7 @@ fn visible_by_slug_or_not_found(
     access: &ServiceAccess,
 ) -> Result<ProjectGroupWithMembers, Problem> {
     let slug = group.group.slug.clone();
-    visible_group(group, access)
-        .ok_or_else(|| ProjectGroupError::NotFoundBySlug { slug }.into())
+    visible_group(group, access).ok_or_else(|| ProjectGroupError::NotFoundBySlug { slug }.into())
 }
 
 /// Strips hidden ids from a group returned after a mutation. Membership can
@@ -731,8 +731,7 @@ pub fn router(state: Arc<ProjectGroupsAppState>) -> Router {
         )
         .route(
             "/project-groups/{id}/projects/{project_id}",
-            put(assign_project_to_group)
-                .delete(remove_project_from_group),
+            put(assign_project_to_group).delete(remove_project_from_group),
         )
         .with_state(state)
 }

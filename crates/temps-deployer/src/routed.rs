@@ -32,8 +32,8 @@ use temps_build_executor::{run_build, BuildInvocation};
 use temps_build_protocol::BuildResultEnvelope;
 
 use crate::{
-    BuildRequest, BuildRequestWithCallback, BuildResult, BuilderError, ImageBuilder, ImageImportStream,
-    ImageInfo,
+    BuildRequest, BuildRequestWithCallback, BuildResult, BuilderError, ImageBuilder,
+    ImageImportStream, ImageInfo,
 };
 
 /// Everything a hosted build needs that the request is not allowed to choose.
@@ -151,7 +151,10 @@ impl BuildPolicy for ConfiguredBuildPolicy {
             .platform
             .as_deref()
             .and_then(parse_platform)
-            .unwrap_or((temps_build_protocol::Os::Linux, temps_build_protocol::Arch::Amd64));
+            .unwrap_or((
+                temps_build_protocol::Os::Linux,
+                temps_build_protocol::Arch::Amd64,
+            ));
 
         BuildPlacement::Hosted(Box::new(HostedBuildPlan {
             program,
@@ -769,12 +772,7 @@ mod recall_tests {
         async fn save_image(&self, _: &str, _: &Path) -> Result<(), BuilderError> {
             unreachable!()
         }
-        async fn extract_from_image(
-            &self,
-            _: &str,
-            _: &str,
-            _: &Path,
-        ) -> Result<(), BuilderError> {
+        async fn extract_from_image(&self, _: &str, _: &str, _: &Path) -> Result<(), BuilderError> {
             unreachable!()
         }
         async fn list_images(&self) -> Result<Vec<String>, BuilderError> {
@@ -901,10 +899,7 @@ mod policy_tests {
             image_name: "app:sha".to_string(),
             context_path: PathBuf::from("/srv/build/app"),
             dockerfile_path: Some(PathBuf::from("backend/Dockerfile")),
-            build_args: std::collections::HashMap::from([(
-                "VERSION".to_string(),
-                "1".to_string(),
-            )]),
+            build_args: std::collections::HashMap::from([("VERSION".to_string(), "1".to_string())]),
             build_args_buildkit: std::collections::HashMap::new(),
             platform: Some("linux/arm64".to_string()),
             log_path: PathBuf::from("/tmp/log"),
@@ -930,7 +925,10 @@ mod policy_tests {
     #[test]
     fn no_configured_program_keeps_the_build_local() {
         assert!(
-            matches!(policy(None).placement_for(&a_request()), BuildPlacement::Local),
+            matches!(
+                policy(None).placement_for(&a_request()),
+                BuildPlacement::Local
+            ),
             "an unconfigured project must not be moved by the mere presence of \
              this code"
         );
@@ -941,8 +939,8 @@ mod policy_tests {
     /// empty credential set.
     #[test]
     fn a_configured_program_produces_a_plan_the_request_could_not_have_chosen() {
-        let BuildPlacement::Hosted(plan) = policy(Some("/usr/local/bin/temps-build"))
-            .placement_for(&a_request())
+        let BuildPlacement::Hosted(plan) =
+            policy(Some("/usr/local/bin/temps-build")).placement_for(&a_request())
         else {
             panic!("a configured program must place the build off the daemon")
         };
@@ -972,8 +970,7 @@ mod policy_tests {
     /// target, or a build lands on the wrong architecture and fails late.
     #[test]
     fn the_requested_platform_reaches_the_target() {
-        let BuildPlacement::Hosted(plan) =
-            policy(Some("/bin/true")).placement_for(&a_request())
+        let BuildPlacement::Hosted(plan) = policy(Some("/bin/true")).placement_for(&a_request())
         else {
             panic!("configured")
         };
@@ -991,7 +988,10 @@ mod policy_tests {
         assert_eq!(parse_platform("garbage"), None);
         assert_eq!(
             parse_platform("darwin/arm64"),
-            Some((temps_build_protocol::Os::MacOs, temps_build_protocol::Arch::Arm64)),
+            Some((
+                temps_build_protocol::Os::MacOs,
+                temps_build_protocol::Arch::Arm64
+            )),
             "darwin and macos are the same platform under two names, and a \
              desktop build will arrive spelled either way"
         );
@@ -1014,11 +1014,14 @@ mod policy_tests {
     /// is not at the root — which is both of the CRM's.
     #[test]
     fn the_resolved_dockerfile_reaches_the_recipe() {
-        let BuildPlacement::Hosted(plan) = policy(Some("/bin/true")).placement_for(&a_request()) else {
+        let BuildPlacement::Hosted(plan) = policy(Some("/bin/true")).placement_for(&a_request())
+        else {
             panic!("configured")
         };
         match plan.request.recipe {
-            temps_build_protocol::BuildRecipe::Dockerfile { path, build_args, .. } => {
+            temps_build_protocol::BuildRecipe::Dockerfile {
+                path, build_args, ..
+            } => {
                 assert_eq!(path, "backend/Dockerfile");
                 assert_eq!(build_args.get("VERSION").map(String::as_str), Some("1"));
             }

@@ -1147,7 +1147,10 @@ mod tests {
         // hostname there too; assuming https, or dropping the port, points the
         // check at something else entirely and reports a false outage.
         assert_eq!(
-            with_bound_host("http://app-production.localho.st:8080", "portal.example.test"),
+            with_bound_host(
+                "http://app-production.localho.st:8080",
+                "portal.example.test"
+            ),
             Some("http://portal.example.test:8080".to_string())
         );
         assert_eq!(

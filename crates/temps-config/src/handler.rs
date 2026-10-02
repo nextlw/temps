@@ -3462,9 +3462,11 @@ mod tests {
         let app = configure_routes()
             .with_state(state)
             .layer(Extension(http_request_metadata()))
-            .layer(Extension(
-                temps_auth::AuthContext::new_persisted_session(rotation_test_user(true), temps_auth::Role::Admin, 24),
-            ));
+            .layer(Extension(temps_auth::AuthContext::new_persisted_session(
+                rotation_test_user(true),
+                temps_auth::Role::Admin,
+                24,
+            )));
 
         // Exactly what the console holds after a masked GET, plus one edit.
         let body = serde_json::json!({
