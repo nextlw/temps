@@ -549,9 +549,11 @@ Copy an external PostgreSQL database into a database of a managed PostgreSQL ser
 |------|-------------|---------|----------|
 | `--id <id>` | Service ID | - | Yes |
 | `--database <name>` | Destination database, e.g. my_app_production | - | Yes |
-| `--replace` | Drop and recreate the destination when it already has tables | - | No |
+| `--replace` | Replace a destination that already has tables: copy into a staging database, then drop the old one and rename | - | No |
+| `--disconnect-clients` | With --replace: terminate the open sessions of the destination instead of refusing | - | No |
 | `--source-url-stdin` | Read the source connection URL from stdin | - | No |
-| `-y, --yes` | Skip the --replace confirmation | - | No |
+| `-y, --yes` | Non-interactive --replace; requires --confirm-database | - | No |
+| `--confirm-database <name>` | With --replace --yes: the database name again, as confirmation | - | No |
 | `--no-wait` | Return right after starting instead of following the run | - | No |
 | `--json` | Output in JSON format | - | No |
 

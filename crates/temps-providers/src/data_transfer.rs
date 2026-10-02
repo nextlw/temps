@@ -25,8 +25,17 @@ use thiserror::Error;
 /// finish in seconds to minutes.
 pub const DATA_TRANSFER_TIMEOUT: Duration = Duration::from_secs(30 * 60);
 
+/// Hard cap on pulling the client image. A registry that accepts the
+/// connection and then stalls would otherwise hold the transfer before the
+/// transfer timeout even starts counting.
+pub const IMAGE_PULL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
 /// How many characters of a container's log tail an error carries.
 const LOG_TAIL_CHARS: usize = 500;
+
+/// Where the libpq password file lands inside a transfer container.
+const PGPASS_DIR: &str = "/tmp";
+const PGPASS_FILE: &str = "temps-transfer.pgpass";
 
 /// Why a transfer container did not finish successfully.
 #[derive(Debug, Error)]
@@ -36,6 +45,9 @@ pub enum DataTransferError {
 
     #[error("failed to create transfer container '{name}': {reason}")]
     ContainerCreate { name: String, reason: String },
+
+    #[error("failed to hand credentials to transfer container '{name}': {reason}")]
+    Credentials { name: String, reason: String },
 
     #[error("failed to start transfer container '{name}': {reason}")]
     ContainerStart { name: String, reason: String },
@@ -54,6 +66,19 @@ pub enum DataTransferError {
     Exit { status: i64, log_tail: String },
 }
 
+/// How the database credentials reach the transfer container.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferCredentials {
+    /// The URLs go into `$SRC`/`$DST` as given, password included. Only for
+    /// clients without a password file (`mariadb`, `mongodump`).
+    InUrl,
+    /// PostgreSQL: `$SRC`/`$DST` carry no password; the passwords go into a
+    /// libpq password file (mode 0600) uploaded between create and start and
+    /// named by `PGPASSFILE`. Nothing secret appears in the container's
+    /// `Config.Env`, its command or the host's process list.
+    PgPassFile,
+}
+
 /// Everything needed to start one transfer container.
 pub struct TransferContainerSpec<'a> {
     /// Official client image (e.g. `postgres:18-alpine`).
@@ -64,14 +89,147 @@ pub struct TransferContainerSpec<'a> {
     pub source_url: &'a str,
     /// Destination connection URL, exposed to the command as `$DST`.
     pub destination_url: &'a str,
+    /// How the passwords in the two URLs reach the container.
+    pub credentials: TransferCredentials,
     /// Docker network mode. Production callers use `host` so the container
     /// reaches both the external source and the locally published port of
     /// the managed service.
     pub network_mode: &'a str,
     /// Prefix of the container name; a random suffix is appended.
     pub name_prefix: &'a str,
+    /// Labels on the container, so a later process can find (and remove)
+    /// transfers an earlier process left behind.
+    pub labels: Vec<(String, String)>,
     /// Bound after which the container is force-removed.
     pub timeout: Duration,
+}
+
+/// The container definition plus the password file to upload before start.
+pub struct PreparedTransferContainer {
+    pub body: bollard::models::ContainerCreateBody,
+    /// Contents of the libpq password file, when credentials travel that way.
+    pub pgpass: Option<String>,
+}
+
+/// One URL with its password removed, and the matching password-file line.
+struct SplitCredentials {
+    url_without_password: String,
+    pgpass_line: Option<String>,
+}
+
+/// Escape a password-file field: `:` and `\` are the only special characters.
+fn pgpass_escape(field: &str) -> String {
+    field.replace('\\', "\\\\").replace(':', "\\:")
+}
+
+fn split_postgres_credentials(raw: &str) -> Result<SplitCredentials, String> {
+    let mut url =
+        url::Url::parse(raw).map_err(|e| format!("not a valid connection URL ({})", e))?;
+    let Some(password) = url.password().map(str::to_string) else {
+        return Ok(SplitCredentials {
+            url_without_password: raw.to_string(),
+            pgpass_line: None,
+        });
+    };
+    let decode = |value: &str| {
+        percent_encoding::percent_decode_str(value)
+            .decode_utf8()
+            .map(|v| v.into_owned())
+            .map_err(|_| "the URL credentials are not valid UTF-8".to_string())
+    };
+    let password = decode(&password)?;
+    let username = decode(url.username())?;
+    let host = url
+        .host_str()
+        .ok_or_else(|| "the URL has no host".to_string())?
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .to_string();
+    // libpq compares the port as a string and defaults it to 5432.
+    let port = url.port().unwrap_or(5432).to_string();
+    url.set_password(None)
+        .map_err(|_| "cannot remove the password from the URL".to_string())?;
+    Ok(SplitCredentials {
+        url_without_password: url.to_string(),
+        pgpass_line: Some(format!(
+            "{}:{}:*:{}:{}",
+            pgpass_escape(&host),
+            pgpass_escape(&port),
+            pgpass_escape(&username),
+            pgpass_escape(&password)
+        )),
+    })
+}
+
+/// Build the container definition for a transfer. Pure, so what reaches
+/// Docker (`Config.Env`, `Cmd`) can be checked without a daemon.
+pub fn prepare_transfer_container(
+    spec: &TransferContainerSpec<'_>,
+) -> Result<PreparedTransferContainer, String> {
+    use bollard::models::{ContainerCreateBody, HostConfig};
+
+    let (source, destination, pgpass) = match spec.credentials {
+        TransferCredentials::InUrl => (
+            spec.source_url.to_string(),
+            spec.destination_url.to_string(),
+            None,
+        ),
+        TransferCredentials::PgPassFile => {
+            let source = split_postgres_credentials(spec.source_url)
+                .map_err(|e| format!("source URL: {}", e))?;
+            let destination = split_postgres_credentials(spec.destination_url)
+                .map_err(|e| format!("destination URL: {}", e))?;
+            let lines: Vec<String> = [source.pgpass_line, destination.pgpass_line]
+                .into_iter()
+                .flatten()
+                .collect();
+            (
+                source.url_without_password,
+                destination.url_without_password,
+                Some(format!("{}\n", lines.join("\n"))),
+            )
+        }
+    };
+
+    let mut env = vec![format!("SRC={}", source), format!("DST={}", destination)];
+    if pgpass.is_some() {
+        env.push(format!("PGPASSFILE={}/{}", PGPASS_DIR, PGPASS_FILE));
+    }
+    let labels = (!spec.labels.is_empty()).then(|| spec.labels.iter().cloned().collect());
+
+    Ok(PreparedTransferContainer {
+        body: ContainerCreateBody {
+            image: Some(spec.image.to_string()),
+            cmd: Some(vec![
+                "sh".to_string(),
+                "-c".to_string(),
+                spec.command.to_string(),
+            ]),
+            env: Some(env),
+            labels,
+            host_config: Some(HostConfig {
+                network_mode: Some(spec.network_mode.to_string()),
+                auto_remove: Some(false),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        pgpass,
+    })
+}
+
+/// A tar archive holding the password file, mode 0600, owned by root (the
+/// user the client images run `sh -c` as).
+fn pgpass_archive(contents: &str) -> Result<Vec<u8>, std::io::Error> {
+    let mut header = tar::Header::new_gnu();
+    header.set_size(contents.len() as u64);
+    header.set_mode(0o600);
+    header.set_uid(0);
+    header.set_gid(0);
+    header.set_cksum();
+    let mut builder = tar::Builder::new(Vec::new());
+    builder.append_data(&mut header, PGPASS_FILE, contents.as_bytes())?;
+    builder.into_inner()
 }
 
 /// Run a one-off transfer container to completion.
@@ -82,61 +240,84 @@ pub async fn run_transfer_container(
     docker: &Docker,
     spec: &TransferContainerSpec<'_>,
 ) -> Result<(), DataTransferError> {
-    use bollard::models::{ContainerCreateBody, HostConfig};
     use bollard::query_parameters::{
         CreateContainerOptionsBuilder, CreateImageOptions, StartContainerOptions,
+        UploadToContainerOptions,
     };
-
-    // Ensure the image exists (no-op when already pulled)
-    let mut pull = docker.create_image(
-        Some(CreateImageOptions {
-            from_image: Some(spec.image.to_string()),
-            ..Default::default()
-        }),
-        None,
-        None,
-    );
-    while let Some(item) = pull.next().await {
-        if let Err(e) = item {
-            return Err(DataTransferError::ImagePull {
-                image: spec.image.to_string(),
-                reason: e.to_string(),
-            });
-        }
-    }
 
     let name = format!(
         "{}-{}",
         spec.name_prefix,
         &uuid::Uuid::new_v4().to_string()[..8]
     );
+    let prepared =
+        prepare_transfer_container(spec).map_err(|reason| DataTransferError::Credentials {
+            name: name.clone(),
+            reason,
+        })?;
+
+    // Ensure the image exists (no-op when already pulled), bounded.
+    let pull = async {
+        let mut pull = docker.create_image(
+            Some(CreateImageOptions {
+                from_image: Some(spec.image.to_string()),
+                ..Default::default()
+            }),
+            None,
+            None,
+        );
+        while let Some(item) = pull.next().await {
+            item.map_err(|e| e.to_string())?;
+        }
+        Ok::<(), String>(())
+    };
+    match tokio::time::timeout(IMAGE_PULL_TIMEOUT, pull).await {
+        Ok(Ok(())) => {}
+        Ok(Err(reason)) => {
+            return Err(DataTransferError::ImagePull {
+                image: spec.image.to_string(),
+                reason,
+            })
+        }
+        Err(_) => {
+            return Err(DataTransferError::ImagePull {
+                image: spec.image.to_string(),
+                reason: format!("timed out after {}s", IMAGE_PULL_TIMEOUT.as_secs()),
+            })
+        }
+    }
+
     let container = docker
         .create_container(
             Some(CreateContainerOptionsBuilder::new().name(&name).build()),
-            ContainerCreateBody {
-                image: Some(spec.image.to_string()),
-                cmd: Some(vec![
-                    "sh".to_string(),
-                    "-c".to_string(),
-                    spec.command.to_string(),
-                ]),
-                env: Some(vec![
-                    format!("SRC={}", spec.source_url),
-                    format!("DST={}", spec.destination_url),
-                ]),
-                host_config: Some(HostConfig {
-                    network_mode: Some(spec.network_mode.to_string()),
-                    auto_remove: Some(false),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            },
+            prepared.body,
         )
         .await
         .map_err(|e| DataTransferError::ContainerCreate {
             name: name.clone(),
             reason: e.to_string(),
         })?;
+
+    if let Some(contents) = prepared.pgpass.as_deref() {
+        let upload = async {
+            let archive = pgpass_archive(contents).map_err(|e| e.to_string())?;
+            docker
+                .upload_to_container(
+                    &container.id,
+                    Some(UploadToContainerOptions {
+                        path: PGPASS_DIR.to_string(),
+                        ..Default::default()
+                    }),
+                    bollard::body_full(bytes::Bytes::from(archive)),
+                )
+                .await
+                .map_err(|e| e.to_string())
+        };
+        if let Err(reason) = upload.await {
+            remove_container_forcefully(docker, &container.id).await;
+            return Err(DataTransferError::Credentials { name, reason });
+        }
+    }
 
     if let Err(e) = docker
         .start_container(&container.id, None::<StartContainerOptions>)
@@ -165,6 +346,40 @@ pub async fn run_transfer_container(
             log_tail: logs.chars().take(LOG_TAIL_CHARS).collect(),
         })
     }
+}
+
+/// Force-remove every container carrying `label_key` that was created before
+/// `created_before` (unix seconds). Used at startup to stop transfers a
+/// previous process started and can no longer await. Returns how many were
+/// removed.
+pub async fn remove_labelled_containers(
+    docker: &Docker,
+    label_key: &str,
+    created_before: i64,
+) -> Result<usize, String> {
+    use bollard::query_parameters::ListContainersOptionsBuilder;
+
+    let filters = std::collections::HashMap::from([("label", vec![label_key])]);
+    let containers = docker
+        .list_containers(Some(
+            ListContainersOptionsBuilder::new()
+                .all(true)
+                .filters(&filters)
+                .build(),
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut removed = 0;
+    for container in containers {
+        let (Some(id), Some(created)) = (container.id, container.created) else {
+            continue;
+        };
+        if created < created_before {
+            remove_container_forcefully(docker, &id).await;
+            removed += 1;
+        }
+    }
+    Ok(removed)
 }
 
 /// Wait for `container_id` to finish, bounded by `timeout`. On success
@@ -204,7 +419,7 @@ pub async fn wait_for_container(
     }
 }
 
-async fn remove_container_forcefully(docker: &Docker, container_id: &str) {
+pub async fn remove_container_forcefully(docker: &Docker, container_id: &str) {
     use bollard::query_parameters::RemoveContainerOptions;
     let _ = docker
         .remove_container(
@@ -264,7 +479,10 @@ pub fn dump_restore_command(plan_type: &str) -> Option<(String, String)> {
     match plan_type {
         "postgres" | "postgresql" => Some((
             "postgres:16-alpine".to_string(),
-            "for i in $(seq 1 45); do pg_isready -d \"$DST\" >/dev/null 2>&1 && break; sleep 2; done; pg_dump --no-owner --no-privileges \"$SRC\" | psql \"$DST\"".to_string(),
+            format!(
+                "for i in $(seq 1 45); do pg_isready -d \"$DST\" >/dev/null 2>&1 && break; sleep 2; done; {}",
+                POSTGRES_COPY_PIPELINE
+            ),
         )),
         "mysql" | "mariadb" => Some((
             "mariadb:11".to_string(),
@@ -279,21 +497,33 @@ pub fn dump_restore_command(plan_type: &str) -> Option<(String, String)> {
     }
 }
 
-/// Shell pipeline that copies a PostgreSQL database into an existing one.
+/// Shell pipeline that copies a PostgreSQL database into another one, all or
+/// nothing. Shared by the importer and by populate.
 ///
-/// Same mechanism as the importer's command (`pg_dump --no-owner
-/// --no-privileges "$SRC" | psql "$DST"`), made strict because the result is
-/// reported as a success or a failure to an operator:
+/// The base mechanism is `pg_dump --no-owner --no-privileges "$SRC" | psql
+/// "$DST"`; three things make it trustworthy:
 ///
-/// - `set -o pipefail` — without it the pipeline's status is `psql`'s alone,
-///   so a `pg_dump` that cannot even authenticate feeds `psql` an empty
-///   script and the copy "succeeds" into an empty database;
-/// - `ON_ERROR_STOP=1` — `psql` otherwise exits 0 after SQL errors;
-/// - `--single-transaction` — a failed copy rolls back completely, leaving
-///   the destination as empty as it was before, so a retry needs no cleanup;
-/// - `-X` — ignore any `psqlrc` in the image.
+/// - the whole script runs inside one transaction whose `COMMIT` is written
+///   **only after `pg_dump` exits 0** (`{ echo BEGIN; pg_dump && echo
+///   COMMIT; }`). When `pg_dump` dies mid-way (source connection killed,
+///   network cut), `psql` sees a clean EOF with the transaction still open,
+///   and the server rolls it back at disconnect. `psql --single-transaction`
+///   is NOT enough: it commits at EOF no matter why the input ended, which
+///   leaves a half-copied database behind;
+/// - `set -o pipefail` — the pipeline's status would otherwise be `psql`'s
+///   alone, so a `pg_dump` that cannot even authenticate would end as a
+///   success with nothing copied;
+/// - `ON_ERROR_STOP=1` — `psql` otherwise carries on (and exits 0) after an
+///   SQL error.
+///
+/// `-X` ignores any `psqlrc` in the image. Credentials come from
+/// [`TransferCredentials::PgPassFile`], never from the command.
+pub const POSTGRES_COPY_PIPELINE: &str = "set -o pipefail; { echo 'BEGIN;'; pg_dump --no-owner --no-privileges \"$SRC\" && echo 'COMMIT;'; } | psql -X -q -v ON_ERROR_STOP=1 \"$DST\" >/dev/null";
+
+/// The populate command: [`POSTGRES_COPY_PIPELINE`] into an existing,
+/// already-running destination (no readiness wait needed).
 pub fn postgres_populate_command() -> &'static str {
-    "set -o pipefail; pg_dump --no-owner --no-privileges \"$SRC\" | psql -X -q -v ON_ERROR_STOP=1 --single-transaction \"$DST\" >/dev/null"
+    POSTGRES_COPY_PIPELINE
 }
 
 /// Official client image for a destination server of the given major version.
@@ -334,22 +564,116 @@ mod tests {
     }
 
     #[test]
-    fn importer_postgres_command_is_unchanged() {
+    fn importer_postgres_command_waits_then_copies_atomically() {
         let (image, command) = dump_restore_command("postgres").expect("postgres command");
         assert_eq!(image, "postgres:16-alpine");
-        assert!(command.ends_with("pg_dump --no-owner --no-privileges \"$SRC\" | psql \"$DST\""));
+        assert!(command.starts_with("for i in $(seq 1 45); do pg_isready"));
+        assert!(command.ends_with(POSTGRES_COPY_PIPELINE));
     }
 
     #[test]
-    fn populate_command_fails_on_any_error_and_is_atomic() {
+    fn copy_pipeline_commits_only_after_pg_dump_succeeds() {
         let command = postgres_populate_command();
         assert!(command.starts_with("set -o pipefail;"));
-        assert!(command.contains("pg_dump --no-owner --no-privileges \"$SRC\""));
+        assert!(command.contains(
+            "{ echo 'BEGIN;'; pg_dump --no-owner --no-privileges \"$SRC\" && echo 'COMMIT;'; }"
+        ));
         assert!(command.contains("-v ON_ERROR_STOP=1"));
-        assert!(command.contains("--single-transaction"));
+        // --single-transaction commits at EOF even when pg_dump died.
+        assert!(!command.contains("--single-transaction"));
         assert!(command.contains("\"$DST\""));
-        // Credentials only ever reach the container through the environment.
         assert!(!command.contains("postgres://"));
+    }
+
+    fn spec<'a>(source: &'a str, destination: &'a str) -> TransferContainerSpec<'a> {
+        TransferContainerSpec {
+            image: "postgres:18-alpine",
+            command: POSTGRES_COPY_PIPELINE,
+            source_url: source,
+            destination_url: destination,
+            credentials: TransferCredentials::PgPassFile,
+            network_mode: "host",
+            name_prefix: "temps-populate",
+            labels: vec![("sh.temps.populate_run".to_string(), "7".to_string())],
+            timeout: Duration::from_secs(60),
+        }
+    }
+
+    #[test]
+    fn passwords_stay_out_of_env_and_command() {
+        let source = "postgres://app:SRC%3Asecret%40x@db.example.com:6543/app?sslmode=require";
+        let destination = "postgres://svc:DST-secret@127.0.0.1:5433/my_app?sslmode=disable";
+        let prepared = prepare_transfer_container(&spec(source, destination)).expect("prepare");
+
+        let env = prepared.body.env.clone().expect("env");
+        let cmd = prepared.body.cmd.clone().expect("cmd").join(" ");
+        for secret in ["SRC%3Asecret%40x", "SRC:secret@x", "DST-secret"] {
+            assert!(!env.iter().any(|e| e.contains(secret)), "{:?}", env);
+            assert!(!cmd.contains(secret), "{}", cmd);
+        }
+        assert!(
+            env.contains(&"SRC=postgres://app@db.example.com:6543/app?sslmode=require".to_string())
+        );
+        assert!(
+            env.contains(&"DST=postgres://svc@127.0.0.1:5433/my_app?sslmode=disable".to_string())
+        );
+        assert!(env.contains(&format!("PGPASSFILE={}/{}", PGPASS_DIR, PGPASS_FILE)));
+
+        let pgpass = prepared.pgpass.expect("pgpass");
+        assert_eq!(
+            pgpass,
+            "db.example.com:6543:*:app:SRC\\:secret@x\n127.0.0.1:5433:*:svc:DST-secret\n"
+        );
+        assert_eq!(
+            prepared
+                .body
+                .labels
+                .expect("labels")
+                .get("sh.temps.populate_run"),
+            Some(&"7".to_string())
+        );
+    }
+
+    #[test]
+    fn pgpass_defaults_the_port_and_skips_passwordless_urls() {
+        let prepared = prepare_transfer_container(&spec(
+            "postgres://app:pw@db.example.com/app",
+            "postgres://svc@127.0.0.1:5433/my_app",
+        ))
+        .expect("prepare");
+        assert_eq!(
+            prepared.pgpass.as_deref(),
+            Some("db.example.com:5432:*:app:pw\n")
+        );
+    }
+
+    #[test]
+    fn pgpass_archive_is_owner_only() {
+        let archive = pgpass_archive("h:5432:*:u:p\n").expect("archive");
+        let mut reader = tar::Archive::new(archive.as_slice());
+        let entry = reader
+            .entries()
+            .expect("entries")
+            .next()
+            .expect("one entry")
+            .expect("entry");
+        assert_eq!(entry.header().mode().expect("mode"), 0o600);
+        assert_eq!(entry.path().expect("path").to_string_lossy(), PGPASS_FILE);
+    }
+
+    #[test]
+    fn in_url_credentials_are_passed_through() {
+        let mut spec = spec("mysql://u:p@h/db", "mysql://u:q@h2/db");
+        spec.credentials = TransferCredentials::InUrl;
+        let prepared = prepare_transfer_container(&spec).expect("prepare");
+        assert!(prepared.pgpass.is_none());
+        assert_eq!(
+            prepared.body.env.expect("env"),
+            vec![
+                "SRC=mysql://u:p@h/db".to_string(),
+                "DST=mysql://u:q@h2/db".to_string()
+            ]
+        );
     }
 
     #[test]

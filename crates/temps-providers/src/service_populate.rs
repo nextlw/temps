@@ -15,23 +15,38 @@
 //!
 //! 1. [`ServicePopulateService::start`] validates everything that can be
 //!    validated up front — destination name, source URL (SSRF), service type
-//!    and topology, whether the destination is empty — inserts a
-//!    `service_populate_runs` row in `running` and spawns the copy. The HTTP
-//!    request returns immediately with the run.
-//! 2. The background task (re)creates the destination database the same way
-//!    the provider's provisioning does (`CREATE DATABASE` as the service
-//!    user, so the user owns it), runs the shared transfer container
-//!    (`pg_dump | psql`, see [`crate::data_transfer`]) bounded by
-//!    [`DATA_TRANSFER_TIMEOUT`], measures the result and finalizes the row.
+//!    and topology, that the service is not the control plane's own database
+//!    server, whether the destination is empty or (for `replace`) still has
+//!    sessions — inserts a `service_populate_runs` row in `running` and
+//!    spawns the copy. The HTTP request returns immediately with the run.
+//! 2. The background task never writes a half-copied database under the
+//!    final name:
+//!    - a destination that does not exist yet, or one being replaced, is
+//!      copied into a staging database `<db>__populate_<run_id>` created as
+//!      the service user (exactly like the provider's provisioning, so the
+//!      user owns it). Only after the copy succeeded is the old destination
+//!      dropped and the staging database renamed to the final name; on
+//!      failure the staging database is dropped and the destination is
+//!      untouched;
+//!    - an existing, empty destination is copied into directly — the copy
+//!      itself is all-or-nothing (see
+//!      [`crate::data_transfer::POSTGRES_COPY_PIPELINE`]: one transaction
+//!      whose `COMMIT` is only sent after `pg_dump` exited 0), so a failure
+//!      leaves it empty.
+//!
+//!    The copy runs in the shared transfer container, bounded by
+//!    [`DATA_TRANSFER_TIMEOUT`]; credentials reach it through a password
+//!    file, never its environment or command line.
 //!
 //! The source URL is never persisted, logged or returned: the row keeps a
-//! copy with user and password masked, and every error message that could
-//! have picked the URL or a password up is scrubbed before it is stored.
+//! copy with user and password masked, and every error message is scrubbed
+//! of URLs, passwords and row data before it is stored.
 
+use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use futures::FutureExt;
 use sea_orm::{
     ActiveModelTrait, ActiveValue::Set, ColumnTrait, DatabaseConnection, EntityTrait,
@@ -45,7 +60,8 @@ use tracing::{error, info, warn};
 
 use crate::data_transfer::{
     percent_encode_userinfo, postgres_client_image, postgres_populate_command,
-    run_transfer_container, TransferContainerSpec, DATA_TRANSFER_TIMEOUT,
+    remove_labelled_containers, run_transfer_container, TransferContainerSpec, TransferCredentials,
+    DATA_TRANSFER_TIMEOUT,
 };
 use crate::externalsvc::postgres::{PostgresConfig, PostgresInputConfig};
 use crate::services::{ExternalServiceError, ExternalServiceManager};
@@ -65,7 +81,12 @@ const RESERVED_DATABASES: [&str; 3] = ["postgres", "template0", "template1"];
 /// honours `host`/`hostaddr`/`port`/`dbname` in the query string, so an
 /// unrestricted query would let a URL whose authority passed the SSRF check
 /// connect somewhere else entirely.
-const ALLOWED_SOURCE_QUERY_PARAMS: [&str; 3] = ["sslmode", "connect_timeout", "application_name"];
+const ALLOWED_SOURCE_QUERY_PARAMS: [&str; 4] = [
+    "sslmode",
+    "sslrootcert",
+    "connect_timeout",
+    "application_name",
+];
 
 const ALLOWED_SSLMODES: [&str; 6] = [
     "disable",
@@ -79,6 +100,16 @@ const ALLOWED_SSLMODES: [&str; 6] = [
 /// Bound on the control-plane SQL (existence checks, CREATE/DROP DATABASE).
 const ADMIN_SQL_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// Separator between the destination name and the run id in the staging
+/// database name.
+const STAGING_SEPARATOR: &str = "__populate_";
+
+/// Docker label on every populate transfer container; its value is the run
+/// id. A restarted control plane finds and removes these.
+pub fn populate_container_label() -> String {
+    format!("{}populate_run", temps_core::DOCKER_LABEL_PREFIX)
+}
+
 #[derive(Debug, Error)]
 pub enum ServicePopulateError {
     #[error("Service {service_id} not found")]
@@ -86,6 +117,16 @@ pub enum ServicePopulateError {
 
     #[error("Service {service_id} cannot be populated: {reason}")]
     UnsupportedService { service_id: i32, reason: String },
+
+    #[error(
+        "Service {service_id} runs on {host}:{port}, the database server of the Temps control \
+         plane itself; populating it is refused"
+    )]
+    ControlPlaneDatabase {
+        service_id: i32,
+        host: String,
+        port: u16,
+    },
 
     #[error("Invalid destination database '{database}': {reason}")]
     InvalidDatabaseName { database: String, reason: String },
@@ -102,6 +143,22 @@ pub enum ServicePopulateError {
         database: String,
         table_count: i64,
     },
+
+    #[error(
+        "Database '{database}' of service {service_id} has {sessions} open session(s); stop the \
+         clients or pass disconnect_clients=true to terminate them when the copy is swapped in"
+    )]
+    TargetInUse {
+        service_id: i32,
+        database: String,
+        sessions: i64,
+    },
+
+    #[error(
+        "Database '{database}' of service {service_id} was created while the copy was running; \
+         the copy was discarded — run populate again"
+    )]
+    TargetAppeared { service_id: i32, database: String },
 
     #[error("A populate of database '{database}' of service {service_id} is already running")]
     AlreadyRunning { service_id: i32, database: String },
@@ -132,17 +189,23 @@ pub struct StartPopulateRequest {
     pub database: String,
     pub source_url: String,
     pub replace: bool,
+    /// With `replace`: terminate the destination's sessions instead of
+    /// refusing when it has any.
+    pub disconnect_clients: bool,
     pub created_by: Option<i32>,
 }
 
-/// What has to happen to the destination database before the copy.
+/// What has to happen to the destination database around the copy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TargetPreparation {
-    /// The database does not exist yet: create it.
+    /// The database does not exist yet: copy into a staging database and
+    /// rename it to the final name on success.
     Create,
-    /// The database exists and has no tables in `public`: copy into it.
+    /// The database exists and has no tables in `public`: copy into it (the
+    /// copy is one transaction, so a failure leaves it empty).
     UseExisting,
-    /// The database exists and `replace` was requested: drop and recreate.
+    /// The database exists and `replace` was requested: copy into a staging
+    /// database; on success drop the old one and rename the staging one.
     Recreate,
 }
 
@@ -167,9 +230,21 @@ pub fn plan_target_preparation(
     }
 }
 
+/// Staging database of a run: `<database>__populate_<run_id>`, with the
+/// destination part shortened when needed so the whole name fits in
+/// PostgreSQL's 63-byte identifiers (a longer one would be silently
+/// truncated, and two runs could collide). `database` is ASCII (it passed
+/// [`validate_database_name`]), so byte slicing is safe.
+pub fn staging_database_name(database: &str, run_id: i32) -> String {
+    let suffix = format!("{}{}", STAGING_SEPARATOR, run_id);
+    let keep = database.len().min(63usize.saturating_sub(suffix.len()));
+    format!("{}{}", &database[..keep], suffix)
+}
+
 /// Validate the destination database name with the same identifier rule the
 /// project-link provisioning uses for custom names (`[a-z_][a-z0-9_]{0,62}`),
-/// and refuse the server's own databases.
+/// and refuse the server's own databases and names that look like a staging
+/// database.
 pub fn validate_database_name(database: &str) -> Result<(), ServicePopulateError> {
     if !crate::services::is_valid_custom_database_name(database) {
         return Err(ServicePopulateError::InvalidDatabaseName {
@@ -183,7 +258,59 @@ pub fn validate_database_name(database: &str) -> Result<(), ServicePopulateError
             reason: "is a PostgreSQL system database".to_string(),
         });
     }
+    if database.contains(STAGING_SEPARATOR) {
+        return Err(ServicePopulateError::InvalidDatabaseName {
+            database: database.to_string(),
+            reason: format!("'{}' is reserved for staging databases", STAGING_SEPARATOR),
+        });
+    }
     Ok(())
+}
+
+/// Host and port of a PostgreSQL server, to recognise the control plane's own
+/// database server.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DatabaseEndpoint {
+    pub host: String,
+    pub port: u16,
+}
+
+impl DatabaseEndpoint {
+    /// From a `postgres://` URL (the control plane's `DATABASE_URL`).
+    pub fn from_url(raw: &str) -> Option<Self> {
+        let url = url::Url::parse(raw).ok()?;
+        if !matches!(url.scheme(), "postgres" | "postgresql") {
+            return None;
+        }
+        Some(Self {
+            host: url.host_str()?.to_string(),
+            port: url.port().unwrap_or(5432),
+        })
+    }
+
+    /// Every spelling of "this machine" compares equal.
+    fn normalized_host(&self) -> String {
+        let host = self
+            .host
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .to_ascii_lowercase();
+        let is_local = host == "localhost"
+            || host == "0.0.0.0"
+            || host == "::"
+            || host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback());
+        if is_local {
+            "local".to_string()
+        } else {
+            host
+        }
+    }
+
+    pub fn same_server(&self, other: &Self) -> bool {
+        self.port == other.port && self.normalized_host() == other.normalized_host()
+    }
 }
 
 /// Shape checks on a source URL that need no network: scheme, database path
@@ -233,6 +360,9 @@ fn validate_source_url_shape(raw: &str) -> Result<(), ServicePopulateError> {
         }
         let value_ok = match key.as_ref() {
             "sslmode" => ALLOWED_SSLMODES.contains(&value.as_ref()),
+            // Only the system CA store: a file path would name a file inside
+            // the transfer container, which holds none.
+            "sslrootcert" => value == "system",
             "connect_timeout" => !value.is_empty() && value.chars().all(|c| c.is_ascii_digit()),
             _ => value
                 .chars()
@@ -294,6 +424,17 @@ fn scrub_secrets(message: &str, secrets: &[&str]) -> String {
     scrubbed
 }
 
+/// Drop the parts of client output that carry row data: PostgreSQL's
+/// `CONTEXT:` lines quote the failing `COPY` input line, and `DETAIL:` lines
+/// quote key values. The `ERROR:` line that names the problem stays.
+fn strip_row_data(message: &str) -> String {
+    message
+        .lines()
+        .filter(|line| !line.contains("CONTEXT:") && !line.contains("DETAIL:"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Everything the background copy needs about the destination server.
 #[derive(Clone)]
 struct TargetServer {
@@ -303,6 +444,9 @@ struct TargetServer {
     port: String,
     username: String,
     password: String,
+    /// Major version, known after [`Self::inspect`]; `DROP ... WITH (FORCE)`
+    /// needs 13+.
+    major_version: u32,
 }
 
 impl TargetServer {
@@ -335,6 +479,13 @@ impl TargetServer {
         self.url_for(host, database)
     }
 
+    fn endpoint(&self) -> Option<DatabaseEndpoint> {
+        Some(DatabaseEndpoint {
+            host: self.host.clone(),
+            port: self.port.parse().ok()?,
+        })
+    }
+
     async fn connect(&self, database: &str) -> Result<sqlx::PgConnection, ServicePopulateError> {
         let url = self.admin_url(database);
         tokio::time::timeout(ADMIN_SQL_TIMEOUT, sqlx::PgConnection::connect(&url))
@@ -361,6 +512,14 @@ impl TargetServer {
             service_id: self.service_id,
             reason: scrub_secrets(&format!("{}: {}", what, e), &[&self.password]),
         }
+    }
+
+    /// Run one statement against the maintenance database.
+    async fn admin_execute(&self, sql: &str, what: &str) -> Result<(), ServicePopulateError> {
+        let mut admin = self.connect("postgres").await?;
+        let result = sqlx::query(sql).execute(&mut admin).await;
+        let _ = admin.close().await;
+        result.map(|_| ()).map_err(|e| self.sql_error(what, e))
     }
 
     /// Major version, existence and table count of `database`.
@@ -402,51 +561,71 @@ impl TargetServer {
         })
     }
 
-    /// Drop and/or create `database`. `CREATE DATABASE` runs as the service
-    /// user — exactly what the provider's provisioning does — so the user
-    /// owns it and a later deployment finds it and skips creating it.
-    async fn prepare(
-        &self,
-        database: &str,
-        preparation: TargetPreparation,
-        major_version: u32,
-    ) -> Result<(), ServicePopulateError> {
-        // `database` passed validate_database_name ([a-z_][a-z0-9_]*), so the
-        // quoted identifier cannot be broken out of.
+    async fn database_exists(&self, database: &str) -> Result<bool, ServicePopulateError> {
         let mut admin = self.connect("postgres").await?;
-        if preparation == TargetPreparation::Recreate {
-            // WITH (FORCE) (PG13+) terminates the sessions still attached —
-            // replacing a database the application is connected to is the
-            // point of `replace`.
-            let drop = if major_version >= 13 {
-                format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", database)
-            } else {
-                format!("DROP DATABASE IF EXISTS \"{}\"", database)
-            };
-            sqlx::query(&drop)
-                .execute(&mut admin)
-                .await
-                .map_err(|e| self.sql_error(&format!("dropping database '{}'", database), e))?;
-        }
-        if preparation != TargetPreparation::UseExisting {
-            sqlx::query(&format!("CREATE DATABASE \"{}\"", database))
-                .execute(&mut admin)
-                .await
-                .map_err(|e| self.sql_error(&format!("creating database '{}'", database), e))?;
-        }
+        let exists: Result<bool, _> =
+            sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = $1)")
+                .bind(database)
+                .fetch_one(&mut admin)
+                .await;
         let _ = admin.close().await;
-        Ok(())
+        exists.map_err(|e| self.sql_error("checking database existence", e))
+    }
+
+    /// Sessions connected to `database`, other than this one.
+    async fn active_sessions(&self, database: &str) -> Result<i64, ServicePopulateError> {
+        let mut admin = self.connect("postgres").await?;
+        let count: Result<i64, _> = sqlx::query_scalar(
+            "SELECT count(*) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()",
+        )
+        .bind(database)
+        .fetch_one(&mut admin)
+        .await;
+        let _ = admin.close().await;
+        count.map_err(|e| self.sql_error("counting sessions", e))
+    }
+
+    // Every name below passed validate_database_name ([a-z_][a-z0-9_]*) or
+    // is a staging name built from one, so the quoted identifiers cannot be
+    // broken out of.
+
+    /// `CREATE DATABASE` as the service user — exactly what the provider's
+    /// provisioning does — so the user owns it.
+    async fn create_database(&self, database: &str) -> Result<(), ServicePopulateError> {
+        self.admin_execute(
+            &format!("CREATE DATABASE \"{}\"", database),
+            &format!("creating database '{}'", database),
+        )
+        .await
+    }
+
+    /// `force` terminates the sessions still attached (PG13+).
+    async fn drop_database(&self, database: &str, force: bool) -> Result<(), ServicePopulateError> {
+        let sql = if force && self.major_version >= 13 {
+            format!("DROP DATABASE IF EXISTS \"{}\" WITH (FORCE)", database)
+        } else {
+            format!("DROP DATABASE IF EXISTS \"{}\"", database)
+        };
+        self.admin_execute(&sql, &format!("dropping database '{}'", database))
+            .await
+    }
+
+    async fn rename_database(&self, from: &str, to: &str) -> Result<(), ServicePopulateError> {
+        self.admin_execute(
+            &format!("ALTER DATABASE \"{}\" RENAME TO \"{}\"", from, to),
+            &format!("renaming database '{}' to '{}'", from, to),
+        )
+        .await
     }
 
     async fn database_size(&self, database: &str) -> Result<i64, ServicePopulateError> {
         let mut admin = self.connect("postgres").await?;
-        let size: i64 = sqlx::query_scalar("SELECT pg_database_size($1)")
+        let size: Result<i64, _> = sqlx::query_scalar("SELECT pg_database_size($1)")
             .bind(database)
             .fetch_one(&mut admin)
-            .await
-            .map_err(|e| self.sql_error("measuring database size", e))?;
+            .await;
         let _ = admin.close().await;
-        Ok(size)
+        size.map_err(|e| self.sql_error("measuring database size", e))
     }
 }
 
@@ -457,11 +636,108 @@ struct TargetState {
     table_count: i64,
 }
 
+/// Copy into the destination without ever leaving a half-copied database
+/// under its final name. `copy` receives the database to copy into.
+///
+/// - [`TargetPreparation::UseExisting`]: straight into the (empty)
+///   destination; the copy is one transaction.
+/// - [`TargetPreparation::Create`] / [`TargetPreparation::Recreate`]: into
+///   `staging`. On success the old destination (if any) is dropped and
+///   `staging` renamed to the final name; on failure `staging` is dropped and
+///   the destination is left as it was.
+async fn copy_into_destination<F, Fut>(
+    target: &TargetServer,
+    database: &str,
+    staging: &str,
+    preparation: TargetPreparation,
+    disconnect_clients: bool,
+    copy: F,
+) -> Result<(), String>
+where
+    F: FnOnce(String) -> Fut,
+    Fut: Future<Output = Result<(), String>>,
+{
+    if preparation == TargetPreparation::UseExisting {
+        return copy(database.to_string()).await;
+    }
+
+    // A leftover from an interrupted run with the same id cannot exist (ids
+    // are not reused), but a stale one must never be renamed into place.
+    target
+        .drop_database(staging, true)
+        .await
+        .map_err(|e| e.to_string())?;
+    target
+        .create_database(staging)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let discard_staging = || async {
+        if let Err(e) = target.drop_database(staging, true).await {
+            warn!(
+                service_id = target.service_id,
+                staging,
+                error = %e,
+                "Could not drop the staging database of a failed populate; drop it by hand"
+            );
+        }
+    };
+
+    if let Err(e) = copy(staging.to_string()).await {
+        discard_staging().await;
+        return Err(e);
+    }
+
+    let make_room = async {
+        if preparation == TargetPreparation::Recreate {
+            if !disconnect_clients {
+                let sessions = target.active_sessions(database).await?;
+                if sessions > 0 {
+                    return Err(ServicePopulateError::TargetInUse {
+                        service_id: target.service_id,
+                        database: database.to_string(),
+                        sessions,
+                    });
+                }
+            }
+            // Without disconnect_clients a plain DROP refuses a session that
+            // connected after the check above, instead of cutting it off.
+            target.drop_database(database, disconnect_clients).await
+        } else if target.database_exists(database).await? {
+            Err(ServicePopulateError::TargetAppeared {
+                service_id: target.service_id,
+                database: database.to_string(),
+            })
+        } else {
+            Ok(())
+        }
+    };
+    if let Err(e) = make_room.await {
+        discard_staging().await;
+        return Err(e.to_string());
+    }
+
+    // The old destination is gone; the copy now only exists in `staging`, so
+    // a failed rename must keep it.
+    target
+        .rename_database(staging, database)
+        .await
+        .map_err(|e| {
+            format!(
+                "{} — the copied data is kept in database '{}'; rename it to '{}' by hand",
+                e, staging, database
+            )
+        })
+}
+
 /// Starts populate runs and answers questions about them.
 pub struct ServicePopulateService {
     db: Arc<DatabaseConnection>,
     external_services: Arc<ExternalServiceManager>,
     docker: Arc<DockerHandle>,
+    /// The control plane's own database server, which populate must never
+    /// write to. `None` when the configuration does not name one.
+    control_plane_database: Option<DatabaseEndpoint>,
 }
 
 impl ServicePopulateService {
@@ -469,11 +745,13 @@ impl ServicePopulateService {
         db: Arc<DatabaseConnection>,
         external_services: Arc<ExternalServiceManager>,
         docker: Arc<DockerHandle>,
+        control_plane_database: Option<DatabaseEndpoint>,
     ) -> Self {
         Self {
             db,
             external_services,
             docker,
+            control_plane_database,
         }
     }
 
@@ -487,12 +765,24 @@ impl ServicePopulateService {
         validate_database_name(&request.database)?;
         validate_source_url(&request.source_url).await?;
 
-        let target = self.resolve_target(service_id).await?;
+        let mut target = self.resolve_target(service_id).await?;
+        if let (Some(control_plane), Some(endpoint)) =
+            (&self.control_plane_database, target.endpoint())
+        {
+            if control_plane.same_server(&endpoint) {
+                return Err(ServicePopulateError::ControlPlaneDatabase {
+                    service_id,
+                    host: endpoint.host,
+                    port: endpoint.port,
+                });
+            }
+        }
         // The copy always runs a container: fail before recording anything
         // when this process cannot run one.
         let docker = self.docker.require()?;
 
         let state = target.inspect(&request.database).await?;
+        target.major_version = state.major_version;
         let preparation = plan_target_preparation(
             service_id,
             &request.database,
@@ -500,6 +790,16 @@ impl ServicePopulateService {
             state.table_count,
             request.replace,
         )?;
+        if preparation == TargetPreparation::Recreate && !request.disconnect_clients {
+            let sessions = target.active_sessions(&request.database).await?;
+            if sessions > 0 {
+                return Err(ServicePopulateError::TargetInUse {
+                    service_id,
+                    database: request.database.clone(),
+                    sessions,
+                });
+            }
+        }
         let client_image = postgres_client_image(state.major_version);
 
         // Pre-flight for a readable 409; the partial unique index is the
@@ -521,6 +821,7 @@ impl ServicePopulateService {
             database_name: Set(request.database.clone()),
             source_url_masked: Set(mask_source_url(&request.source_url)),
             replace_existing: Set(request.replace),
+            disconnect_clients: Set(request.disconnect_clients),
             status: Set(POPULATE_STATUS_RUNNING.to_string()),
             client_image: Set(client_image.clone()),
             started_at: Set(now),
@@ -545,6 +846,7 @@ impl ServicePopulateService {
             database = %run.database_name,
             source = %run.source_url_masked,
             replace = run.replace_existing,
+            disconnect_clients = run.disconnect_clients,
             client_image = %run.client_image,
             "Starting populate of a managed PostgreSQL database"
         );
@@ -554,7 +856,7 @@ impl ServicePopulateService {
             database: request.database,
             source_url: request.source_url,
             preparation,
-            major_version: state.major_version,
+            disconnect_clients: request.disconnect_clients,
             client_image,
             target,
         };
@@ -608,34 +910,80 @@ impl ServicePopulateService {
             .ok_or(ServicePopulateError::RunNotFound { service_id, run_id })
     }
 
-    /// Mark runs left `running` by a previous process as failed. The copy
-    /// lived in that process's task and its container was removed with it
-    /// or will never be awaited, so nothing will ever finish them.
-    pub async fn fail_interrupted_runs(&self) -> Result<u64, ServicePopulateError> {
-        let result = service_populate_runs::Entity::update_many()
-            .col_expr(
-                service_populate_runs::Column::Status,
-                sea_orm::sea_query::Expr::value(POPULATE_STATUS_FAILED),
-            )
-            .col_expr(
-                service_populate_runs::Column::ErrorMessage,
-                sea_orm::sea_query::Expr::value(
-                    "interrupted: the Temps server restarted while the copy was running; \
-                     run populate again (with replace=true if the database is not empty)",
-                ),
-            )
-            .col_expr(
-                service_populate_runs::Column::FinishedAt,
-                sea_orm::sea_query::Expr::value(Utc::now()),
-            )
-            .col_expr(
-                service_populate_runs::Column::UpdatedAt,
-                sea_orm::sea_query::Expr::value(Utc::now()),
-            )
+    /// Clean up after a previous process, at startup.
+    ///
+    /// A run's copy lives in a task of the process that started it, and its
+    /// transfer container is NOT removed when that process dies — Docker
+    /// keeps it running, still writing into the destination, with nobody
+    /// left to await it. So, in this order:
+    ///
+    /// 1. force-remove every populate transfer container created before
+    ///    `process_started_at`;
+    /// 2. mark the runs still `running` that started before
+    ///    `process_started_at` as failed.
+    ///
+    /// Both are bounded by `process_started_at` so a run this process starts
+    /// meanwhile is never touched. A staging database left by an interrupted
+    /// run is kept (it may hold the only copy if the process died between
+    /// dropping the old destination and renaming); the error message names
+    /// it.
+    pub async fn recover_interrupted_runs(
+        &self,
+        process_started_at: DateTime<Utc>,
+    ) -> Result<(usize, u64), ServicePopulateError> {
+        let removed = match self.docker.require() {
+            Ok(docker) => {
+                match remove_labelled_containers(
+                    &docker,
+                    &populate_container_label(),
+                    process_started_at.timestamp(),
+                )
+                .await
+                {
+                    Ok(removed) => removed,
+                    Err(reason) => {
+                        warn!(
+                            reason = %reason,
+                            "Could not remove populate transfer containers left by a previous \
+                             process; marking their runs failed anyway"
+                        );
+                        0
+                    }
+                }
+            }
+            Err(_) => 0,
+        };
+
+        let interrupted = service_populate_runs::Entity::find()
             .filter(service_populate_runs::Column::Status.eq(POPULATE_STATUS_RUNNING))
-            .exec(self.db.as_ref())
+            .filter(service_populate_runs::Column::StartedAt.lt(process_started_at))
+            .all(self.db.as_ref())
             .await?;
-        Ok(result.rows_affected)
+        let mut marked = 0;
+        for run in interrupted {
+            let staging = staging_database_name(&run.database_name, run.id);
+            let update = service_populate_runs::ActiveModel {
+                id: Set(run.id),
+                status: Set(POPULATE_STATUS_FAILED.to_string()),
+                error_message: Set(Some(format!(
+                    "interrupted: the Temps server restarted while the copy was running and its \
+                     transfer container was removed. Database '{}' is as it was before unless \
+                     the restart hit the final swap; a staging database '{}' may be left \
+                     behind — drop it, or rename it to '{}' if '{}' is missing. Run populate \
+                     again.",
+                    run.database_name, staging, run.database_name, run.database_name
+                ))),
+                finished_at: Set(Some(Utc::now())),
+                ..Default::default()
+            }
+            .update(self.db.as_ref())
+            .await;
+            match update {
+                Ok(_) => marked += 1,
+                Err(e) => error!(run_id = run.id, error = %e, "Could not mark populate run failed"),
+            }
+        }
+        Ok((removed, marked))
     }
 
     async fn find_running(
@@ -743,6 +1091,7 @@ impl ServicePopulateService {
             port: pg.port,
             username: pg.username,
             password: pg.password,
+            major_version: 0,
         })
     }
 }
@@ -753,7 +1102,7 @@ struct PopulateJob {
     database: String,
     source_url: String,
     preparation: TargetPreparation,
-    major_version: u32,
+    disconnect_clients: bool,
     client_image: String,
     target: TargetServer,
 }
@@ -765,11 +1114,11 @@ type JobOutcome = Result<Option<i64>, String>;
 impl PopulateJob {
     async fn execute(self, docker: &bollard::Docker) -> JobOutcome {
         let secrets = self.secrets();
-        let scrub = |message: String| {
-            scrub_secrets(
+        let clean = |message: String| {
+            strip_row_data(&scrub_secrets(
                 &message,
                 &secrets.iter().map(String::as_str).collect::<Vec<_>>(),
-            )
+            ))
         };
 
         // Re-check right before acting: `start` inspected the destination a
@@ -779,7 +1128,7 @@ impl PopulateJob {
                 .target
                 .inspect(&self.database)
                 .await
-                .map_err(|e| scrub(e.to_string()))?;
+                .map_err(|e| clean(e.to_string()))?;
             plan_target_preparation(
                 self.target.service_id,
                 &self.database,
@@ -787,31 +1136,44 @@ impl PopulateJob {
                 state.table_count,
                 false,
             )
-            .map_err(|e| scrub(e.to_string()))?
+            .map_err(|e| clean(e.to_string()))?
         } else {
             self.preparation
         };
 
-        self.target
-            .prepare(&self.database, preparation, self.major_version)
-            .await
-            .map_err(|e| scrub(e.to_string()))?;
-
-        let destination_url = self.target.transfer_url(&self.database);
-        run_transfer_container(
-            docker,
-            &TransferContainerSpec {
-                image: &self.client_image,
-                command: postgres_populate_command(),
-                source_url: &self.source_url,
-                destination_url: &destination_url,
-                network_mode: "host",
-                name_prefix: "temps-populate",
-                timeout: DATA_TRANSFER_TIMEOUT,
+        let staging = staging_database_name(&self.database, self.run_id);
+        let target = &self.target;
+        let source_url = self.source_url.as_str();
+        let image = self.client_image.as_str();
+        let run_label = (populate_container_label(), self.run_id.to_string());
+        copy_into_destination(
+            target,
+            &self.database,
+            &staging,
+            preparation,
+            self.disconnect_clients,
+            |copy_into| async move {
+                let destination_url = target.transfer_url(&copy_into);
+                run_transfer_container(
+                    docker,
+                    &TransferContainerSpec {
+                        image,
+                        command: postgres_populate_command(),
+                        source_url,
+                        destination_url: &destination_url,
+                        credentials: TransferCredentials::PgPassFile,
+                        network_mode: "host",
+                        name_prefix: "temps-populate",
+                        labels: vec![run_label],
+                        timeout: DATA_TRANSFER_TIMEOUT,
+                    },
+                )
+                .await
+                .map_err(|e| e.to_string())
             },
         )
         .await
-        .map_err(|e| scrub(e.to_string()))?;
+        .map_err(clean)?;
 
         // The copy succeeded; a failed measurement must not turn it into a
         // failure.
@@ -820,7 +1182,7 @@ impl PopulateJob {
             Err(e) => {
                 warn!(
                     run_id = self.run_id,
-                    error = %scrub(e.to_string()),
+                    error = %clean(e.to_string()),
                     "Populate finished but the database size could not be measured"
                 );
                 Ok(None)
@@ -844,45 +1206,61 @@ impl PopulateJob {
     }
 }
 
+/// Record the outcome. Retried, because a run left `running` blocks the next
+/// populate of the same database until the next restart marks it failed.
 async fn finalize_run(db: &DatabaseConnection, run_id: i32, outcome: JobOutcome) {
-    let now = Utc::now();
     let (status, error_message, size) = match &outcome {
         Ok(size) => (POPULATE_STATUS_COMPLETED, None, *size),
         Err(message) => (POPULATE_STATUS_FAILED, Some(message.clone()), None),
     };
-    let update = service_populate_runs::ActiveModel {
-        id: Set(run_id),
-        status: Set(status.to_string()),
-        error_message: Set(error_message.clone()),
-        database_size_bytes: Set(size),
-        finished_at: Set(Some(now)),
-        ..Default::default()
+    let mut last_error = None;
+    for attempt in 0..4u32 {
+        if attempt > 0 {
+            tokio::time::sleep(Duration::from_secs(2u64.pow(attempt))).await;
+        }
+        let update = service_populate_runs::ActiveModel {
+            id: Set(run_id),
+            status: Set(status.to_string()),
+            error_message: Set(error_message.clone()),
+            database_size_bytes: Set(size),
+            finished_at: Set(Some(Utc::now())),
+            ..Default::default()
+        }
+        .update(db)
+        .await;
+        match update {
+            Ok(run) => {
+                match &outcome {
+                    Ok(_) => info!(
+                        run_id,
+                        service_id = run.service_id,
+                        database = %run.database_name,
+                        size_bytes = ?size,
+                        "Populate run completed"
+                    ),
+                    Err(message) => warn!(
+                        run_id,
+                        service_id = run.service_id,
+                        database = %run.database_name,
+                        error = %message,
+                        "Populate run failed"
+                    ),
+                }
+                return;
+            }
+            Err(e) => {
+                warn!(run_id, attempt, error = %e, "Could not record populate outcome, retrying");
+                last_error = Some(e);
+            }
+        }
     }
-    .update(db)
-    .await;
-
-    match (&outcome, update) {
-        (_, Err(e)) => error!(
-            run_id,
-            status,
-            error = %e,
-            "Failed to record the outcome of populate run"
-        ),
-        (Ok(_), Ok(run)) => info!(
-            run_id,
-            service_id = run.service_id,
-            database = %run.database_name,
-            size_bytes = ?size,
-            "Populate run completed"
-        ),
-        (Err(message), Ok(run)) => warn!(
-            run_id,
-            service_id = run.service_id,
-            database = %run.database_name,
-            error = %message,
-            "Populate run failed"
-        ),
-    }
+    error!(
+        run_id,
+        status,
+        error = ?last_error,
+        "Gave up recording the outcome of populate run; it stays 'running' until the next \
+         restart marks it failed"
+    );
 }
 
 #[cfg(test)]
@@ -1060,15 +1438,20 @@ mod tests {
         assert!(!scrubbed.contains("app:x"), "{}", scrubbed);
     }
 
+    fn server(host: &str, port: &str, password: &str) -> TargetServer {
+        TargetServer {
+            service_id: 1,
+            host: host.to_string(),
+            port: port.to_string(),
+            username: "postgres".to_string(),
+            password: password.to_string(),
+            major_version: 18,
+        }
+    }
+
     #[test]
     fn transfer_url_uses_ipv4_loopback_and_encodes_credentials() {
-        let target = TargetServer {
-            service_id: 1,
-            host: "localhost".to_string(),
-            port: "5433".to_string(),
-            username: "postgres".to_string(),
-            password: "a@b:c".to_string(),
-        };
+        let target = server("localhost", "5433", "a@b:c");
         assert_eq!(
             target.transfer_url("app_production"),
             "postgres://postgres:a%40b%3Ac@127.0.0.1:5433/app_production?sslmode=disable"
@@ -1079,6 +1462,83 @@ mod tests {
         );
     }
 
+    #[test]
+    fn staging_name_fits_63_bytes_and_stays_unique() {
+        assert_eq!(
+            staging_database_name("app_homolog", 7),
+            "app_homolog__populate_7"
+        );
+        let long = "a".repeat(63);
+        let staging = staging_database_name(&long, 123_456);
+        assert_eq!(staging.len(), 63);
+        assert!(staging.ends_with("__populate_123456"));
+        assert_ne!(staging, staging_database_name(&long, 123_457));
+    }
+
+    #[test]
+    fn staging_like_names_are_rejected_as_destinations() {
+        let err = validate_database_name("app__populate_3").expect_err("staging name");
+        assert!(err.to_string().contains("reserved for staging"), "{}", err);
+    }
+
+    #[test]
+    fn control_plane_server_is_recognised_in_any_local_spelling() {
+        let control_plane =
+            DatabaseEndpoint::from_url("postgres://temps:pw@127.0.0.1:5432/temps").expect("url");
+        for (host, port) in [("localhost", 5432), ("127.0.0.1", 5432), ("[::1]", 5432)] {
+            assert!(
+                control_plane.same_server(&DatabaseEndpoint {
+                    host: host.to_string(),
+                    port
+                }),
+                "{}:{}",
+                host,
+                port
+            );
+        }
+        assert!(!control_plane.same_server(&DatabaseEndpoint {
+            host: "localhost".to_string(),
+            port: 5433
+        }));
+        assert!(!control_plane.same_server(&DatabaseEndpoint {
+            host: "db.example.com".to_string(),
+            port: 5432
+        }));
+        assert_eq!(
+            DatabaseEndpoint::from_url("postgresql://u@db.example.com/x"),
+            Some(DatabaseEndpoint {
+                host: "db.example.com".to_string(),
+                port: 5432
+            })
+        );
+        assert_eq!(DatabaseEndpoint::from_url("sqlite://x.db"), None);
+    }
+
+    #[test]
+    fn source_url_accepts_the_system_ca_store_only() {
+        assert!(validate_source_url_shape(
+            "postgres://u:p@db.example.com/app?sslmode=verify-full&sslrootcert=system"
+        )
+        .is_ok());
+        let err = validate_source_url_shape(
+            "postgres://u:p@db.example.com/app?sslmode=verify-full&sslrootcert=/etc/passwd",
+        )
+        .expect_err("file path")
+        .to_string();
+        assert!(err.contains("unsupported value"), "{}", err);
+    }
+
+    #[test]
+    fn row_data_is_stripped_from_error_output() {
+        let output = "transfer exited with status 3: psql:<stdin>:40: ERROR:  invalid input \
+                      syntax for type integer\nCONTEXT:  COPY customers, line 1, column id: \
+                      \"secret-row-value\"\nDETAIL:  Key (email)=(someone@example.com) exists.";
+        let stripped = strip_row_data(output);
+        assert!(stripped.contains("invalid input syntax"), "{}", stripped);
+        assert!(!stripped.contains("secret-row-value"), "{}", stripped);
+        assert!(!stripped.contains("someone@example.com"), "{}", stripped);
+    }
+
     fn sample_run(id: i32, service_id: i32) -> service_populate_runs::Model {
         let now = Utc::now();
         service_populate_runs::Model {
@@ -1087,6 +1547,7 @@ mod tests {
             database_name: "app_homolog".to_string(),
             source_url_masked: "postgres://***:***@db.example.com:5432/app".to_string(),
             replace_existing: false,
+            disconnect_clients: false,
             status: POPULATE_STATUS_COMPLETED.to_string(),
             client_image: "postgres:18-alpine".to_string(),
             error_message: None,
@@ -1100,7 +1561,10 @@ mod tests {
     }
 
     fn service_with_mock(db: DatabaseConnection) -> ServicePopulateService {
-        let db = Arc::new(db);
+        service_with_shared_mock(Arc::new(db))
+    }
+
+    fn service_with_shared_mock(db: Arc<DatabaseConnection>) -> ServicePopulateService {
         let encryption = Arc::new(
             temps_core::EncryptionService::new(
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
@@ -1115,7 +1579,7 @@ mod tests {
             true,
             Arc::new(temps_dns::DnsRegistry::new(db.clone())),
         ));
-        ServicePopulateService::new(db, manager, docker)
+        ServicePopulateService::new(db, manager, docker, None)
     }
 
     #[tokio::test]
@@ -1143,214 +1607,6 @@ mod tests {
         ));
     }
 
-    /// End to end against real servers: a PG16 source with one table, a PG18
-    /// destination server running as a non-default user. Exercises the same
-    /// pieces a run does — destination inspection, preparation, the shared
-    /// transfer container with the populate command and the client image
-    /// chosen from the destination version — then checks the rows, the
-    /// database owner, the refusal of a non-empty destination, `replace`, and
-    /// that a failing `pg_dump` fails the run.
-    ///
-    /// The transfer container joins a user-defined Docker network instead of
-    /// the host network production uses, so the test also runs on Docker
-    /// Desktop. Skips when Docker is unavailable.
-    #[tokio::test]
-    async fn populate_copies_a_pg16_source_into_a_pg18_service_database() {
-        use testcontainers::{
-            core::{ContainerPort, WaitFor},
-            runners::AsyncRunner,
-            GenericImage, ImageExt,
-        };
-
-        let docker = match bollard::Docker::connect_with_local_defaults() {
-            Ok(docker) => docker,
-            Err(e) => {
-                println!("Docker not available, skipping: {}", e);
-                return;
-            }
-        };
-        if docker.ping().await.is_err() {
-            println!("Docker not available, skipping");
-            return;
-        }
-
-        let suffix = &uuid::Uuid::new_v4().to_string()[..8];
-        let network = format!("temps-populate-test-{}", suffix);
-        let source_name = format!("temps-populate-src-{}", suffix);
-        let target_name = format!("temps-populate-dst-{}", suffix);
-        let ready = "database system is ready to accept connections";
-
-        let source = GenericImage::new("postgres", "16-alpine")
-            .with_wait_for(WaitFor::message_on_stderr(ready))
-            .with_env_var("POSTGRES_PASSWORD", "source-pass")
-            .with_env_var("POSTGRES_DB", "app")
-            .with_network(&network)
-            .with_container_name(&source_name)
-            .start()
-            .await
-            .expect("start PG16 source");
-        let target = GenericImage::new("postgres", "18-alpine")
-            .with_exposed_port(ContainerPort::Tcp(5432))
-            .with_wait_for(WaitFor::message_on_stderr(ready))
-            .with_env_var("POSTGRES_USER", "svc_owner")
-            .with_env_var("POSTGRES_PASSWORD", "dst p@ss:word")
-            .with_network(&network)
-            .with_container_name(&target_name)
-            .start()
-            .await
-            .expect("start PG18 destination");
-
-        let server = TargetServer {
-            service_id: 1,
-            host: target.get_host().await.expect("host").to_string(),
-            port: target
-                .get_host_port_ipv4(5432)
-                .await
-                .expect("mapped port")
-                .to_string(),
-            username: "svc_owner".to_string(),
-            password: "dst p@ss:word".to_string(),
-        };
-        let source_url = format!(
-            "postgres://postgres:source-pass@{}:5432/app?sslmode=disable",
-            source_name
-        );
-        let destination_url = format!(
-            "postgres://svc_owner:{}@{}:5432/app_homolog?sslmode=disable",
-            percent_encode_userinfo("dst p@ss:word"),
-            target_name
-        );
-        let transfer = |image: String, command: &'static str, source: String| {
-            let docker = docker.clone();
-            let network = network.clone();
-            let destination_url = destination_url.clone();
-            async move {
-                run_transfer_container(
-                    &docker,
-                    &TransferContainerSpec {
-                        image: &image,
-                        command,
-                        source_url: &source,
-                        destination_url: &destination_url,
-                        network_mode: &network,
-                        name_prefix: "temps-populate-test",
-                        timeout: Duration::from_secs(300),
-                    },
-                )
-                .await
-            }
-        };
-
-        // Seed the source. The first "ready" line is the init server, which
-        // listens on no TCP socket: wait for the real one.
-        transfer(
-            "postgres:16-alpine".to_string(),
-            "for i in $(seq 1 60); do pg_isready -d \"$SRC\" >/dev/null 2>&1 && break; sleep 1; done; \
-             psql -v ON_ERROR_STOP=1 \"$SRC\" -c \"CREATE TABLE customers (id serial PRIMARY KEY, name text NOT NULL); \
-             INSERT INTO customers (name) VALUES ('a'), ('b'), ('c');\"",
-            source_url.clone(),
-        )
-        .await
-        .expect("seed the source");
-
-        // Destination server reachable from the test process.
-        let mut state = None;
-        for _ in 0..60 {
-            if let Ok(s) = server.inspect("app_homolog").await {
-                state = Some(s);
-                break;
-            }
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-        let state = state.expect("destination server never became reachable");
-        assert_eq!(state.major_version, 18);
-        assert!(!state.exists);
-        let image = postgres_client_image(state.major_version);
-        assert_eq!(image, "postgres:18-alpine");
-
-        // First populate: the database is created and filled.
-        let preparation =
-            plan_target_preparation(1, "app_homolog", state.exists, state.table_count, false)
-                .expect("missing database is created");
-        assert_eq!(preparation, TargetPreparation::Create);
-        server
-            .prepare("app_homolog", preparation, state.major_version)
-            .await
-            .expect("create destination");
-        transfer(
-            image.clone(),
-            postgres_populate_command(),
-            source_url.clone(),
-        )
-        .await
-        .expect("populate PG16 -> PG18 with the PG18 client");
-
-        let count_rows = || async {
-            let mut conn = server.connect("app_homolog").await.expect("connect");
-            let count: i64 = sqlx::query_scalar("SELECT count(*) FROM customers")
-                .fetch_one(&mut conn)
-                .await
-                .expect("count rows");
-            count
-        };
-        assert_eq!(count_rows().await, 3);
-
-        // Owned by the service user, as the provider's provisioning creates it.
-        let mut admin = server.connect("postgres").await.expect("admin");
-        let owner: String = sqlx::query_scalar(
-            "SELECT pg_get_userbyid(datdba)::text FROM pg_database WHERE datname = $1",
-        )
-        .bind("app_homolog")
-        .fetch_one(&mut admin)
-        .await
-        .expect("owner");
-        assert_eq!(owner, "svc_owner");
-        assert!(server.database_size("app_homolog").await.expect("size") > 0);
-
-        // Not empty any more: refused without replace.
-        let state = server.inspect("app_homolog").await.expect("inspect");
-        assert_eq!(state.table_count, 1);
-        assert!(matches!(
-            plan_target_preparation(1, "app_homolog", state.exists, state.table_count, false),
-            Err(ServicePopulateError::TargetNotEmpty { .. })
-        ));
-
-        // replace: dropped and recreated, so the rows are not duplicated.
-        let preparation =
-            plan_target_preparation(1, "app_homolog", state.exists, state.table_count, true)
-                .expect("replace");
-        assert_eq!(preparation, TargetPreparation::Recreate);
-        server
-            .prepare("app_homolog", preparation, state.major_version)
-            .await
-            .expect("recreate destination");
-        transfer(
-            image.clone(),
-            postgres_populate_command(),
-            source_url.clone(),
-        )
-        .await
-        .expect("populate again");
-        assert_eq!(count_rows().await, 3);
-
-        // A pg_dump that cannot authenticate fails the transfer (pipefail),
-        // instead of feeding psql an empty script and "succeeding".
-        let error = transfer(
-            image,
-            postgres_populate_command(),
-            source_url.replace("source-pass", "wrong-pass"),
-        )
-        .await
-        .expect_err("a failing pg_dump must fail the run")
-        .to_string();
-        assert!(error.contains("exited with status"), "{}", error);
-        assert!(!error.contains("wrong-pass"), "{}", error);
-
-        let _ = admin.close().await;
-        let _ = target.rm().await;
-        let _ = source.rm().await;
-    }
-
     #[tokio::test]
     async fn start_rejects_a_bad_database_name_before_touching_anything() {
         // No query results queued: any database access would panic the mock.
@@ -1361,6 +1617,7 @@ mod tests {
                 database: "postgres".to_string(),
                 source_url: "postgres://u:p@db.example.com/app".to_string(),
                 replace: false,
+                disconnect_clients: false,
                 created_by: Some(1),
             })
             .await
@@ -1369,5 +1626,400 @@ mod tests {
             err,
             ServicePopulateError::InvalidDatabaseName { .. }
         ));
+    }
+
+    #[tokio::test]
+    async fn recovery_only_fails_runs_started_before_the_process() {
+        let boot = Utc::now();
+        let mut old = sample_run(4, 1);
+        old.status = POPULATE_STATUS_RUNNING.to_string();
+        let mut failed = old.clone();
+        failed.status = POPULATE_STATUS_FAILED.to_string();
+        let db = MockDatabase::new(DatabaseBackend::Postgres)
+            .append_query_results([vec![old]])
+            .append_query_results([vec![failed]])
+            .into_connection();
+        let db = Arc::new(db);
+        let service = service_with_shared_mock(db.clone());
+        let (containers, runs) = service
+            .recover_interrupted_runs(boot)
+            .await
+            .expect("recover");
+        assert_eq!((containers, runs), (0, 1));
+
+        drop(service);
+        let log = Arc::try_unwrap(db)
+            .unwrap_or_else(|_| panic!("mock connection still shared"))
+            .into_transaction_log();
+        let select = &log[0].statements()[0];
+        assert!(select.sql.contains("\"status\" = $1"), "{}", select.sql);
+        assert!(select.sql.contains("\"started_at\" < $2"), "{}", select.sql);
+        let update = format!("{:?}", log[1].statements()[0].values);
+        assert!(update.contains("__populate_4"), "{}", update);
+    }
+
+    // ---- End to end, against real servers (skips without Docker) -------
+
+    use testcontainers::{
+        core::{ContainerPort, WaitFor},
+        runners::AsyncRunner,
+        ContainerAsync, GenericImage, ImageExt,
+    };
+
+    const READY: &str = "database system is ready to accept connections";
+
+    struct Servers {
+        docker: bollard::Docker,
+        network: String,
+        source_name: String,
+        source: ContainerAsync<GenericImage>,
+        target: ContainerAsync<GenericImage>,
+        /// Destination as the test process reaches it (published port).
+        server: TargetServer,
+        /// Destination as the transfer container reaches it (Docker network).
+        in_network: TargetServer,
+        /// Source as the test process reaches it (published port).
+        source_admin_url: String,
+    }
+
+    impl Servers {
+        async fn start() -> Option<Self> {
+            let docker = bollard::Docker::connect_with_local_defaults().ok()?;
+            if docker.ping().await.is_err() {
+                return None;
+            }
+            let suffix = uuid::Uuid::new_v4().to_string()[..8].to_string();
+            let network = format!("temps-populate-test-{}", suffix);
+            let source_name = format!("temps-populate-src-{}", suffix);
+            let target_name = format!("temps-populate-dst-{}", suffix);
+
+            let source = GenericImage::new("postgres", "16-alpine")
+                .with_exposed_port(ContainerPort::Tcp(5432))
+                .with_wait_for(WaitFor::message_on_stderr(READY))
+                .with_env_var("POSTGRES_PASSWORD", "source-pass")
+                .with_env_var("POSTGRES_DB", "app")
+                .with_network(&network)
+                .with_container_name(&source_name)
+                .start()
+                .await
+                .expect("start PG16 source");
+            let target = GenericImage::new("postgres", "18-alpine")
+                .with_exposed_port(ContainerPort::Tcp(5432))
+                .with_wait_for(WaitFor::message_on_stderr(READY))
+                .with_env_var("POSTGRES_USER", "svc_owner")
+                .with_env_var("POSTGRES_PASSWORD", "dst p@ss:word")
+                .with_network(&network)
+                .with_container_name(&target_name)
+                .start()
+                .await
+                .expect("start PG18 destination");
+
+            let mut server = server(
+                &target.get_host().await.expect("host").to_string(),
+                &target
+                    .get_host_port_ipv4(5432)
+                    .await
+                    .expect("port")
+                    .to_string(),
+                "dst p@ss:word",
+            );
+            server.username = "svc_owner".to_string();
+            let mut in_network = server.clone();
+            in_network.host = target_name;
+            in_network.port = "5432".to_string();
+            let source_admin_url = format!(
+                "postgres://postgres:source-pass@{}:{}/app?sslmode=disable",
+                source.get_host().await.expect("host"),
+                source.get_host_port_ipv4(5432).await.expect("port")
+            );
+
+            // Both servers answer over TCP (the first "ready" line is the
+            // init server, which listens on no TCP socket).
+            for _ in 0..60 {
+                let src_ok = sqlx::PgConnection::connect(&source_admin_url).await.is_ok();
+                if src_ok && server.inspect("postgres").await.is_ok() {
+                    return Some(Self {
+                        docker,
+                        network,
+                        source_name,
+                        source,
+                        target,
+                        server,
+                        in_network,
+                        source_admin_url,
+                    });
+                }
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+            panic!("test servers never became reachable");
+        }
+
+        fn source_url(&self, database: &str, password: &str) -> String {
+            format!(
+                "postgres://postgres:{}@{}:5432/{}?sslmode=disable",
+                password, self.source_name, database
+            )
+        }
+
+        async fn source_sql(&self, sql: &str) {
+            let mut conn = sqlx::PgConnection::connect(&self.source_admin_url)
+                .await
+                .expect("connect source");
+            sqlx::raw_sql(sql).execute(&mut conn).await.expect(sql);
+            let _ = conn.close().await;
+        }
+
+        /// The transfer exactly as a run does it, on the test network.
+        async fn transfer(&self, source_url: &str, into: &str) -> Result<(), String> {
+            run_transfer_container(
+                &self.docker,
+                &TransferContainerSpec {
+                    image: "postgres:18-alpine",
+                    command: postgres_populate_command(),
+                    source_url,
+                    destination_url: &self.in_network.admin_url(into),
+                    credentials: TransferCredentials::PgPassFile,
+                    network_mode: &self.network,
+                    name_prefix: "temps-populate-test",
+                    labels: vec![(populate_container_label(), "0".to_string())],
+                    timeout: Duration::from_secs(300),
+                },
+            )
+            .await
+            .map_err(|e| e.to_string())
+        }
+
+        async fn populate(
+            &self,
+            database: &str,
+            run_id: i32,
+            preparation: TargetPreparation,
+            disconnect_clients: bool,
+            source_url: &str,
+        ) -> Result<(), String> {
+            copy_into_destination(
+                &self.server,
+                database,
+                &staging_database_name(database, run_id),
+                preparation,
+                disconnect_clients,
+                |into| async move { self.transfer(source_url, &into).await },
+            )
+            .await
+        }
+
+        async fn scalar_i64(&self, database: &str, sql: &str) -> i64 {
+            let mut conn = self.server.connect(database).await.expect("connect");
+            let value: i64 = sqlx::query_scalar(sql)
+                .fetch_one(&mut conn)
+                .await
+                .expect(sql);
+            let _ = conn.close().await;
+            value
+        }
+
+        async fn staging_databases(&self) -> i64 {
+            self.scalar_i64(
+                "postgres",
+                "SELECT count(*) FROM pg_database WHERE datname LIKE '%\\_\\_populate\\_%'",
+            )
+            .await
+        }
+
+        async fn stop(self) {
+            let _ = self.target.rm().await;
+            let _ = self.source.rm().await;
+        }
+    }
+
+    /// A PG16 source into a PG18 destination owned by a non-default user,
+    /// through the staging database: create, refuse a non-empty destination,
+    /// replace without duplicating, refuse a replace while clients are
+    /// connected (unless told to disconnect them), and keep the destination
+    /// intact when the copy fails.
+    #[tokio::test]
+    async fn populate_copies_a_pg16_source_into_a_pg18_service_database() {
+        let Some(servers) = Servers::start().await else {
+            println!("Docker not available, skipping");
+            return;
+        };
+        servers
+            .source_sql(
+                "CREATE TABLE customers (id serial PRIMARY KEY, name text NOT NULL); \
+                 INSERT INTO customers (name) VALUES ('a'), ('b'), ('c');",
+            )
+            .await;
+        let source = servers.source_url("app", "source-pass");
+        let server = &servers.server;
+        let rows = "SELECT count(*) FROM customers";
+
+        let state = server.inspect("app_homolog").await.expect("inspect");
+        assert_eq!(state.major_version, 18);
+        assert_eq!(
+            postgres_client_image(state.major_version),
+            "postgres:18-alpine"
+        );
+        let preparation =
+            plan_target_preparation(1, "app_homolog", state.exists, state.table_count, false)
+                .expect("plan");
+        assert_eq!(preparation, TargetPreparation::Create);
+
+        // Create: through the staging database, renamed on success.
+        servers
+            .populate("app_homolog", 1, preparation, false, &source)
+            .await
+            .expect("populate PG16 -> PG18");
+        assert_eq!(servers.scalar_i64("app_homolog", rows).await, 3);
+        assert_eq!(servers.staging_databases().await, 0);
+        let mut admin = server.connect("postgres").await.expect("admin");
+        let owner: String = sqlx::query_scalar(
+            "SELECT pg_get_userbyid(datdba)::text FROM pg_database WHERE datname = $1",
+        )
+        .bind("app_homolog")
+        .fetch_one(&mut admin)
+        .await
+        .expect("owner");
+        let _ = admin.close().await;
+        assert_eq!(owner, "svc_owner");
+        assert!(server.database_size("app_homolog").await.expect("size") > 0);
+
+        // Not empty any more: refused without replace.
+        let state = server.inspect("app_homolog").await.expect("inspect");
+        assert!(matches!(
+            plan_target_preparation(1, "app_homolog", state.exists, state.table_count, false),
+            Err(ServicePopulateError::TargetNotEmpty { table_count: 1, .. })
+        ));
+
+        // replace while a client is connected: refused at the swap, the
+        // destination keeps its data and the staging copy is discarded.
+        let mut client = server.connect("app_homolog").await.expect("client");
+        assert_eq!(
+            server
+                .active_sessions("app_homolog")
+                .await
+                .expect("sessions"),
+            1
+        );
+        let err = servers
+            .populate(
+                "app_homolog",
+                2,
+                TargetPreparation::Recreate,
+                false,
+                &source,
+            )
+            .await
+            .expect_err("open session refuses replace");
+        assert!(err.contains("open session"), "{}", err);
+        assert_eq!(servers.scalar_i64("app_homolog", rows).await, 3);
+        assert_eq!(servers.staging_databases().await, 0);
+
+        // ... and goes through with disconnect_clients, without duplicating.
+        servers
+            .populate("app_homolog", 3, TargetPreparation::Recreate, true, &source)
+            .await
+            .expect("replace disconnecting clients");
+        assert!(
+            sqlx::query("SELECT 1").execute(&mut client).await.is_err(),
+            "the old session must have been terminated"
+        );
+        assert_eq!(servers.scalar_i64("app_homolog", rows).await, 3);
+        assert_eq!(servers.staging_databases().await, 0);
+
+        // A replace whose copy fails (wrong source password: pg_dump cannot
+        // authenticate) never touches the destination.
+        let err = servers
+            .populate(
+                "app_homolog",
+                4,
+                TargetPreparation::Recreate,
+                true,
+                &servers.source_url("app", "wrong-pass"),
+            )
+            .await
+            .expect_err("a failing pg_dump must fail the run");
+        assert!(err.contains("exited with status"), "{}", err);
+        assert!(!err.contains("wrong-pass"), "{}", err);
+        assert_eq!(servers.scalar_i64("app_homolog", rows).await, 3);
+        assert_eq!(servers.staging_databases().await, 0);
+
+        // A failed Create leaves no database at all under the final name.
+        let err = servers
+            .populate(
+                "app_new",
+                5,
+                TargetPreparation::Create,
+                false,
+                &servers.source_url("app", "wrong-pass"),
+            )
+            .await
+            .expect_err("create with failing copy");
+        assert!(err.contains("exited with status"), "{}", err);
+        assert!(!server.database_exists("app_new").await.expect("exists"));
+        assert_eq!(servers.staging_databases().await, 0);
+
+        servers.stop().await;
+    }
+
+    /// Regression: the source connection dies in the middle of a large COPY.
+    /// `psql --single-transaction` used to COMMIT at the clean EOF that
+    /// followed, leaving a half-filled table; the COMMIT is now only sent
+    /// after pg_dump exited 0, so the destination keeps no table at all.
+    #[tokio::test]
+    async fn a_copy_cut_mid_way_leaves_the_destination_without_tables() {
+        let Some(servers) = Servers::start().await else {
+            println!("Docker not available, skipping");
+            return;
+        };
+        servers
+            .source_sql(
+                "CREATE TABLE bulk (id bigint PRIMARY KEY, pad text NOT NULL); \
+                 INSERT INTO bulk SELECT g, repeat(md5(g::text), 8) \
+                 FROM generate_series(1, 1500000) g;",
+            )
+            .await;
+        servers
+            .server
+            .create_database("app_cut")
+            .await
+            .expect("create empty destination");
+
+        let source = servers.source_url("app", "source-pass");
+        let copy = servers.populate("app_cut", 6, TargetPreparation::UseExisting, false, &source);
+        let killer = async {
+            let mut conn = sqlx::PgConnection::connect(&servers.source_admin_url)
+                .await
+                .expect("connect source");
+            for _ in 0..600 {
+                let killed: Option<bool> = sqlx::query_scalar(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity \
+                     WHERE query LIKE 'COPY public.bulk%' AND pid <> pg_backend_pid() LIMIT 1",
+                )
+                .fetch_optional(&mut conn)
+                .await
+                .expect("terminate");
+                if killed == Some(true) {
+                    return true;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            false
+        };
+        let (result, killed) = tokio::join!(copy, killer);
+        assert!(killed, "the COPY was never seen on the source");
+        let err = result.expect_err("a cut copy must fail");
+        assert!(err.contains("exited with status"), "{}", err);
+
+        let tables = servers
+            .scalar_i64(
+                "app_cut",
+                "SELECT count(*) FROM pg_catalog.pg_class c \
+                 JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+                 WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')",
+            )
+            .await;
+        assert_eq!(tables, 0, "a half-copied table was committed");
+
+        servers.stop().await;
     }
 }

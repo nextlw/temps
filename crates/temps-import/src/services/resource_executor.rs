@@ -35,7 +35,7 @@ use temps_import_types::{CreatedResource, DomainAction, ImportPlan, ServiceActio
 use temps_projects::services::CustomDomainService;
 use temps_providers::data_transfer::{
     dump_restore_command, percent_encode_userinfo, run_transfer_container, TransferContainerSpec,
-    DATA_TRANSFER_TIMEOUT,
+    TransferCredentials, DATA_TRANSFER_TIMEOUT,
 };
 use temps_providers::externalsvc::ServiceType;
 use temps_providers::services::{
@@ -397,7 +397,18 @@ impl ResourceExecutor {
         };
 
         match self
-            .run_transfer_container(&image, &command, source_url, local_url)
+            .run_transfer_container(
+                &image,
+                &command,
+                source_url,
+                local_url,
+                // libpq reads a password file; the other clients only take
+                // credentials in the URL.
+                match record.plan_type.as_str() {
+                    "postgres" | "postgresql" => TransferCredentials::PgPassFile,
+                    _ => TransferCredentials::InUrl,
+                },
+            )
             .await
         {
             Ok(()) => {
@@ -440,6 +451,7 @@ impl ResourceExecutor {
         command: &str,
         source_url: &str,
         local_url: &str,
+        credentials: TransferCredentials,
     ) -> Result<(), String> {
         // Resolve the Docker client — fails with a descriptive message on a
         // control-plane process that has no local daemon.
@@ -455,8 +467,10 @@ impl ResourceExecutor {
                 command,
                 source_url,
                 destination_url: local_url,
+                credentials,
                 network_mode: "host",
                 name_prefix: "temps-import-transfer",
+                labels: vec![],
                 timeout: TRANSFER_TIMEOUT,
             },
         )

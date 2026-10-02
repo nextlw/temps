@@ -76,25 +76,40 @@ impl TempsPlugin for ProvidersPlugin {
             context.register_service(external_service_manager.clone());
 
             // Populate (copy an external PostgreSQL into a database of an
-            // existing service). Runs left `running` by a previous process
-            // will never finish: fail them so they don't hold the
-            // one-running-copy-per-database lock forever.
+            // existing service). The control plane's own database server is
+            // passed in so populate can refuse to write to it.
+            let control_plane_database = context
+                .get_service::<temps_config::ConfigService>()
+                .and_then(|config| {
+                    crate::service_populate::DatabaseEndpoint::from_url(&config.get_database_url())
+                });
             let populate_service = Arc::new(ServicePopulateService::new(
                 db.clone(),
                 external_service_manager.clone(),
                 docker_handle.clone(),
+                control_plane_database,
             ));
             context.register_service(populate_service.clone());
+            // A previous process's copies left their transfer containers
+            // running with nobody to await them: remove those first, then
+            // fail their runs. Bounded by this instant so a run started by
+            // this process is never touched.
+            let process_started_at = chrono::Utc::now();
             tokio::spawn(async move {
-                match populate_service.fail_interrupted_runs().await {
-                    Ok(0) => {}
-                    Ok(count) => tracing::warn!(
-                        count,
-                        "Marked populate runs interrupted by a server restart as failed"
+                match populate_service
+                    .recover_interrupted_runs(process_started_at)
+                    .await
+                {
+                    Ok((0, 0)) => {}
+                    Ok((containers, runs)) => tracing::warn!(
+                        containers,
+                        runs,
+                        "Removed populate transfer containers and failed runs interrupted by a \
+                         server restart"
                     ),
                     Err(error) => tracing::error!(
                         error = %error,
-                        "Could not mark interrupted populate runs as failed"
+                        "Could not recover populate runs interrupted by a server restart"
                     ),
                 }
             });

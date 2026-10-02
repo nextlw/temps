@@ -35076,6 +35076,10 @@
               "null"
             ]
           },
+          "disconnect_clients": {
+            "description": "Whether the replace could terminate the destination's sessions.",
+            "type": "boolean"
+          },
           "duration_seconds": {
             "description": "Set once the run finished.",
             "format": "double",
@@ -35127,6 +35131,7 @@
           "database",
           "source_url_masked",
           "replace",
+          "disconnect_clients",
           "status",
           "client_image",
           "started_at"
@@ -35140,6 +35145,10 @@
             "description": "Destination database inside the service, e.g. the per-environment\ndatabase of a project link (`<project>_<environment>`). Created when\nmissing, owned by the service user. Must match `[a-z_][a-z0-9_]{0,62}`.",
             "example": "my_app_production",
             "type": "string"
+          },
+          "disconnect_clients": {
+            "description": "With `replace`: terminate the sessions of the destination when the\ncopy is swapped in. Without it, a destination with open sessions is\nrefused with 409.",
+            "type": "boolean"
           },
           "replace": {
             "description": "Drop and recreate the destination when it already has tables.\nWithout it, a non-empty destination is refused with 409.",
@@ -75685,7 +75694,7 @@
                 }
               }
             },
-            "description": "Destination not empty (use replace) or a copy is already running"
+            "description": "Destination not empty (use replace), destination has open sessions (use disconnect_clients) or a copy is already running"
           },
           "422": {
             "content": {
@@ -75695,7 +75704,7 @@
                 }
               }
             },
-            "description": "Service is not a local standalone PostgreSQL"
+            "description": "Service is not a local standalone PostgreSQL, or is the control plane's own database server"
           },
           "500": {
             "content": {

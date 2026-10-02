@@ -73,6 +73,19 @@ impl From<ServicePopulateError> for Problem {
                     .with_title("Database Not Empty")
                     .with_detail(error.to_string())
             }
+            ServicePopulateError::TargetInUse { .. } => problemdetails::new(StatusCode::CONFLICT)
+                .with_title("Database In Use")
+                .with_detail(error.to_string()),
+            ServicePopulateError::TargetAppeared { .. } => {
+                problemdetails::new(StatusCode::CONFLICT)
+                    .with_title("Database Created Concurrently")
+                    .with_detail(error.to_string())
+            }
+            ServicePopulateError::ControlPlaneDatabase { .. } => {
+                problemdetails::new(StatusCode::UNPROCESSABLE_ENTITY)
+                    .with_title("Control Plane Database")
+                    .with_detail(error.to_string())
+            }
             ServicePopulateError::AlreadyRunning { .. } => {
                 problemdetails::new(StatusCode::CONFLICT)
                     .with_title("Populate Already Running")
@@ -118,6 +131,11 @@ pub struct PopulateServiceRequest {
     /// Without it, a non-empty destination is refused with 409.
     #[serde(default)]
     pub replace: bool,
+    /// With `replace`: terminate the sessions of the destination when the
+    /// copy is swapped in. Without it, a destination with open sessions is
+    /// refused with 409.
+    #[serde(default)]
+    pub disconnect_clients: bool,
 }
 
 /// One populate run.
@@ -129,6 +147,8 @@ pub struct PopulateRunResponse {
     /// Source URL with user and password replaced by `***`.
     pub source_url_masked: String,
     pub replace: bool,
+    /// Whether the replace could terminate the destination's sessions.
+    pub disconnect_clients: bool,
     /// `running`, `completed` or `failed`.
     pub status: String,
     /// Client image of the transfer container (`postgres:<major>-alpine`,
@@ -157,6 +177,7 @@ impl From<service_populate_runs::Model> for PopulateRunResponse {
             database: run.database_name,
             source_url_masked: run.source_url_masked,
             replace: run.replace_existing,
+            disconnect_clients: run.disconnect_clients,
             status: run.status,
             client_image: run.client_image,
             error_message: run.error_message,
@@ -199,6 +220,7 @@ pub struct ExternalServicePopulateStartedAudit {
     pub database: String,
     pub source_url_masked: String,
     pub replace: bool,
+    pub disconnect_clients: bool,
 }
 
 impl AuditOperation for ExternalServicePopulateStartedAudit {
@@ -253,8 +275,8 @@ fn require_instance_admin(auth: &AuthContext) -> Result<(), Problem> {
         (status = 401, description = "Unauthorized", body = ProblemDetails),
         (status = 403, description = "Not an instance administrator", body = ProblemDetails),
         (status = 404, description = "Service not found", body = ProblemDetails),
-        (status = 409, description = "Destination not empty (use replace) or a copy is already running", body = ProblemDetails),
-        (status = 422, description = "Service is not a local standalone PostgreSQL", body = ProblemDetails),
+        (status = 409, description = "Destination not empty (use replace), destination has open sessions (use disconnect_clients) or a copy is already running", body = ProblemDetails),
+        (status = 422, description = "Service is not a local standalone PostgreSQL, or is the control plane's own database server", body = ProblemDetails),
         (status = 502, description = "Service database server unreachable", body = ProblemDetails),
         (status = 500, description = "Internal server error", body = ProblemDetails)
     ),
@@ -277,6 +299,7 @@ pub async fn start_service_populate(
             database: request.database,
             source_url: request.source_url,
             replace: request.replace,
+            disconnect_clients: request.disconnect_clients,
             created_by: auth.user_id_opt(),
         })
         .await?;
@@ -292,6 +315,7 @@ pub async fn start_service_populate(
         database: run.database_name.clone(),
         source_url_masked: run.source_url_masked.clone(),
         replace: run.replace_existing,
+        disconnect_clients: run.disconnect_clients,
     };
     if let Err(e) = state.audit_service.create_audit_log(&audit).await {
         error!(
@@ -443,6 +467,7 @@ mod tests {
             database_name: "app_homolog".to_string(),
             source_url_masked: "postgres://***:***@db.example.com:5432/app".to_string(),
             replace_existing: true,
+            disconnect_clients: false,
             status: "completed".to_string(),
             client_image: "postgres:18-alpine".to_string(),
             error_message: None,
@@ -502,6 +527,22 @@ mod tests {
                     database: "db".to_string(),
                 },
                 409,
+            ),
+            (
+                ServicePopulateError::TargetInUse {
+                    service_id: 1,
+                    database: "db".to_string(),
+                    sessions: 2,
+                },
+                409,
+            ),
+            (
+                ServicePopulateError::ControlPlaneDatabase {
+                    service_id: 1,
+                    host: "127.0.0.1".to_string(),
+                    port: 5432,
+                },
+                422,
             ),
             (
                 ServicePopulateError::UnsupportedService {
