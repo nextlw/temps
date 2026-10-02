@@ -11,8 +11,20 @@
 //!
 //! The partial unique index on `(service_id, database_name)` over running
 //! rows is the authoritative lock: two concurrent copies into the same
-//! database would interleave their DDL. Nothing existing references this
-//! table, so rolling back to an older image leaves it unused but harmless.
+//! database would interleave their DDL.
+//!
+//! Rolling back to an image older than this migration (e.g.
+//! `v0.1.0-nextlw.8`) is NOT transparent: that image's migrator finds this
+//! migration recorded in `seaql_migrations` without knowing it, and refuses
+//! to start. Before starting the older image, run:
+//!
+//! ```sql
+//! DELETE FROM seaql_migrations WHERE version = 'm20261002_000002_add_disconnect_clients_to_service_populate_runs';
+//! DELETE FROM seaql_migrations WHERE version = 'm20261002_000001_create_service_populate_runs';
+//! ```
+//!
+//! The table itself can stay: no older code references it, and keeping it
+//! keeps the run history if the newer image comes back.
 
 use sea_orm_migration::prelude::*;
 

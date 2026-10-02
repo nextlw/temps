@@ -23,6 +23,8 @@ pub struct Model {
     pub source_url_masked: String,
     /// Whether the destination database was dropped and recreated first.
     pub replace_existing: bool,
+    /// Whether a replace was allowed to terminate the destination's sessions.
+    pub disconnect_clients: bool,
     /// "running" | "completed" | "failed"
     pub status: String,
     /// Client image the transfer container ran (`postgres:<major>-alpine`).
