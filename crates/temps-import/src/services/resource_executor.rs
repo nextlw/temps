@@ -830,9 +830,7 @@ pub fn build_env_rewrites(
             // on this instance, leaving credentials, database name and query
             // untouched. Carrying the port makes the match specific enough not
             // to disturb an unrelated value that merely mentions the hostname.
-            if let (Some(from), Some(to)) =
-                (url_authority(source_url), url_authority(local_url))
-            {
+            if let (Some(from), Some(to)) = (url_authority(source_url), url_authority(local_url)) {
                 if from != to {
                     rewrites.push((from, to));
                 }
@@ -1176,7 +1174,10 @@ mod tests {
             ],
             "app.1.2.3.4.sslip.io",
         );
-        let created = vec![record(reported, "postgres://postgres:new@new-host:5432/postgres")];
+        let created = vec![record(
+            reported,
+            "postgres://postgres:new@new-host:5432/postgres",
+        )];
 
         let rewrites = build_env_rewrites(&plan, &created, "app.preview.temps.dev");
         assert_eq!(apply_env_rewrites(&mut plan, &rewrites), 1);

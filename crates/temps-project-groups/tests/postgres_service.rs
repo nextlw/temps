@@ -20,7 +20,9 @@ use testcontainers::{core::WaitFor, runners::AsyncRunner, ContainerAsync, Generi
 /// Docker. The container must outlive the test, so it is returned too.
 async fn database(test: &str) -> anyhow::Result<Option<(ContainerAsync<GenericImage>, String)>> {
     let container = match GenericImage::new("timescale/timescaledb-ha", "pg18")
-        .with_wait_for(WaitFor::message_on_stderr("database system is ready to accept connections"))
+        .with_wait_for(WaitFor::message_on_stderr(
+            "database system is ready to accept connections",
+        ))
         .with_env_var("POSTGRES_PASSWORD", "postgres")
         .with_env_var("POSTGRES_HOST_AUTH_METHOD", "trust")
         .with_cmd(vec![
@@ -65,7 +67,9 @@ async fn connect(db_url: &str) -> anyhow::Result<DatabaseConnection> {
             }
         }
     }
-    Err(anyhow::anyhow!("could not connect to {db_url}: {last_err:?}"))
+    Err(anyhow::anyhow!(
+        "could not connect to {db_url}: {last_err:?}"
+    ))
 }
 
 fn request(name: &str, slug: Option<&str>) -> CreateProjectGroupRequest {
@@ -153,9 +157,15 @@ async fn service_against_postgres() -> anyhow::Result<()> {
 
     // Missing rows are 404s, not 500s.
     let err = svc.assign(crm.group.id, 999).await.unwrap_err();
-    assert!(matches!(err, ProjectGroupError::ProjectNotFound { project_id: 999 }));
+    assert!(matches!(
+        err,
+        ProjectGroupError::ProjectNotFound { project_id: 999 }
+    ));
     let err = svc.assign(9999, 41).await.unwrap_err();
-    assert!(matches!(err, ProjectGroupError::NotFound { group_id: 9999 }));
+    assert!(matches!(
+        err,
+        ProjectGroupError::NotFound { group_id: 9999 }
+    ));
 
     Ok(())
 }

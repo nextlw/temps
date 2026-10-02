@@ -407,7 +407,13 @@ mod tests {
         assert_eq!(
             top_level,
             vec![
-                "budget", "build_id", "cache", "context", "outputs", "recipe", "requester",
+                "budget",
+                "build_id",
+                "cache",
+                "context",
+                "outputs",
+                "recipe",
+                "requester",
                 "target",
             ],
             "the top-level field names of BuildRequest are wire surface; \

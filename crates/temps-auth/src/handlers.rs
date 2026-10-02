@@ -3940,5 +3940,4 @@ mod tests {
         assert!(password_login_permitted(false, 0));
         assert!(password_login_permitted(false, 1));
     }
-
 }

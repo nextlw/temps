@@ -187,8 +187,7 @@ fn normalize_minio_registry(image: String) -> String {
             warn!(
                 "MinIO image '{}' is an official reference that can no longer be pulled \
                  without authentication; switch the service to {}",
-                image,
-                pinned
+                image, pinned
             );
             if registry.is_empty() {
                 return format!("quay.io/{repository}{rest}");
