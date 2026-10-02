@@ -2,7 +2,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import { test, expect, describe } from 'bun:test'
-import { maskConnectionUrl, resolveSourceUrl, SOURCE_URL_ENV } from './populate.js'
+import {
+  maskConnectionUrl,
+  replaceConfirmation,
+  resolveSourceUrl,
+  SOURCE_URL_ENV,
+} from './populate.js'
 
 describe('resolveSourceUrl', () => {
   const url = 'postgres://app:s3cret@db.example.com:5432/app?sslmode=require'
@@ -48,5 +53,49 @@ describe('maskConnectionUrl', () => {
 
   test('never echoes an unparseable value', () => {
     expect(maskConnectionUrl('not a url s3cret')).toBe('***')
+  })
+})
+
+describe('replaceConfirmation', () => {
+  const base = {
+    replace: true,
+    yes: false,
+    confirmDatabase: undefined as string | undefined,
+    database: 'app_production',
+    interactive: true,
+  }
+
+  test('without --replace nothing is asked', () => {
+    expect(replaceConfirmation({ ...base, replace: false })).toEqual({ action: 'none' })
+  })
+
+  test('interactive --replace asks to type the name', () => {
+    expect(replaceConfirmation(base)).toEqual({ action: 'prompt' })
+  })
+
+  test('--yes alone is not enough', () => {
+    const result = replaceConfirmation({ ...base, yes: true })
+    expect('error' in result && result.error).toContain('--confirm-database app_production')
+  })
+
+  test('--yes with a matching --confirm-database goes through', () => {
+    expect(
+      replaceConfirmation({ ...base, yes: true, confirmDatabase: 'app_production' }),
+    ).toEqual({ action: 'none' })
+  })
+
+  test('a mismatching --confirm-database is refused', () => {
+    const result = replaceConfirmation({ ...base, yes: true, confirmDatabase: 'app_homolog' })
+    expect('error' in result && result.error).toContain('does not match')
+  })
+
+  test('without a terminal and without --yes it refuses instead of prompting', () => {
+    const result = replaceConfirmation({ ...base, interactive: false })
+    expect('error' in result).toBe(true)
+  })
+
+  test('--confirm-database without --replace is a mistake', () => {
+    const result = replaceConfirmation({ ...base, replace: false, confirmDatabase: 'x' })
+    expect('error' in result).toBe(true)
   })
 })

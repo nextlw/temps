@@ -18,7 +18,7 @@ import {
   withSpinner,
 } from '../../ui/spinner.js'
 import { printTable, statusBadge, type TableColumn } from '../../ui/table.js'
-import { promptConfirm } from '../../ui/prompts.js'
+import { promptText } from '../../ui/prompts.js'
 import {
   newline,
   header,
@@ -45,6 +45,8 @@ interface PopulateOptions {
   id: string
   database: string
   replace?: boolean
+  disconnectClients?: boolean
+  confirmDatabase?: string
   sourceUrlStdin?: boolean
   yes?: boolean
   wait?: boolean
@@ -100,6 +102,45 @@ export function maskConnectionUrl(raw: string): string {
   }
 }
 
+/**
+ * What `--replace` needs before it may run. Dropping a database is only
+ * confirmed by typing its name: interactively, or non-interactively with
+ * `--yes` plus `--confirm-database <name>` matching `--database`.
+ */
+export function replaceConfirmation(input: {
+  replace: boolean
+  yes: boolean
+  confirmDatabase: string | undefined
+  database: string
+  interactive: boolean
+}): { action: 'none' | 'prompt' } | { error: string } {
+  if (!input.replace) {
+    if (input.confirmDatabase !== undefined) {
+      return { error: '--confirm-database only applies together with --replace.' }
+    }
+    return { action: 'none' }
+  }
+  if (input.yes) {
+    if (input.confirmDatabase === undefined) {
+      return {
+        error: `--replace --yes also needs --confirm-database ${input.database} (the database that will be dropped).`,
+      }
+    }
+    if (input.confirmDatabase !== input.database) {
+      return {
+        error: `--confirm-database '${input.confirmDatabase}' does not match --database '${input.database}'.`,
+      }
+    }
+    return { action: 'none' }
+  }
+  if (!input.interactive) {
+    return {
+      error: `--replace needs a terminal to type the database name, or --yes --confirm-database ${input.database}.`,
+    }
+  }
+  return { action: 'prompt' }
+}
+
 async function readStdin(): Promise<string> {
   let data = ''
   for await (const chunk of process.stdin) {
@@ -137,21 +178,37 @@ async function populateAction(options: PopulateOptions): Promise<void> {
     process.exit(1)
   }
 
-  if (options.replace && !options.yes) {
-    if (!process.stdout.isTTY) {
-      errorOutput('--replace drops the database first; pass --yes to confirm non-interactively.')
-      process.exit(1)
-    }
+  if (options.disconnectClients && !options.replace) {
+    errorOutput('--disconnect-clients only applies together with --replace.')
+    process.exit(1)
+  }
+  const confirmation = replaceConfirmation({
+    replace: Boolean(options.replace),
+    yes: Boolean(options.yes),
+    confirmDatabase: options.confirmDatabase,
+    database: options.database,
+    interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
+  })
+  if ('error' in confirmation) {
+    errorOutput(confirmation.error)
+    process.exit(1)
+  }
+  if (confirmation.action === 'prompt') {
     newline()
     header(`${icons.arrow} Replace database '${options.database}' of service ${serviceId}`)
     keyValue('Source', maskConnectionUrl(resolved.url))
+    keyValue(
+      'Open sessions',
+      options.disconnectClients ? 'terminated at the swap' : 'refuse the replace',
+    )
     newline()
-    const go = await promptConfirm({
-      message: `This DROPS '${options.database}' (disconnecting its clients) and copies the source into it. Continue?`,
-      default: false,
+    const typed = await promptText({
+      message: `The current '${options.database}' is DROPPED once the copy succeeds. Type the database name to confirm:`,
+      required: true,
     })
-    if (!go) {
-      warning('Aborted.')
+    if (typed.trim() !== options.database) {
+      warning('The name does not match. Aborted.')
+      process.exitCode = 1
       return
     }
   }
@@ -163,6 +220,7 @@ async function populateAction(options: PopulateOptions): Promise<void> {
         database: options.database,
         source_url: resolved.url,
         replace: options.replace ?? false,
+        disconnect_clients: options.disconnectClients ?? false,
       },
     })
     if (error) throw new Error(getErrorMessage(error))
@@ -240,6 +298,7 @@ function printRun(run: PopulateRunResponse): void {
   keyValue('Database', run.database)
   keyValue('Source', run.source_url_masked)
   keyValue('Replace', run.replace ? 'yes' : 'no')
+  if (run.replace) keyValue('Disconnect clients', run.disconnect_clients ? 'yes' : 'no')
   keyValue('Client image', run.client_image)
   keyValue('Started', run.started_at)
   if (run.finished_at) keyValue('Finished', run.finished_at)
@@ -337,9 +396,17 @@ export function registerPopulateCommands(services: Command): void {
     )
     .requiredOption('--id <id>', 'Service ID')
     .requiredOption('--database <name>', 'Destination database, e.g. my_app_production')
-    .option('--replace', 'Drop and recreate the destination when it already has tables')
+    .option(
+      '--replace',
+      'Replace a destination that already has tables: copy into a staging database, then drop the old one and rename',
+    )
+    .option(
+      '--disconnect-clients',
+      'With --replace: terminate the open sessions of the destination instead of refusing',
+    )
     .option('--source-url-stdin', 'Read the source connection URL from stdin')
-    .option('-y, --yes', 'Skip the --replace confirmation')
+    .option('-y, --yes', 'Non-interactive --replace; requires --confirm-database')
+    .option('--confirm-database <name>', 'With --replace --yes: the database name again, as confirmation')
     .option('--no-wait', 'Return right after starting instead of following the run')
     .option('--json', 'Output in JSON format')
     .action(populateAction)
