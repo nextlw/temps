@@ -5517,7 +5517,10 @@ mod tests {
         // A local install reached on :8080 serves bound hostnames there too;
         // dropping the port would link to whatever else listens on 80.
         assert_eq!(
-            absolutize_like("http://app-production.localho.st:8080", "portal.example.com"),
+            absolutize_like(
+                "http://app-production.localho.st:8080",
+                "portal.example.com"
+            ),
             "http://portal.example.com:8080"
         );
     }

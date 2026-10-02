@@ -606,7 +606,15 @@ mod tests {
     #[test]
     fn validate_slug_accepts_only_hyphenated_lowercase_words() {
         assert!(validate_slug("crm-2").is_ok());
-        for bad in ["", "-crm", "crm-", "crm--x", "CRM", "crm x", &"a".repeat(65)] {
+        for bad in [
+            "",
+            "-crm",
+            "crm-",
+            "crm--x",
+            "CRM",
+            "crm x",
+            &"a".repeat(65),
+        ] {
             assert!(validate_slug(bad).is_err(), "{bad:?} must be rejected");
         }
     }
@@ -809,8 +817,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_returns_not_found_when_nothing_was_deleted() {
-        let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_exec_results([exec(0)]);
+        let db = MockDatabase::new(DatabaseBackend::Postgres).append_exec_results([exec(0)]);
         let (svc, _conn) = service(db);
         let err = svc.delete(5).await.unwrap_err();
         assert!(matches!(err, ProjectGroupError::NotFound { group_id: 5 }));
@@ -871,7 +878,10 @@ mod tests {
             .append_query_results([Vec::<BTreeMap<&'static str, Value>>::new()]);
         let (svc, _conn) = service(db);
         let err = svc.assign(1, 41).await.unwrap_err();
-        assert!(matches!(err, ProjectGroupError::ProjectNotFound { project_id: 41 }));
+        assert!(matches!(
+            err,
+            ProjectGroupError::ProjectNotFound { project_id: 41 }
+        ));
     }
 
     #[tokio::test]
@@ -885,8 +895,7 @@ mod tests {
 
     #[tokio::test]
     async fn unassign_reports_a_project_that_is_not_a_member() {
-        let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_exec_results([exec(0)]);
+        let db = MockDatabase::new(DatabaseBackend::Postgres).append_exec_results([exec(0)]);
         let (svc, _conn) = service(db);
         let err = svc.unassign(1, 41).await.unwrap_err();
         assert!(matches!(
@@ -900,8 +909,8 @@ mod tests {
 
     #[tokio::test]
     async fn unassign_removes_the_row_and_touches_the_group() {
-        let db = MockDatabase::new(DatabaseBackend::Postgres)
-            .append_exec_results([exec(1), exec(1)]);
+        let db =
+            MockDatabase::new(DatabaseBackend::Postgres).append_exec_results([exec(1), exec(1)]);
         let (svc, conn) = service(db);
         svc.unassign(1, 41).await.expect("unassign succeeds");
         let sql = statements(svc, conn).join("\n");

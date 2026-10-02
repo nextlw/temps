@@ -96,10 +96,7 @@ pub enum BuildExecError {
     Spawn { program: String, reason: String },
 
     #[error("build {build_id} exceeded its wall-clock ceiling of {timeout_secs}s and its process group was killed")]
-    Timeout {
-        build_id: String,
-        timeout_secs: u64,
-    },
+    Timeout { build_id: String, timeout_secs: u64 },
 
     #[error("build {build_id} exited with status {status}; last output: {output_tail}")]
     NonZeroExit {
@@ -168,11 +165,9 @@ pub async fn run_build(inv: BuildInvocation<'_>) -> Result<BuildResultEnvelope, 
     })?;
 
     #[cfg(unix)]
-    let group = child.id().and_then(|pid| {
-        i32::try_from(pid)
-            .ok()
-            .map(nix::unistd::Pid::from_raw)
-    });
+    let group = child
+        .id()
+        .and_then(|pid| i32::try_from(pid).ok().map(nix::unistd::Pid::from_raw));
 
     let output = match tokio::time::timeout(inv.wall_timeout, child.wait_with_output()).await {
         Ok(Ok(output)) => output,
@@ -325,10 +320,8 @@ mod tests {
         // `/bin/sh -c <script>` is the shape every case here needs; the
         // executor takes a program, so the script rides as an argument via a
         // wrapper file to keep the executor's surface honest.
-        let script_file = std::env::temp_dir().join(format!(
-            "temps-build-exec-test-{}.sh",
-            uuid::Uuid::new_v4()
-        ));
+        let script_file =
+            std::env::temp_dir().join(format!("temps-build-exec-test-{}.sh", uuid::Uuid::new_v4()));
         std::fs::write(&script_file, script).expect("the test writes its own script");
         cmd_inv.program = script_file.clone();
         #[cfg(unix)]
@@ -500,7 +493,9 @@ mod tests {
         let script = format!("#!/bin/sh\necho '{line}'\n");
         let result = run_script(&script, BTreeMap::new(), Duration::from_secs(10)).await;
         match result {
-            Err(BuildExecError::SchemaMismatch { found, expected, .. }) => {
+            Err(BuildExecError::SchemaMismatch {
+                found, expected, ..
+            }) => {
                 assert_eq!(found, "temps.build/v2");
                 assert_eq!(expected, ENVELOPE_SCHEMA);
             }

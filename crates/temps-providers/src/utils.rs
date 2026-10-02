@@ -34,7 +34,10 @@ pub(crate) async fn ensure_network_exists(
             // Another provision created it between our list and our create.
             // See `is_already_exists` for why that outcome is a success here.
             Err(e) if temps_core::docker_handle::is_already_exists(&e) => {
-                info!("Network already existed when we created it: {}", network_name);
+                info!(
+                    "Network already existed when we created it: {}",
+                    network_name
+                );
             }
             Err(e) => {
                 error!("Failed to create network: {}", e);
