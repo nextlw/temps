@@ -15,6 +15,7 @@ use utoipa::OpenApi as OpenApiTrait;
 use crate::env_vars_provider_impl::ExternalServicesEnvProvider;
 use crate::handlers::{handlers, types::AppState};
 use crate::health_monitor::ExternalServiceHealthMonitor;
+use crate::service_populate::ServicePopulateService;
 use crate::services::ExternalServiceManager;
 
 /// Providers Plugin for managing external service integrations
@@ -68,11 +69,35 @@ impl TempsPlugin for ProvidersPlugin {
             let external_service_manager = Arc::new(ExternalServiceManager::new_with_handle(
                 db.clone(),
                 encryption_service.clone(),
-                docker_handle,
+                docker_handle.clone(),
                 local_workloads.local_workloads_enabled(),
                 dns_registry,
             ));
             context.register_service(external_service_manager.clone());
+
+            // Populate (copy an external PostgreSQL into a database of an
+            // existing service). Runs left `running` by a previous process
+            // will never finish: fail them so they don't hold the
+            // one-running-copy-per-database lock forever.
+            let populate_service = Arc::new(ServicePopulateService::new(
+                db.clone(),
+                external_service_manager.clone(),
+                docker_handle.clone(),
+            ));
+            context.register_service(populate_service.clone());
+            tokio::spawn(async move {
+                match populate_service.fail_interrupted_runs().await {
+                    Ok(0) => {}
+                    Ok(count) => tracing::warn!(
+                        count,
+                        "Marked populate runs interrupted by a server restart as failed"
+                    ),
+                    Err(error) => tracing::error!(
+                        error = %error,
+                        "Could not mark interrupted populate runs as failed"
+                    ),
+                }
+            });
 
             let sandbox_runtime_credentials: Arc<
                 dyn temps_core::SandboxRuntimeCredentialsProvider,
@@ -228,7 +253,16 @@ impl TempsPlugin for ProvidersPlugin {
         let pg_stat_routes =
             crate::handlers::pg_stat_statements_handlers::configure_routes().with_state(app_state);
 
-        let router = providers_routes.merge(pg_stat_routes);
+        let populate_state = Arc::new(crate::handlers::populate_handlers::PopulateAppState {
+            populate_service: context.require_service::<ServicePopulateService>(),
+            audit_service: context.require_service::<dyn temps_core::AuditLogger>(),
+        });
+        let populate_routes =
+            crate::handlers::populate_handlers::configure_routes().with_state(populate_state);
+
+        let router = providers_routes
+            .merge(pg_stat_routes)
+            .merge(populate_routes);
         Some(PluginRoutes::new(router))
     }
 
@@ -237,7 +271,9 @@ impl TempsPlugin for ProvidersPlugin {
         let base = <handlers::ExternalServiceApiDoc as OpenApiTrait>::openapi();
         use crate::handlers::pg_stat_statements_handlers::PgStatStatementsApiDoc;
         let pg_stat = <PgStatStatementsApiDoc as OpenApiTrait>::openapi();
-        Some(merge_openapi_schemas(base, vec![pg_stat]))
+        use crate::handlers::populate_handlers::PopulateApiDoc;
+        let populate = <PopulateApiDoc as OpenApiTrait>::openapi();
+        Some(merge_openapi_schemas(base, vec![pg_stat, populate]))
     }
 }
 

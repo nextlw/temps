@@ -16,6 +16,7 @@ pub mod postgres_upgrade_service;
 pub mod query_service;
 pub mod remote_service_client;
 pub mod service_dns;
+pub mod service_populate;
 pub mod services;
 pub use services::*;
 pub mod plugin;
