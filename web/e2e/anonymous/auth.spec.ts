@@ -42,11 +42,11 @@ test.describe('authentication', () => {
     // The failure must be visible to the user. Silently staying on the form
     // with no message is its own bug -- self-hosted users have nobody to ask
     // why nothing happened.
-    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible()
     await expect(page).toHaveURL(URL_LOGIN)
 
     const feedback = page
-      .getByText(/invalid|incorrect|failed|unauthor/i)
+      .getByText(/invalid|incorrect|failed|unauthor|falha/i)
       .first()
     await expect(
       feedback,
@@ -67,7 +67,7 @@ test.describe('authentication', () => {
 
     // The login form is rendered in place rather than redirected to; see the
     // matching note in anonymous/console-boot.spec.ts.
-    await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeVisible()
     await expect(
       page.getByRole('heading', { name: 'Databases', exact: true }),
       'protected content must not render for a signed-out visitor'
