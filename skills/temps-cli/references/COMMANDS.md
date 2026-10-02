@@ -2041,6 +2041,9 @@ Manage external services (databases, caches, storage)
 - `restore` - Restore a service from a backup (in-place, new service, or PITR)
 - `restore-runs` - List recent restore runs for a service
 - `restore-run` - Show a single restore run
+- `populate` - Copy an external PostgreSQL database into a database of a managed PostgreSQL service (admin only). The source URL is read from stdin (--source-url-stdin) or TEMPS_POPULATE_SOURCE_URL, never from an argument.
+- `populate-runs` - List the populate runs of a service, newest first
+- `populate-run` - Show one populate run
 - `wal-health` - Probe a PostgreSQL service's WAL / archive_command health right now (archiver failures, backlog, stale replication slots) — diagnoses "Cloud backup mirror unavailable ... check that PostgreSQL's archive_command is succeeding" warnings
 
 ### `services list` (alias: `ls`)
@@ -2506,6 +2509,47 @@ Show a single restore run
 | Flag | Description | Default | Required |
 |------|-------------|---------|----------|
 | `--id <id>` | Restore run ID | - | Yes |
+| `--json` | Output in JSON format | - | No |
+
+### `services populate`
+
+Copy an external PostgreSQL database into a database of a managed PostgreSQL service (admin only). The source URL is read from stdin (--source-url-stdin) or TEMPS_POPULATE_SOURCE_URL, never from an argument.
+
+**Options:**
+
+| Flag | Description | Default | Required |
+|------|-------------|---------|----------|
+| `--id <id>` | Service ID | - | Yes |
+| `--database <name>` | Destination database, e.g. my_app_production | - | Yes |
+| `--replace` | Drop and recreate the destination when it already has tables | - | No |
+| `--source-url-stdin` | Read the source connection URL from stdin | - | No |
+| `-y, --yes` | Skip the --replace confirmation | - | No |
+| `--no-wait` | Return right after starting instead of following the run | - | No |
+| `--json` | Output in JSON format | - | No |
+
+### `services populate-runs`
+
+List the populate runs of a service, newest first
+
+**Options:**
+
+| Flag | Description | Default | Required |
+|------|-------------|---------|----------|
+| `--id <id>` | Service ID | - | Yes |
+| `--page <n>` | Page (default 1) | - | No |
+| `--page-size <n>` | Page size (default 20, max 100) | - | No |
+| `--json` | Output in JSON format | - | No |
+
+### `services populate-run`
+
+Show one populate run
+
+**Options:**
+
+| Flag | Description | Default | Required |
+|------|-------------|---------|----------|
+| `--id <id>` | Service ID | - | Yes |
+| `--run <id>` | Populate run ID | - | Yes |
 | `--json` | Output in JSON format | - | No |
 
 ### `services wal-health`

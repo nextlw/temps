@@ -223,3 +223,7 @@ pub mod env_var_history;
 // upstream merges touch nothing else in this file.
 pub mod project_group_members;
 pub mod project_groups;
+
+// Fork (nextlw): populate a database of an existing service from an external
+// PostgreSQL.
+pub mod service_populate_runs;

@@ -4,6 +4,7 @@
 //! providers services and utilities
 
 pub mod continuous_archive;
+pub mod data_transfer;
 pub mod env_vars_provider_impl;
 pub mod externalsvc;
 pub mod health_monitor;
@@ -15,6 +16,7 @@ pub mod postgres_upgrade_service;
 pub mod query_service;
 pub mod remote_service_client;
 pub mod service_dns;
+pub mod service_populate;
 pub mod services;
 pub use services::*;
 pub mod plugin;

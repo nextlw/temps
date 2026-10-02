@@ -180,7 +180,7 @@ impl DatabaseProvisioningConfig {
     }
 }
 
-fn is_valid_custom_database_name(name: &str) -> bool {
+pub(crate) fn is_valid_custom_database_name(name: &str) -> bool {
     let bytes = name.as_bytes();
     (1..=63).contains(&bytes.len())
         && matches!(bytes[0], b'a'..=b'z' | b'_')

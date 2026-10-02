@@ -15926,6 +15926,80 @@ export type PluginGrantConfig = {
 export type PluginHostPermission = 'ai_generate' | 'projects_read' | 'environments_read' | 'deployments_read' | 'api_read' | 'api_write' | 'events_read';
 
 /**
+ * A page of populate runs.
+ */
+export type PopulateRunListResponse = {
+    page: number;
+    page_size: number;
+    runs: Array<PopulateRunResponse>;
+    total: number;
+};
+
+/**
+ * One populate run.
+ */
+export type PopulateRunResponse = {
+    /**
+     * Client image of the transfer container (`postgres:<major>-alpine`,
+     * major version of the destination server).
+     */
+    client_image: string;
+    created_by?: number | null;
+    database: string;
+    /**
+     * Size of the destination database after a successful copy.
+     */
+    database_size_bytes?: number | null;
+    /**
+     * Set once the run finished.
+     */
+    duration_seconds?: number | null;
+    error_message?: string | null;
+    /**
+     * ISO 8601, set once the run finished.
+     */
+    finished_at?: string | null;
+    id: number;
+    replace: boolean;
+    service_id: number;
+    /**
+     * Source URL with user and password replaced by `***`.
+     */
+    source_url_masked: string;
+    /**
+     * ISO 8601
+     */
+    started_at: string;
+    /**
+     * `running`, `completed` or `failed`.
+     */
+    status: string;
+};
+
+/**
+ * Copy an external PostgreSQL database into a database of this service.
+ */
+export type PopulateServiceRequest = {
+    /**
+     * Destination database inside the service, e.g. the per-environment
+     * database of a project link (`<project>_<environment>`). Created when
+     * missing, owned by the service user. Must match `[a-z_][a-z0-9_]{0,62}`.
+     */
+    database: string;
+    /**
+     * Drop and recreate the destination when it already has tables.
+     * Without it, a non-empty destination is refused with 409.
+     */
+    replace?: boolean;
+    /**
+     * Source connection URL (`postgres://user:password@host:port/database`,
+     * optional `?sslmode=`). Must point at a publicly reachable server.
+     * Never stored, logged or returned.
+     */
+    source_url: string;
+};
+
+/**
  * Port mapping
  */
 export type PortMapping = {
@@ -36886,6 +36960,161 @@ export type RevealServiceParameterResponses = {
 };
 
 export type RevealServiceParameterResponse = RevealServiceParameterResponses[keyof RevealServiceParameterResponses];
+
+export type StartServicePopulateData = {
+    body: PopulateServiceRequest;
+    path: {
+        /**
+         * External service ID
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/external-services/{id}/populate';
+};
+
+export type StartServicePopulateErrors = {
+    /**
+     * Invalid database name or source URL
+     */
+    400: ProblemDetails;
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not an instance administrator
+     */
+    403: ProblemDetails;
+    /**
+     * Service not found
+     */
+    404: ProblemDetails;
+    /**
+     * Destination not empty (use replace) or a copy is already running
+     */
+    409: ProblemDetails;
+    /**
+     * Service is not a local standalone PostgreSQL
+     */
+    422: ProblemDetails;
+    /**
+     * Internal server error
+     */
+    500: ProblemDetails;
+    /**
+     * Service database server unreachable
+     */
+    502: ProblemDetails;
+};
+
+export type StartServicePopulateError = StartServicePopulateErrors[keyof StartServicePopulateErrors];
+
+export type StartServicePopulateResponses = {
+    /**
+     * Copy started
+     */
+    202: PopulateRunResponse;
+};
+
+export type StartServicePopulateResponse = StartServicePopulateResponses[keyof StartServicePopulateResponses];
+
+export type ListServicePopulateRunsData = {
+    body?: never;
+    path: {
+        /**
+         * External service ID
+         */
+        id: number;
+    };
+    query?: {
+        /**
+         * 1-based page (default 1)
+         */
+        page?: number | null;
+        /**
+         * Page size (default 20, max 100)
+         */
+        page_size?: number | null;
+    };
+    url: '/external-services/{id}/populate-runs';
+};
+
+export type ListServicePopulateRunsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not an instance administrator
+     */
+    403: ProblemDetails;
+    /**
+     * Service not found
+     */
+    404: ProblemDetails;
+    /**
+     * Internal server error
+     */
+    500: ProblemDetails;
+};
+
+export type ListServicePopulateRunsError = ListServicePopulateRunsErrors[keyof ListServicePopulateRunsErrors];
+
+export type ListServicePopulateRunsResponses = {
+    /**
+     * Populate runs
+     */
+    200: PopulateRunListResponse;
+};
+
+export type ListServicePopulateRunsResponse = ListServicePopulateRunsResponses[keyof ListServicePopulateRunsResponses];
+
+export type GetServicePopulateRunData = {
+    body?: never;
+    path: {
+        /**
+         * External service ID
+         */
+        id: number;
+        /**
+         * Populate run ID
+         */
+        run_id: number;
+    };
+    query?: never;
+    url: '/external-services/{id}/populate-runs/{run_id}';
+};
+
+export type GetServicePopulateRunErrors = {
+    /**
+     * Unauthorized
+     */
+    401: ProblemDetails;
+    /**
+     * Not an instance administrator
+     */
+    403: ProblemDetails;
+    /**
+     * Run not found for this service
+     */
+    404: ProblemDetails;
+    /**
+     * Internal server error
+     */
+    500: ProblemDetails;
+};
+
+export type GetServicePopulateRunError = GetServicePopulateRunErrors[keyof GetServicePopulateRunErrors];
+
+export type GetServicePopulateRunResponses = {
+    /**
+     * Populate run
+     */
+    200: PopulateRunResponse;
+};
+
+export type GetServicePopulateRunResponse = GetServicePopulateRunResponses[keyof GetServicePopulateRunResponses];
 
 export type GetServicePreviewEnvironmentVariablesMaskedData = {
     body?: never;
