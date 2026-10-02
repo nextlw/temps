@@ -12,14 +12,16 @@ import { ServiceTypeRoute } from '@/api/client/types.gen'
  * - "mariadb:lts" → "mariadb"
  * - "mysql:8" → "mariadb"
  * - "rustfs/rustfs:1.0.0" → "rustfs"
- * - "minio/minio:latest" → "s3" (legacy)
+ * - "minio/minio:latest" → "minio" (legacy)
+ * - "ghcr.io/nextlw/minio:RELEASE.2025-09-07T16-13-09Z@sha256:…" → "minio"
  */
 export function extractServiceTypeFromImage(
   image: string
 ): ServiceTypeRoute | null {
   if (!image) return null
 
-  const imageName = image.toLowerCase().split(':')[0].split('/').pop() || ''
+  const imageName =
+    image.toLowerCase().split('@')[0].split(':')[0].split('/').pop() || ''
 
   // Map common Docker image names to service types
   const serviceTypeMap: Record<string, ServiceTypeRoute> = {

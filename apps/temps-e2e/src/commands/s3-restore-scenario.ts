@@ -34,7 +34,7 @@
  *   — A running Temps instance (--url / TEMPS_URL)
  *   — A test MinIO for backup storage (--minio-endpoint, default localhost:9092)
  *     with the backup bucket already created (--minio-bucket, default temps-e2e-backups)
- *   — Docker available on the host (the test runs `docker run minio/mc mb` for
+ *   — Docker available on the host (the test runs `docker run <mc image> mb` for
  *     bucket creation in the live service, which has no platform write API)
  *
  * ⚠ restore_in_place uses `--remove`: this DELETES live objects absent from the
@@ -84,7 +84,7 @@ interface S3RestoreScenarioResult {
 
 // ── Bucket operations via one-shot mc container ───────────────────────────────
 
-/** Run a one-shot `docker run --rm minio/mc …` command and return its exit code + output. */
+/** Run a one-shot `docker run --rm <mc image> …` command and return its exit code + output. */
 async function runMc(args: string[], envVars: string[]): Promise<{ code: number; output: string }> {
   const dockerArgs = [
     'run',
@@ -92,7 +92,7 @@ async function runMc(args: string[], envVars: string[]): Promise<{ code: number;
     '--network',
     'host',
     ...envVars.flatMap((e) => ['-e', e]),
-    'quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z',
+    'ghcr.io/nextlw/mc:RELEASE.2025-08-13T08-35-41Z@sha256:a01697eeb88e3c3475ce01f0ae7b46ba759ee94faff05faa500db5e18b7b7f36',
     ...args,
   ]
   const proc = Bun.spawn(['docker', ...dockerArgs], { stdout: 'pipe', stderr: 'pipe' })

@@ -41,6 +41,7 @@ use sea_orm::{ActiveModelTrait, IntoActiveModel, Set};
 use sqlx::mysql::MySqlPoolOptions;
 use temps_backup_core::engine_v2::{BackupContext, BackupEngine};
 use temps_core::EncryptionService;
+use temps_providers::externalsvc::s3::MINIO_IMAGE;
 use temps_providers::externalsvc::{
     ExternalService, MariaDbService, RecoveryTarget, RestoreContext, S3Credentials, ServiceConfig,
     ServiceType,
@@ -163,11 +164,18 @@ async fn pull_image(docker: &Docker, image: &str) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    let (name, tag) = image.split_once(':').unwrap_or((image, "latest"));
+    // A `name:tag@sha256:...` reference is pulled whole: the tag field
+    // cannot carry a digest.
+    let (name, tag) = if image.contains('@') {
+        (image, None)
+    } else {
+        let (name, tag) = image.split_once(':').unwrap_or((image, "latest"));
+        (name, Some(tag))
+    };
     let mut stream = docker.create_image(
         Some(bollard::query_parameters::CreateImageOptions {
             from_image: Some(name.to_string()),
-            tag: Some(tag.to_string()),
+            tag: tag.map(str::to_string),
             ..Default::default()
         }),
         None,
@@ -213,10 +221,7 @@ fn find_available_port(start: u16) -> Option<u16> {
 /// Boot a MinIO container, returning (host_port, container_name, guard).
 /// Skips (None) on failure so the test can bail gracefully.
 async fn boot_minio(docker: &Docker) -> Option<(u16, String, ContainerGuard)> {
-    if pull_image(docker, "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
-        .await
-        .is_err()
-    {
+    if pull_image(docker, MINIO_IMAGE).await.is_err() {
         eprintln!("Could not pull MinIO image, skipping");
         return None;
     }
@@ -224,7 +229,7 @@ async fn boot_minio(docker: &Docker) -> Option<(u16, String, ContainerGuard)> {
     let name = format!("temps-test-pitr-minio-{}", uuid::Uuid::new_v4());
 
     let config = bollard::models::ContainerCreateBody {
-        image: Some("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z".to_string()),
+        image: Some(MINIO_IMAGE.to_string()),
         cmd: Some(vec!["server".to_string(), "/data".to_string()]),
         env: Some(vec![
             format!("MINIO_ROOT_USER={MINIO_ACCESS_KEY}"),

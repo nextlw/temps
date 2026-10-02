@@ -268,19 +268,30 @@ fn reject_non_loopback_host(params: &HashMap<String, JsonValue>) -> Result<(), S
 
 fn reject_known_cross_engine_image(
     params: &HashMap<String, JsonValue>,
-    incompatible_marker: &str,
+    incompatible_markers: &[&str],
     expected_engine: &str,
 ) -> Result<(), String> {
     let Some(image) = params.get("docker_image").and_then(JsonValue::as_str) else {
         return Ok(());
     };
-    if image.to_ascii_lowercase().contains(incompatible_marker) {
+    let image_lowercase = image.to_ascii_lowercase();
+    if incompatible_markers
+        .iter()
+        .any(|marker| image_lowercase.contains(marker))
+    {
         return Err(format!(
             "Docker image '{image}' is incompatible with {expected_engine}; choose an image that implements the {expected_engine} server command contract"
         ));
     }
     Ok(())
 }
+
+/// Repositories of MinIO server images: the official ones (any registry) and
+/// the one this repository builds from source.
+const MINIO_IMAGE_MARKERS: &[&str] = &[
+    "minio/minio",
+    crate::externalsvc::s3::MINIO_IMAGE_REPOSITORY,
+];
 
 /// Strategy for validating and managing parameters for a specific service type
 pub trait ParameterStrategy: Send + Sync {
@@ -749,7 +760,7 @@ impl ParameterStrategy for S3ParameterStrategy {
             &["container_name", "metrics_ingest_key", "metrics_ingest_url"],
         )?;
         reject_non_loopback_host(params)?;
-        reject_known_cross_engine_image(params, "minio/minio", "RustFS")?;
+        reject_known_cross_engine_image(params, MINIO_IMAGE_MARKERS, "RustFS")?;
         Ok(())
     }
 
@@ -920,7 +931,7 @@ impl ParameterStrategy for MinioParameterStrategy {
     fn validate_for_creation(&self, params: &HashMap<String, JsonValue>) -> Result<(), String> {
         reject_internal_only_keys(params, &["container_name"])?;
         reject_non_loopback_host(params)?;
-        reject_known_cross_engine_image(params, "rustfs", "MinIO")?;
+        reject_known_cross_engine_image(params, &["rustfs"], "MinIO")?;
         // MinIO doesn't require parameters for creation
         Ok(())
     }
@@ -937,7 +948,7 @@ impl ParameterStrategy for MinioParameterStrategy {
         if is_empty_value(params.get("docker_image")) {
             params.insert(
                 "docker_image".to_string(),
-                JsonValue::String("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z".to_string()),
+                JsonValue::String(crate::externalsvc::s3::MINIO_IMAGE.to_string()),
             );
         }
 
@@ -1018,7 +1029,7 @@ impl ParameterStrategy for MinioParameterStrategy {
                 "docker_image": {
                     "type": "string",
                     "description": "Docker image (updateable)",
-                    "default": "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z"
+                    "default": crate::externalsvc::s3::MINIO_IMAGE
                 }
             },
             "readonly": ["access_key", "secret_key"]
@@ -1040,7 +1051,7 @@ impl ParameterStrategy for RustfsParameterStrategy {
             &["container_name", "metrics_ingest_key", "metrics_ingest_url"],
         )?;
         reject_non_loopback_host(params)?;
-        reject_known_cross_engine_image(params, "minio/minio", "RustFS")?;
+        reject_known_cross_engine_image(params, MINIO_IMAGE_MARKERS, "RustFS")?;
         Ok(())
     }
 
@@ -1913,6 +1924,10 @@ mod tests {
             "docker_image".to_string(),
             JsonValue::String("minio/minio:latest".to_string()),
         )]);
+        let pinned_minio_image = HashMap::from([(
+            "docker_image".to_string(),
+            JsonValue::String(crate::externalsvc::s3::MINIO_IMAGE.to_string()),
+        )]);
 
         assert!(MinioParameterStrategy
             .validate_for_creation(&rustfs_image)
@@ -1925,6 +1940,15 @@ mod tests {
             .is_err());
         assert!(MinioParameterStrategy
             .validate_for_creation(&minio_image)
+            .is_ok());
+        assert!(RustfsParameterStrategy
+            .validate_for_creation(&pinned_minio_image)
+            .is_err());
+        assert!(S3ParameterStrategy
+            .validate_for_creation(&pinned_minio_image)
+            .is_err());
+        assert!(MinioParameterStrategy
+            .validate_for_creation(&pinned_minio_image)
             .is_ok());
         assert!(RustfsParameterStrategy
             .validate_for_creation(&rustfs_image)

@@ -1604,7 +1604,8 @@ This starts:
   web UI + REST API (`GET /api/v1/messages`) on `http://localhost:8025`. Same
   image already proven for this in `crates/temps-notifications`'s Rust
   integration tests.
-- **MinIO** (`minio/minio`) — S3-compatible target for `backup-restore-scenario`.
+- **MinIO** (`ghcr.io/nextlw/minio`, built from the official source in
+  `images/minio/`) — S3-compatible target for `backup-restore-scenario`.
   S3 API on `http://localhost:9092` (not MinIO's own default of 9000 — see
   the compose file comment for why), console on `http://localhost:9093`.
   Same image + credentials (`minioadmin`/`minioadmin`) already proven in
