@@ -175,11 +175,39 @@ pub fn build_conn_str(parameters: &serde_json::Value) -> Option<String> {
     // returned `None` before a single connection was attempted, and `None`
     // from this function means "no WAL health snapshot", logged only at
     // debug level — i.e. permanently and silently disabled.
-    let host = parameters
+    let host = stored_host(parameters);
+    let port = parameters.get("port")?.as_str()?;
+    conn_str_for(parameters, host, port)
+}
+
+/// Connection string the control plane uses for the WAL probe: same fields as
+/// [`build_conn_str`], but host/port come from
+/// [`temps_core::admin_endpoint`] — the container name and internal port when
+/// the control plane runs in a container and that name resolves, the stored
+/// `host:port` otherwise.
+pub async fn admin_conn_str(service_name: &str, parameters: &serde_json::Value) -> Option<String> {
+    let port = parameters.get("port")?.as_str()?;
+    let imported = parameters
+        .get("container_name")
+        .and_then(|value| value.as_str());
+    let endpoint = temps_core::admin_endpoint::resolve_admin_endpoint(
+        &super::postgres::postgres_container_name(service_name, imported),
+        super::postgres::POSTGRES_INTERNAL_PORT,
+        stored_host(parameters),
+        port,
+    )
+    .await;
+    conn_str_for(parameters, &endpoint.host, &endpoint.port)
+}
+
+fn stored_host(parameters: &serde_json::Value) -> &str {
+    parameters
         .get("host")
         .and_then(|value| value.as_str())
-        .unwrap_or("localhost");
-    let port = parameters.get("port")?.as_str()?;
+        .unwrap_or("localhost")
+}
+
+fn conn_str_for(parameters: &serde_json::Value, host: &str, port: &str) -> Option<String> {
     let user = parameters.get("username")?.as_str()?;
     let password = parameters.get("password")?.as_str()?;
     let database = parameters.get("database")?.as_str()?;

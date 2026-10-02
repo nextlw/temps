@@ -30,6 +30,9 @@ type ConnectionCache = HashMap<(i32, String), Arc<dyn DataSource>>;
 enum PostgresConnectionPolicy {
     Standard,
     ManagedPrivate,
+    /// Nome do container na rede Docker compartilhada (ver
+    /// `temps_core::admin_endpoint`).
+    ManagedContainer,
 }
 
 impl PostgresConnectionPolicy {
@@ -48,6 +51,10 @@ impl PostgresConnectionPolicy {
             Self::ManagedPrivate => {
                 PostgresSource::connect_private(host, port, username, password, database).await
             }
+            Self::ManagedContainer => {
+                PostgresSource::connect_managed_container(host, port, username, password, database)
+                    .await
+            }
         }
     }
 }
@@ -56,15 +63,35 @@ fn postgres_connection_target(
     cluster_primary: Option<(String, u16)>,
     standalone_host: String,
     standalone_port: u16,
+    standalone_via_container_network: bool,
 ) -> (String, u16, PostgresConnectionPolicy) {
     match cluster_primary {
         Some((host, port)) => (host, port, PostgresConnectionPolicy::ManagedPrivate),
+        None if standalone_via_container_network => (
+            standalone_host,
+            standalone_port,
+            PostgresConnectionPolicy::ManagedContainer,
+        ),
         None => (
             standalone_host,
             standalone_port,
             PostgresConnectionPolicy::Standard,
         ),
     }
+}
+
+/// Converte a porta do endereço de administração em `u16`.
+///
+/// Todos os tipos abaixo chegam ao serviço pelo endereço de
+/// `ExternalServiceManager::get_service_admin_endpoint`. Só o Postgres tem
+/// escada TLS com política por rota (`PostgresConnectionPolicy::ManagedContainer`).
+/// MariaDB, MongoDB, Redis/KV e S3 conectam sem TLS de propósito, como já
+/// faziam com `localhost:<porta publicada>`: pela rota de container o tráfego
+/// não sai da rede Docker que o control plane divide com o serviço.
+fn admin_port(endpoint: &temps_core::admin_endpoint::AdminEndpoint) -> Result<u16> {
+    endpoint.port_number().ok_or_else(|| {
+        DataError::InvalidConfiguration(format!("Invalid port number: {}", endpoint.port))
+    })
 }
 
 /// Wall-clock ceiling applied to a data-browser query when the caller does not
@@ -243,17 +270,16 @@ impl QueryService {
                         ))
                     })?;
 
-                let port = config
-                    .port
-                    .unwrap_or_else(|| "3306".to_string())
-                    .parse::<u16>()
-                    .map_err(|e| {
-                        DataError::InvalidConfiguration(format!("Invalid port number: {}", e))
-                    })?;
+                let stored_port = config.port.unwrap_or_else(|| "3306".to_string());
+                let endpoint = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &stored_port)
+                    .await;
+                let port = admin_port(&endpoint)?;
                 let password = config.password.unwrap_or_default();
 
                 let source = MariaDbSource::connect(
-                    &config.host,
+                    &endpoint.host,
                     port,
                     &config.username,
                     &password,
@@ -313,21 +339,25 @@ impl QueryService {
                             Some((primary_host, primary_port)),
                             config.host.clone(),
                             5432,
+                            false,
                         )
                     }
                     Ok(None) => {
-                        // Standalone service — use config host/port as before
-                        let port = config
-                            .port
-                            .unwrap_or_else(|| "5432".to_string())
-                            .parse::<u16>()
-                            .map_err(|e| {
-                                DataError::InvalidConfiguration(format!(
-                                    "Invalid port number: {}",
-                                    e
-                                ))
-                            })?;
-                        postgres_connection_target(None, config.host.clone(), port)
+                        // Standalone: endereço de administração do control
+                        // plane (container:5432 quando ele roda em container,
+                        // host:porta publicada no host).
+                        let stored_port = config.port.clone().unwrap_or_else(|| "5432".to_string());
+                        let endpoint = self
+                            .external_service_manager
+                            .get_service_admin_endpoint(service_id, &config.host, &stored_port)
+                            .await;
+                        let port = admin_port(&endpoint)?;
+                        postgres_connection_target(
+                            None,
+                            endpoint.host.clone(),
+                            port,
+                            endpoint.via_container_network(),
+                        )
                     }
                     Err(e) => {
                         return Err(DataError::ConnectionFailed(format!(
@@ -386,7 +416,11 @@ impl QueryService {
                         ))
                     })?;
 
-                let endpoint = format!("http://{}:{}", config.host, config.port);
+                let admin = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &config.port)
+                    .await;
+                let endpoint = format!("http://{}:{}", admin.host, admin.port);
 
                 let s3_source = S3Source::new(
                     &config.region,
@@ -413,19 +447,24 @@ impl QueryService {
                     })?;
 
                 // Build connection string with URL-encoded credentials
-                let port = config.port.unwrap_or_else(|| "27017".to_string());
+                let stored_port = config.port.unwrap_or_else(|| "27017".to_string());
+                let endpoint = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &stored_port)
+                    .await;
+                let (host, port) = (endpoint.host, endpoint.port);
                 let password = config.password.unwrap_or_default();
 
                 // URL-encode username and password to handle special characters
                 let encoded_username = urlencoding::encode(&config.username);
 
                 let connection_string = if password.is_empty() {
-                    format!("mongodb://{}@{}:{}", encoded_username, config.host, port)
+                    format!("mongodb://{}@{}:{}", encoded_username, host, port)
                 } else {
                     let encoded_password = urlencoding::encode(&password);
                     format!(
                         "mongodb://{}:{}@{}:{}",
-                        encoded_username, encoded_password, config.host, port
+                        encoded_username, encoded_password, host, port
                     )
                 };
 
@@ -459,15 +498,20 @@ impl QueryService {
                 })?;
 
                 // Build connection string with URL-encoded password
-                let port = config.port.unwrap_or_else(|| "6379".to_string());
+                let stored_port = config.port.unwrap_or_else(|| "6379".to_string());
+                let endpoint = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &stored_port)
+                    .await;
+                let (host, port) = (endpoint.host, endpoint.port);
                 let password = config.password.unwrap_or_default();
 
                 let connection_string = if password.is_empty() {
-                    format!("redis://{}:{}", config.host, port)
+                    format!("redis://{}:{}", host, port)
                 } else {
                     // URL-encode password to handle special characters
                     let encoded_password = urlencoding::encode(&password);
-                    format!("redis://:{}@{}:{}", encoded_password, config.host, port)
+                    format!("redis://:{}@{}:{}", encoded_password, host, port)
                 };
 
                 // Create Redis source
@@ -488,14 +532,19 @@ impl QueryService {
                     ))
                 })?;
 
-                let port = config.port.unwrap_or_else(|| "6379".to_string());
+                let stored_port = config.port.unwrap_or_else(|| "6379".to_string());
+                let endpoint = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &stored_port)
+                    .await;
+                let (host, port) = (endpoint.host, endpoint.port);
                 let password = config.password.unwrap_or_default();
 
                 let connection_string = if password.is_empty() {
-                    format!("redis://{}:{}", config.host, port)
+                    format!("redis://{}:{}", host, port)
                 } else {
                     let encoded_password = urlencoding::encode(&password);
-                    format!("redis://:{}@{}:{}", encoded_password, config.host, port)
+                    format!("redis://:{}@{}:{}", encoded_password, host, port)
                 };
 
                 let redis_source = RedisSource::new(&connection_string).await.map_err(|e| {
@@ -516,7 +565,11 @@ impl QueryService {
                         ))
                     })?;
 
-                let endpoint = format!("http://{}:{}", config.host, config.port);
+                let admin = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &config.port)
+                    .await;
+                let endpoint = format!("http://{}:{}", admin.host, admin.port);
 
                 let s3_source = S3Source::new(
                     &config.region,
@@ -542,7 +595,11 @@ impl QueryService {
                         ))
                     })?;
 
-                let endpoint = format!("http://{}:{}", config.host, config.port);
+                let admin = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &config.port)
+                    .await;
+                let endpoint = format!("http://{}:{}", admin.host, admin.port);
 
                 let s3_source = S3Source::new(
                     &config.region,
@@ -569,11 +626,12 @@ impl QueryService {
                         ))
                     })?;
 
-                let endpoint = format!(
-                    "http://{}:{}",
-                    config.host,
-                    config.port.unwrap_or_else(|| "9000".to_string())
-                );
+                let stored_port = config.port.unwrap_or_else(|| "9000".to_string());
+                let admin = self
+                    .external_service_manager
+                    .get_service_admin_endpoint(service_id, &config.host, &stored_port)
+                    .await;
+                let endpoint = format!("http://{}:{}", admin.host, admin.port);
 
                 let access_key = config.access_key.ok_or_else(|| {
                     DataError::InvalidConfiguration("MinIO access_key is required".to_string())
@@ -1160,15 +1218,28 @@ mod tests {
             Some(("10.0.0.8".to_string(), 6432)),
             "public.example".to_string(),
             5432,
+            false,
         );
         assert_eq!(cluster.0, "10.0.0.8");
         assert_eq!(cluster.1, 6432);
         assert_eq!(cluster.2, PostgresConnectionPolicy::ManagedPrivate);
 
-        let standalone = postgres_connection_target(None, "public.example".to_string(), 5433);
+        let standalone =
+            postgres_connection_target(None, "public.example".to_string(), 5433, false);
         assert_eq!(standalone.0, "public.example");
         assert_eq!(standalone.1, 5433);
         assert_eq!(standalone.2, PostgresConnectionPolicy::Standard);
+    }
+
+    /// Standalone alcançado pelo nome do container: usa a política que confia
+    /// na rota, porque a rede de workloads do compose (198.20.255.0/24) fica
+    /// fora da RFC 1918 e a política padrão recusaria o fallback sem TLS.
+    #[test]
+    fn standalone_pela_rede_docker_usa_politica_de_container() {
+        let target = postgres_connection_target(None, "postgres-app-db".to_string(), 5432, true);
+        assert_eq!(target.0, "postgres-app-db");
+        assert_eq!(target.1, 5432);
+        assert_eq!(target.2, PostgresConnectionPolicy::ManagedContainer);
     }
 
     #[tokio::test]

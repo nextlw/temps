@@ -439,9 +439,17 @@ fn strip_row_data(message: &str) -> String {
 #[derive(Clone)]
 struct TargetServer {
     service_id: i32,
-    /// Host the control plane connects to (the provider's `host` parameter).
+    /// The provider's `host`/`port` parameters: the port published on the
+    /// host. The transfer container (host network) uses them, and so does the
+    /// check against the control plane's own database server.
     host: String,
     port: String,
+    /// Where the control plane opens its SQL connections, from
+    /// `ExternalServiceManager::get_service_admin_endpoint`: the container
+    /// name and internal port when the control plane runs in a container,
+    /// `host`/`port` otherwise.
+    admin_host: String,
+    admin_port: String,
     username: String,
     password: String,
     /// Major version, known after [`Self::inspect`]; `DROP ... WITH (FORCE)`
@@ -450,13 +458,13 @@ struct TargetServer {
 }
 
 impl TargetServer {
-    fn url_for(&self, host: &str, database: &str) -> String {
+    fn url_for(&self, host: &str, port: &str, database: &str) -> String {
         format!(
             "postgres://{}:{}@{}:{}/{}?sslmode=disable",
             percent_encode_userinfo(&self.username),
             percent_encode_userinfo(&self.password),
             host,
-            self.port,
+            port,
             database
         )
     }
@@ -464,7 +472,7 @@ impl TargetServer {
     /// Connection URL for control-plane SQL, the way the provider's own
     /// `create_database` connects.
     fn admin_url(&self, database: &str) -> String {
-        self.url_for(&self.host, database)
+        self.url_for(&self.admin_host, &self.admin_port, database)
     }
 
     /// Connection URL the transfer container uses. It runs on the host
@@ -476,7 +484,7 @@ impl TargetServer {
         } else {
             self.host.as_str()
         };
-        self.url_for(host, database)
+        self.url_for(host, &self.port, database)
     }
 
     fn endpoint(&self) -> Option<DatabaseEndpoint> {
@@ -1084,11 +1092,17 @@ impl ServicePopulateService {
                 }
             })?;
         let pg = PostgresConfig::from(input);
+        let admin = self
+            .external_services
+            .get_service_admin_endpoint(service_id, &pg.host, &pg.port)
+            .await;
 
         Ok(TargetServer {
             service_id,
             host: pg.host,
             port: pg.port,
+            admin_host: admin.host,
+            admin_port: admin.port,
             username: pg.username,
             password: pg.password,
             major_version: 0,
@@ -1443,10 +1457,30 @@ mod tests {
             service_id: 1,
             host: host.to_string(),
             port: port.to_string(),
+            admin_host: host.to_string(),
+            admin_port: port.to_string(),
             username: "postgres".to_string(),
             password: password.to_string(),
             major_version: 18,
         }
+    }
+
+    /// Control plane in a container: its SQL goes to the container name and
+    /// internal port, while the transfer container (host network) keeps the
+    /// published port on 127.0.0.1.
+    #[test]
+    fn admin_url_follows_the_admin_endpoint_and_transfer_keeps_the_published_port() {
+        let mut target = server("localhost", "5433", "pw");
+        target.admin_host = "postgres-app-db".to_string();
+        target.admin_port = "5432".to_string();
+        assert_eq!(
+            target.admin_url("postgres"),
+            "postgres://postgres:pw@postgres-app-db:5432/postgres?sslmode=disable"
+        );
+        assert_eq!(
+            target.transfer_url("app"),
+            "postgres://postgres:pw@127.0.0.1:5433/app?sslmode=disable"
+        );
     }
 
     #[test]
@@ -1725,8 +1759,10 @@ mod tests {
             );
             server.username = "svc_owner".to_string();
             let mut in_network = server.clone();
-            in_network.host = target_name;
+            in_network.host = target_name.clone();
             in_network.port = "5432".to_string();
+            in_network.admin_host = target_name;
+            in_network.admin_port = "5432".to_string();
             let source_admin_url = format!(
                 "postgres://postgres:source-pass@{}:{}/app?sslmode=disable",
                 source.get_host().await.expect("host"),

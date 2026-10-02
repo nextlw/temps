@@ -440,7 +440,7 @@ impl MongodbService {
     }
 
     fn get_container_name(&self) -> String {
-        format!("temps-mongodb-{}", self.name)
+        temps_core::admin_endpoint::mongodb_container_name(&self.name, None)
     }
 
     /// The container this service actually runs in: the imported container's
@@ -986,12 +986,24 @@ impl MongodbService {
         // loopback and is unreachable from the host or from sibling
         // containers. Direct connection bypasses discovery and is safe on
         // standalone too. See ReplicaSetNoPrimary failure mode.
+        //
+        // Host/porta: endereço de administração do control plane (ver
+        // `temps_core::admin_endpoint`) — nome do container e porta interna
+        // quando o control plane roda em container, `config.host:config.port`
+        // quando roda no host.
+        let endpoint = temps_core::admin_endpoint::resolve_admin_endpoint(
+            &self.get_live_container_name(&config),
+            MONGODB_INTERNAL_PORT,
+            &config.host,
+            &config.port,
+        )
+        .await;
         let connection_string = format!(
             "mongodb://{}:{}@{}:{}/?authSource=admin&directConnection=true",
             urlencoding::encode(&config.username),
             urlencoding::encode(&config.password),
-            config.host,
-            config.port
+            endpoint.host,
+            endpoint.port
         );
 
         let client_options = ClientOptions::parse(&connection_string).await?;
@@ -1731,7 +1743,7 @@ impl MongodbService {
 }
 
 /// Internal port used by MongoDB inside the container
-const MONGODB_INTERNAL_PORT: &str = "27017";
+const MONGODB_INTERNAL_PORT: &str = temps_core::admin_endpoint::MONGODB_INTERNAL_PORT;
 
 /// Build the `MONGODB_URL` exposed to user containers.
 ///
@@ -2327,12 +2339,22 @@ impl ExternalService for MongodbService {
         // probe checks *this* node instead of chasing the member address
         // advertised by `rs.initiate` (`127.0.0.1:27017`, unreachable from
         // outside the container). Safe on standalone too.
+        //
+        // Host/porta: endereço de administração do control plane (ver
+        // `temps_core::admin_endpoint`).
+        let endpoint = temps_core::admin_endpoint::resolve_admin_endpoint(
+            &self.get_live_container_name(&cfg),
+            MONGODB_INTERNAL_PORT,
+            &cfg.host,
+            &cfg.port,
+        )
+        .await;
         let uri = format!(
             "mongodb://{}:{}@{}:{}/?authSource=admin&directConnection=true&serverSelectionTimeoutMS=3000&connectTimeoutMS=3000",
             urlencoding::encode(&cfg.username),
             urlencoding::encode(&cfg.password),
-            cfg.host,
-            cfg.port
+            endpoint.host,
+            endpoint.port
         );
 
         let start = Instant::now();
@@ -2357,7 +2379,7 @@ impl ExternalService for MongodbService {
             Err(e) => {
                 return Ok(HealthProbeResult::down(format!(
                     "mongodb probe to {}:{} connect failed: {}",
-                    cfg.host, cfg.port, e
+                    endpoint.host, endpoint.port, e
                 )));
             }
         };
@@ -2380,13 +2402,13 @@ impl ExternalService for MongodbService {
         match probe_outcome {
             Err(_) => Ok(HealthProbeResult::down(format!(
                 "mongodb probe to {}:{} timed out after {}s",
-                cfg.host,
-                cfg.port,
+                endpoint.host,
+                endpoint.port,
                 PROBE_TIMEOUT.as_secs()
             ))),
             Ok(Err(msg)) => Ok(HealthProbeResult::down(format!(
                 "mongodb probe to {}:{} {}",
-                cfg.host, cfg.port, msg
+                endpoint.host, endpoint.port, msg
             ))),
             Ok(Ok(())) => {
                 let elapsed_ms = start.elapsed().as_millis();
